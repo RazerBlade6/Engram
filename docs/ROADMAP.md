@@ -238,7 +238,7 @@ A moderated walkthrough of the light-theme prototype with a target user. Overall
 The smallest end-to-end product. Tested by developers, not yet handed to users for daily study.
 
 - [x] Repo scaffold: FastAPI, worker, Next.js, Docker Compose, CI (lint, types, tests)
-- [ ] Supabase project: schema, auth (invite-only), private storage
+- [x] Supabase project: schema, auth (invite-only), private storage
 - [ ] Ingestion: PDF and slides → Docling → figure captions → section-aware chunks → index
 - [ ] Minimal ingestion inspector (admin)
 - [ ] Courses, table of contents, "mark chapter covered"
