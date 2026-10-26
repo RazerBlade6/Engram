@@ -1,0 +1,1047 @@
+<title>Engram Prototype</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;1,7..72,400&display=swap">
+<style>
+/* Layout: quiet sidebar + one focused working column; the review screen splits into card | source when an answer is revealed. */
+:root {
+  --bg: #F4F6F9;
+  --surface: #FFFFFF;
+  --ink: #18202D;
+  --muted: #566070;
+  --line: #DCE1E9;
+  --accent: #2C4DB8;
+  --accent-ink: #FFFFFF;
+  --accent-soft: #E6EBFA;
+  --mark: #FFE680;
+  --mark-ink: #18202D;
+  --warn: #A84A12;
+  --warn-soft: #FBEADF;
+  --ok: #1F6A8A;
+  --ok-soft: #E1F0F6;
+  --shadow: 0 1px 2px rgba(24, 32, 45, 0.06), 0 8px 24px rgba(24, 32, 45, 0.06);
+
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-ui: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-read: "Literata", Georgia, "Times New Roman", serif;
+
+  --radius: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F131A;
+    --surface: #171C25;
+    --ink: #E5E9F0;
+    --muted: #9BA4B3;
+    --line: #2A3140;
+    --accent: #93A9FF;
+    --accent-ink: #0E1320;
+    --accent-soft: #1E2742;
+    --mark: #5A4A12;
+    --mark-ink: #FFF4CC;
+    --warn: #F0A472;
+    --warn-soft: #3A2316;
+    --ok: #7CC4E2;
+    --ok-soft: #142C36;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F131A;
+  --surface: #171C25;
+  --ink: #E5E9F0;
+  --muted: #9BA4B3;
+  --line: #2A3140;
+  --accent: #93A9FF;
+  --accent-ink: #0E1320;
+  --accent-soft: #1E2742;
+  --mark: #5A4A12;
+  --mark-ink: #FFF4CC;
+  --warn: #F0A472;
+  --warn-soft: #3A2316;
+  --ok: #7CC4E2;
+  --ok-soft: #142C36;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+  color-scheme: dark;
+}
+
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 16px;
+  line-height: 1.5;
+}
+* { box-sizing: border-box; }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+p { margin: 0; }
+a { color: var(--accent); }
+
+.app {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: 100%;
+}
+
+/* Sidebar */
+.side {
+  border-right: 1px solid var(--line);
+  padding-block: 28px;
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-display); font-weight: 700; font-size: 22px; }
+.brand svg { color: var(--accent); }
+.nav { display: flex; flex-direction: column; gap: 4px; }
+.nav-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); padding: 12px 12px 4px; }
+.nav a {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 9px 12px; border-radius: 8px; text-decoration: none; color: var(--ink);
+}
+.nav a:hover { background: var(--accent-soft); }
+.nav a[aria-current="page"] { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.count { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.nav a[aria-current="page"] .count { color: var(--accent); }
+.side-foot { margin-top: auto; font-size: 13px; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
+.linkish { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font-size: 13px; text-align: left; }
+
+/* Main */
+.main {
+  padding-block: 40px 96px;
+  padding-left: max(24px, env(safe-area-inset-left, 0px));
+  padding-right: max(24px, env(safe-area-inset-right, 0px));
+  min-width: 0;
+}
+.main:focus { outline: none; }
+.wrap { max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px; }
+.wrap.wide { max-width: 1120px; }
+.eyebrow { font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.page-head { display: flex; flex-direction: column; gap: 6px; }
+.page-head h1 { font-size: 34px; }
+.sub { color: var(--muted); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  min-height: 44px; padding: 10px 18px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--surface); cursor: pointer;
+  font-weight: 700; text-decoration: none; color: var(--ink);
+}
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.big { min-height: 56px; padding: 14px 28px; font-size: 18px; border-radius: 12px; }
+.btn.quiet { border-color: transparent; background: transparent; color: var(--muted); font-weight: 400; }
+.btn.quiet:hover { color: var(--ink); background: var(--accent-soft); }
+kbd {
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700; line-height: 1;
+  padding: 4px 6px; border-radius: 5px; border: 1px solid currentColor; opacity: 0.7;
+}
+
+/* Today */
+.today-hero {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow);
+  padding: 36px; display: flex; flex-direction: column; gap: 20px; align-items: flex-start;
+}
+.today-hero h1 { font-size: 44px; line-height: 1.1; }
+.today-hero .sub { font-size: 18px; }
+.course-list { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.course-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; align-items: center;
+  padding: 18px 4px; border-bottom: 1px solid var(--line); text-decoration: none; color: var(--ink);
+}
+.course-row:hover h3 { color: var(--accent); }
+.course-row h3 { font-size: 20px; }
+.course-row .meta { color: var(--muted); font-size: 15px; }
+.exam-chip {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 14px; padding: 4px 10px;
+  border-radius: 999px; background: var(--warn-soft); color: var(--warn); font-weight: 700; white-space: nowrap;
+}
+.section-title { font-size: 15px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-family: var(--font-ui); font-weight: 700; }
+
+/* Review */
+.review-top { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.progress { flex: 1; min-width: 160px; display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.bar { flex: 1; height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.bar > span { display: block; height: 100%; background: var(--accent); border-radius: inherit; transition: width 0.3s ease; }
+.review-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.source.pending { border-style: dashed; background: transparent; }
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow);
+  padding: 32px; display: flex; flex-direction: column; gap: 24px; min-height: 340px;
+}
+.card-tag { font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.card-tag .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--muted); }
+.card-front { font-family: var(--font-read); font-size: 26px; line-height: 1.4; }
+.blank { display: inline-block; min-width: 4.5em; border-bottom: 2px solid var(--ink); }
+.filled { color: var(--accent); font-weight: 500; border-bottom: 2px solid var(--accent); }
+.card-back { font-family: var(--font-read); font-size: 20px; line-height: 1.55; padding-top: 20px; border-top: 1px dashed var(--line); }
+.card-actions { margin-top: auto; display: flex; flex-direction: column; gap: 14px; }
+.reveal-row { display: flex; justify-content: center; }
+.rate-help { text-align: center; color: var(--muted); font-size: 14px; }
+.rates { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.rate {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 8px; min-height: 64px;
+  border-radius: 10px; border: 1px solid var(--line); background: var(--surface); cursor: pointer;
+}
+.rate:hover { border-color: var(--accent); background: var(--accent-soft); }
+.rate b { font-size: 16px; }
+.rate small { color: var(--muted); font-size: 13px; }
+.rate.forgot b { color: var(--warn); }
+.rate.easy b { color: var(--ok); }
+.options { display: flex; flex-direction: column; gap: 10px; }
+.option {
+  display: flex; align-items: center; gap: 14px; text-align: left; padding: 14px 16px; min-height: 52px;
+  border-radius: 10px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: 18px;
+}
+.option:hover:not(:disabled) { border-color: var(--accent); background: var(--accent-soft); }
+.option:disabled { cursor: default; }
+.option .key { flex: none; width: 28px; height: 28px; border-radius: 6px; display: grid; place-items: center; font-size: 14px; font-weight: 700; border: 1px solid var(--line); color: var(--muted); }
+.option.right { border-color: var(--ok); background: var(--ok-soft); }
+.option.right .key { background: var(--ok); color: var(--surface); border-color: var(--ok); }
+.option.wrong { border-color: var(--warn); background: var(--warn-soft); }
+.option.wrong .key { background: var(--warn); color: var(--surface); border-color: var(--warn); }
+.verdict { font-weight: 700; font-size: 17px; }
+.verdict.ok { color: var(--ok); }
+.verdict.no { color: var(--warn); }
+.card-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+.source {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 24px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.source-head { display: flex; flex-direction: column; gap: 2px; }
+.source-head b { font-size: 15px; }
+.source-head span { font-size: 14px; color: var(--muted); }
+.passage { font-family: var(--font-read); font-size: 17px; line-height: 1.65; }
+mark { background: var(--mark); color: var(--mark-ink); padding: 1px 2px; border-radius: 3px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+
+.flag-wrap { position: relative; }
+.flag-menu {
+  position: absolute; bottom: calc(100% + 8px); left: 0; z-index: 5; width: 260px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+  padding: 8px; display: flex; flex-direction: column; gap: 2px;
+}
+.flag-menu p { font-size: 13px; color: var(--muted); padding: 6px 10px; }
+.flag-menu button { text-align: left; padding: 10px; border-radius: 8px; border: 0; background: none; cursor: pointer; }
+.flag-menu button:hover { background: var(--accent-soft); }
+.flag-menu button span { display: block; font-size: 13px; color: var(--muted); }
+
+.done { text-align: left; }
+.done h1 { font-size: 40px; }
+
+/* Course */
+.course-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.toc { display: flex; flex-direction: column; }
+.toc-row {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 16px; align-items: center;
+  padding: 14px 20px; border-bottom: 1px solid var(--line);
+}
+.toc-row:last-child { border-bottom: 0; }
+.toc-num { font-family: var(--font-display); font-weight: 700; font-size: 20px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.toc-title { font-size: 17px; }
+.toc-sub { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.know { display: inline-flex; align-items: center; gap: 8px; }
+.know .bar { width: 80px; flex: none; height: 5px; }
+.state-strong { color: var(--ok); font-weight: 700; }
+.state-mid { color: var(--muted); font-weight: 700; }
+.state-shaky { color: var(--warn); font-weight: 700; }
+.cover-btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; min-height: 40px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: 14px; font-weight: 700; white-space: nowrap;
+}
+.cover-btn:hover { border-color: var(--accent); color: var(--accent); }
+.covered-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); white-space: nowrap; }
+.covered-tag svg { color: var(--ok); }
+.spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin 0.8s linear infinite; flex: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.two-col { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.materials { display: flex; flex-direction: column; }
+.mat { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.mat:last-child { border-bottom: 0; }
+.mat-icon { width: 36px; height: 36px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+.mat-name { font-weight: 700; font-size: 15px; overflow-wrap: anywhere; }
+.mat-meta { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.drop {
+  border: 2px dashed var(--line); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; gap: 14px;
+  background: var(--surface);
+}
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop-main { display: flex; flex-direction: column; gap: 4px; align-items: center; text-align: center; padding: 8px 0; }
+.drop-main b { font-size: 16px; }
+.drop-main span { font-size: 14px; color: var(--muted); }
+.file-label { cursor: pointer; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.link-form { display: flex; gap: 8px; flex-wrap: wrap; }
+.link-form label { width: 100%; font-size: 14px; color: var(--muted); }
+.link-form input {
+  flex: 1; min-width: 0; min-height: 44px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg);
+}
+.field-error { font-size: 14px; color: var(--warn); width: 100%; }
+
+/* Ask */
+.ask { display: flex; flex-direction: column; gap: 20px; }
+.ask-scope { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 14px; }
+.scope-btn { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: 14px; }
+.scope-btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.thread { display: flex; flex-direction: column; gap: 20px; }
+.msg-user { align-self: flex-end; max-width: 80%; background: var(--accent-soft); padding: 12px 16px; border-radius: 14px 14px 4px 14px; }
+.msg-bot { max-width: 100%; display: flex; flex-direction: column; gap: 12px; }
+.msg-bot .answer { font-family: var(--font-read); font-size: 18px; line-height: 1.65; }
+.cite {
+  display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; margin: 0 1px;
+  border-radius: 6px; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent);
+  font-family: var(--font-ui); font-size: 12px; font-weight: 700; cursor: pointer; vertical-align: 2px;
+}
+.cite:hover { background: var(--accent); color: var(--accent-ink); }
+.sources { display: flex; flex-wrap: wrap; gap: 8px; }
+.source-chip {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: 14px; text-align: left;
+}
+.source-chip:hover { border-color: var(--accent); }
+.source-chip b { color: var(--accent); }
+.outside {
+  display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 10px;
+  background: var(--warn-soft); color: var(--ink); font-size: 15px;
+}
+.outside svg { color: var(--warn); flex: none; margin-top: 2px; }
+.typing { display: inline-flex; gap: 4px; padding: 8px 0; }
+.typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite; }
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+.composer { display: flex; gap: 10px; position: sticky; bottom: max(16px, env(safe-area-inset-bottom, 0px)); background: var(--bg); padding-top: 8px; }
+.composer input {
+  flex: 1; min-width: 0; min-height: 52px; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--surface); font-size: 17px; box-shadow: var(--shadow);
+}
+.suggest { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Modal */
+.scrim { position: fixed; inset: 0; background: rgba(10, 14, 22, 0.55); z-index: 30; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.sheet {
+  background: var(--surface); border-radius: 16px; width: min(720px, 100%); max-height: 100%; overflow: auto;
+  box-shadow: var(--shadow); display: flex; flex-direction: column;
+}
+.sheet-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); }
+.sheet-bar b { font-size: 15px; }
+.sheet-bar span { font-size: 13px; color: var(--muted); display: block; }
+.page-sim { padding: 32px 40px 40px; display: flex; flex-direction: column; gap: 16px; }
+.running-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid var(--line); padding-bottom: 8px; font-variant-numeric: tabular-nums; }
+.page-sim h3 { font-family: var(--font-read); font-weight: 500; font-size: 22px; }
+.page-sim p { font-family: var(--font-read); font-size: 17px; line-height: 1.7; }
+.page-sim p.dim { color: var(--muted); }
+.slide-sim { margin: 32px; aspect-ratio: 16 / 9; max-width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 32px; display: flex; flex-direction: column; gap: 16px; background: var(--bg); }
+.slide-sim h3 { font-size: 26px; }
+.slide-sim ul { margin: 0; padding-left: 20px; font-size: 17px; display: flex; flex-direction: column; gap: 8px; }
+.slide-num { margin-top: auto; align-self: flex-end; font-size: 13px; color: var(--muted); }
+.icon-btn { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 10px; border: 0; background: none; cursor: pointer; color: var(--muted); flex: none; }
+.icon-btn:hover { background: var(--accent-soft); color: var(--ink); }
+
+/* Toast */
+.toasts { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 40; display: flex; flex-direction: column; gap: 8px; width: min(520px, calc(100% - 32px)); }
+.toast { display: flex; align-items: center; gap: 12px; justify-content: space-between; background: var(--ink); color: var(--bg); padding: 12px 16px; border-radius: 12px; box-shadow: var(--shadow); font-size: 15px; }
+.toast button { background: none; border: 0; color: var(--bg); font-weight: 700; text-decoration: underline; cursor: pointer; padding: 4px; }
+
+@media (max-width: 900px) {
+  .review-grid, .two-col { grid-template-columns: minmax(0, 1fr); }
+  .source.pending { display: none; }
+}
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .side {
+    position: sticky; top: env(safe-area-inset-top, 0px); height: auto; z-index: 20; background: var(--bg);
+    flex-direction: row; align-items: center; gap: 12px; padding-block: 10px; border-right: 0; border-bottom: 1px solid var(--line);
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    overflow-x: auto;
+  }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+  .brand { font-size: 18px; }
+  .brand span { display: none; }
+  .nav { flex-direction: row; gap: 2px; }
+  .nav-label, .side-foot, .nav a .count { display: none; }
+  .nav a { white-space: nowrap; padding: 8px 10px; }
+  .main { padding-block: 24px 96px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .today-hero { padding: 24px; }
+  .today-hero h1 { font-size: 34px; }
+  .card { padding: 22px; }
+  .card-front { font-size: 22px; }
+  .rates { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kbd-hint { display: none; }
+  .page-sim { padding: 20px; }
+  .slide-sim { margin: 16px; padding: 18px; }
+  .course-row { grid-template-columns: minmax(0, 1fr); }
+  .toc-row { grid-template-columns: 28px minmax(0, 1fr); }
+  .toc-row > :last-child { grid-column: 2; justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+</style>
+
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h11l3 3v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M17 3v4h3"/><path d="M8 12h8M8 16h5"/></svg>
+      <span>Engram</span>
+    </div>
+    <nav class="nav" aria-label="Main">
+      <a href="#today" data-nav="today">Today <span class="count" id="nav-due"></span></a>
+      <a href="#ask" data-nav="ask">Ask a question</a>
+      <div class="nav-label">Courses</div>
+      <a href="#psych" data-nav="psych">Intro Psychology</a>
+      <a href="#bio" data-nav="bio">Cell Biology</a>
+    </nav>
+    <div class="side-foot">
+      <span>Prototype with sample content. Nothing you do here is saved.</span>
+      <button class="linkish" type="button" data-action="reset">Start over</button>
+    </div>
+  </aside>
+  <main class="main" id="main" tabindex="-1"></main>
+</div>
+<div id="modal-root"></div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+const ICON = {
+  book: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>',
+  slides: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8"/></svg>',
+  notes: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+  link: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
+  check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+  plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  flag: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 22V4a1 1 0 0 1 1-1h11l-2 4 2 4H5"/></svg>',
+  close: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  info: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+  upload: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"/></svg>',
+  arrow: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+};
+
+// Sample content. Passages are paraphrased for the prototype; page numbers are illustrative.
+const SOURCES = {
+  myelin: {
+    book: 'Psychology 2e', course: 'psych', chapter: 'Chapter 3 · Biopsychology', section: '3.2 Cells of the Nervous System', page: 81,
+    before: 'The axon carries the signal away from the cell body toward other neurons. Many axons are wrapped in ',
+    mark: 'myelin, a fatty layer that insulates the axon and greatly increases the speed at which the signal travels along it',
+    after: '. Small gaps in the myelin, called nodes of Ranvier, let the signal jump forward from gap to gap.',
+  },
+  synapse: {
+    book: 'Psychology 2e', course: 'psych', chapter: 'Chapter 3 · Biopsychology', section: '3.2 Cells of the Nervous System', page: 83,
+    before: 'When the signal reaches the end of the axon, ',
+    mark: 'the terminal buttons release neurotransmitters into the synapse, where the chemicals cross the synaptic cleft and bind to receptors on the next neuron',
+    after: '. Each receptor accepts only neurotransmitters with the right shape, much like a lock and key.',
+  },
+  hippocampus: {
+    book: 'Psychology 2e', course: 'psych', chapter: 'Chapter 3 · Biopsychology', section: '3.4 The Brain and Spinal Cord', page: 97,
+    before: 'Deep inside the brain, the limbic system is involved in emotion and memory. ',
+    mark: 'The hippocampus is essential for learning and for forming new long-term memories',
+    after: ', while the amygdala plays a central role in emotion, especially fear.',
+  },
+  sympathetic: {
+    book: 'Psychology 2e', course: 'psych', chapter: 'Chapter 3 · Biopsychology', section: '3.3 Parts of the Nervous System', page: 89,
+    before: 'The autonomic nervous system has two divisions that often work in opposition. ',
+    mark: 'The sympathetic nervous system prepares the body for stressful situations',
+    after: ', the "fight or flight" response, while the parasympathetic nervous system returns the body to its routine, day-to-day operations.',
+  },
+  variables: {
+    book: 'Psychology 2e', course: 'psych', chapter: 'Chapter 2 · Psychological Research', section: '2.3 Analyzing Findings', page: 54,
+    before: 'In an experiment, the researcher changes one variable and observes the effect on another. ',
+    mark: 'The variable that is changed is the independent variable, and the variable that is measured is the dependent variable',
+    after: '. Randomly assigning people to groups helps rule out other explanations for the result.',
+  },
+  mitochondria: {
+    book: 'Biology 2e', course: 'bio', chapter: 'Chapter 4 · Cell Structure', section: '4.3 Eukaryotic Cells', page: 112,
+    before: 'Mitochondria are double-membraned organelles with their own ribosomes and DNA. ',
+    mark: 'They are often called the powerhouses of the cell because they carry out cellular respiration, producing most of the cell\'s ATP',
+    after: '. Muscle cells, which need a lot of energy, contain very large numbers of them.',
+  },
+  prokaryote: {
+    book: 'Biology 2e', course: 'bio', chapter: 'Chapter 4 · Cell Structure', section: '4.2 Prokaryotic Cells', page: 106,
+    before: 'All cells share four parts: a plasma membrane, cytoplasm, DNA and ribosomes. ',
+    mark: 'Prokaryotes have no nucleus and no other membrane-bound organelles; their DNA sits in a central region called the nucleoid',
+    after: '. Bacteria and archaea are both prokaryotes.',
+  },
+  nucleic: {
+    book: 'Biology 2e', course: 'bio', chapter: 'Chapter 3 · Biological Macromolecules', section: '3.5 Nucleic Acids', page: 89,
+    before: '',
+    mark: 'Nucleic acids are the key macromolecules for the continuity of life: they carry the genetic blueprint of a cell',
+    after: ' and the instructions for how it works. The two main types are DNA and RNA.',
+  },
+  slide12: {
+    slide: true, book: 'Week 3 · Biopsychology.pdf', course: 'psych', chapter: 'Lecture slides', section: 'Slide 12', page: 12,
+    title: 'Saltatory conduction',
+    bullets: ['Myelin insulates the axon', 'The signal jumps between nodes of Ranvier', 'Result: much faster transmission than in unmyelinated axons', 'Damage to myelin (e.g. multiple sclerosis) slows signals'],
+  },
+};
+
+const CARDS = [
+  { id: 'c1', type: 'qa', course: 'psych', chapter: 3, front: 'What does the myelin sheath do?', back: 'It insulates the axon and makes the signal travel along it much faster.', src: 'myelin' },
+  { id: 'c2', type: 'cloze', course: 'bio', chapter: 4, front: 'The {{}} is where most of a eukaryotic cell\'s ATP is produced, through cellular respiration.', answer: 'mitochondrion', src: 'mitochondria' },
+  { id: 'c3', type: 'mcq', course: 'psych', chapter: 3, front: 'Which part of the brain is most important for forming new long-term memories?', options: ['Amygdala', 'Hippocampus', 'Cerebellum', 'Medulla'], correct: 1, src: 'hippocampus' },
+  { id: 'c4', type: 'qa', course: 'psych', chapter: 2, front: 'In an experiment, what is the difference between the independent and the dependent variable?', back: 'The independent variable is what the researcher changes. The dependent variable is what they measure to see whether that change had an effect.', src: 'variables' },
+  { id: 'c5', type: 'qa', course: 'bio', chapter: 4, front: 'What is the main structural difference between prokaryotic and eukaryotic cells?', back: 'Prokaryotic cells have no nucleus and no membrane-bound organelles. Their DNA sits in a region called the nucleoid.', src: 'prokaryote' },
+  { id: 'c6', type: 'cloze', course: 'psych', chapter: 3, front: 'The {{}} nervous system prepares the body for stress: the "fight or flight" response.', answer: 'sympathetic', src: 'sympathetic' },
+  { id: 'c7', type: 'mcq', course: 'bio', chapter: 3, front: 'Which type of macromolecule carries a cell\'s genetic information?', options: ['Carbohydrates', 'Lipids', 'Proteins', 'Nucleic acids'], correct: 3, src: 'nucleic' },
+  { id: 'c8', type: 'qa', course: 'psych', chapter: 3, front: 'What happens when a signal reaches the end of an axon?', back: 'The terminal buttons release neurotransmitters. They cross the synaptic cleft and bind to receptors on the next neuron.', src: 'synapse' },
+];
+
+const TYPE_LABEL = { qa: 'Question', cloze: 'Fill in the blank', mcq: 'Multiple choice' };
+const RATES = [
+  { key: '1', cls: 'forgot', label: 'Forgot', when: 'see it again soon' },
+  { key: '2', cls: 'hard', label: 'Hard', when: 'tomorrow' },
+  { key: '3', cls: 'good', label: 'Got it', when: 'in 3 days' },
+  { key: '4', cls: 'easy', label: 'Easy', when: 'in a week' },
+];
+
+function freshCourses() {
+  return {
+    psych: {
+      id: 'psych', name: 'Intro Psychology', book: 'Psychology 2e',
+      exam: { label: 'Midterm', date: 'Fri 13 Nov', covers: 'Chapters 1–5' },
+      chapters: [
+        { n: 1, t: 'Introduction to Psychology', state: 'covered', know: 86, cards: 14 },
+        { n: 2, t: 'Psychological Research', state: 'covered', know: 71, cards: 18 },
+        { n: 3, t: 'Biopsychology', state: 'covered', know: 58, cards: 22 },
+        { n: 4, t: 'States of Consciousness', state: 'open' },
+        { n: 5, t: 'Sensation and Perception', state: 'open' },
+        { n: 6, t: 'Learning', state: 'open' },
+        { n: 7, t: 'Thinking and Intelligence', state: 'open' },
+        { n: 8, t: 'Memory', state: 'open' },
+      ],
+      materials: [
+        { kind: 'book', name: 'Psychology 2e', meta: 'Textbook · 8 chapters', status: 'ready' },
+        { kind: 'slides', name: 'Week 3 · Biopsychology.pdf', meta: 'Lecture slides · 34 slides', status: 'ready' },
+        { kind: 'notes', name: 'Notes from 21 Oct', meta: 'Photo of notes · 2 pages', status: 'ready' },
+      ],
+    },
+    bio: {
+      id: 'bio', name: 'Cell Biology', book: 'Biology 2e',
+      exam: { label: 'Quiz', date: 'Wed 4 Nov', covers: 'Chapters 3–4' },
+      chapters: [
+        { n: 1, t: 'The Study of Life', state: 'covered', know: 91, cards: 12 },
+        { n: 2, t: 'The Chemical Foundation of Life', state: 'covered', know: 77, cards: 20 },
+        { n: 3, t: 'Biological Macromolecules', state: 'covered', know: 64, cards: 24 },
+        { n: 4, t: 'Cell Structure', state: 'covered', know: 52, cards: 19 },
+        { n: 5, t: 'Structure and Function of Plasma Membranes', state: 'open' },
+        { n: 6, t: 'Metabolism', state: 'open' },
+        { n: 7, t: 'Cellular Respiration', state: 'open' },
+        { n: 8, t: 'Photosynthesis', state: 'open' },
+      ],
+      materials: [
+        { kind: 'book', name: 'Biology 2e', meta: 'Textbook · 8 chapters', status: 'ready' },
+        { kind: 'slides', name: 'Lecture 7 · Organelles.pptx', meta: 'Lecture slides · 41 slides', status: 'ready' },
+      ],
+    },
+  };
+}
+
+const SEED_CHAT = () => ({
+  psych: [
+    { who: 'user', text: 'Why does the signal need myelin? Doesn\'t it travel along the axon anyway?' },
+    {
+      who: 'bot',
+      html: 'It does travel without myelin, just much more slowly. Myelin insulates the axon, so instead of moving along every bit of the membrane, the signal jumps between the small gaps in the myelin, called nodes of Ranvier <button class="cite" data-action="source" data-src="myelin" aria-label="Source 1">1</button>. Your Week 3 slides call this <i>saltatory conduction</i> and point out that damaged myelin, as in multiple sclerosis, slows signals down <button class="cite" data-action="source" data-src="slide12" aria-label="Source 2">2</button>.',
+      sources: ['myelin', 'slide12'],
+    },
+  ],
+  bio: [],
+});
+
+const CANNED = [
+  { course: 'psych', match: /hippocamp|memor|amygdala/i, src: ['hippocampus'],
+    html: 'The hippocampus is the structure most tied to forming new long-term memories <button class="cite" data-action="source" data-src="hippocampus" aria-label="Source 1">1</button>. It sits in the limbic system, right next to the amygdala, which handles emotion, especially fear. That closeness is one reason emotional events tend to be remembered so vividly.' },
+  { course: 'psych', match: /sympath|fight|flight|stress|autonomic/i, src: ['sympathetic'],
+    html: 'The autonomic nervous system has two halves that work against each other. The sympathetic side gets you ready for stress, the "fight or flight" response, and the parasympathetic side calms things back down to normal <button class="cite" data-action="source" data-src="sympathetic" aria-label="Source 1">1</button>.' },
+  { course: 'psych', match: /variable|experiment|independent|dependent/i, src: ['variables'],
+    html: 'The independent variable is the thing the researcher changes on purpose. The dependent variable is what they measure afterwards to see if the change made a difference <button class="cite" data-action="source" data-src="variables" aria-label="Source 1">1</button>. A quick way to remember it: the dependent variable <i>depends</i> on the independent one.' },
+  { course: 'psych', match: /synap|neurotrans|axon/i, src: ['synapse'],
+    html: 'At the end of the axon, the terminal buttons release neurotransmitters. These chemicals cross the tiny gap, the synaptic cleft, and attach to receptors on the next neuron, a bit like a key fitting a lock <button class="cite" data-action="source" data-src="synapse" aria-label="Source 1">1</button>.' },
+  { course: 'bio', match: /mitochond|atp|respiration|powerhouse/i, src: ['mitochondria'],
+    html: 'Mitochondria carry out cellular respiration, which is how the cell turns food into ATP, its usable energy <button class="cite" data-action="source" data-src="mitochondria" aria-label="Source 1">1</button>. Cells that use a lot of energy, like muscle cells, have many more of them.' },
+  { course: 'bio', match: /prokaryo|eukaryo|nucleus|bacteria/i, src: ['prokaryote'],
+    html: 'The big difference is the nucleus. Eukaryotic cells keep their DNA inside a nucleus and have organelles wrapped in membranes. Prokaryotic cells, like bacteria, have neither: their DNA just sits in a region called the nucleoid <button class="cite" data-action="source" data-src="prokaryote" aria-label="Source 1">1</button>.' },
+  { course: 'bio', match: /dna|rna|nucleic|genetic/i, src: ['nucleic'],
+    html: 'DNA and RNA are nucleic acids, the molecules that carry a cell\'s genetic instructions <button class="cite" data-action="source" data-src="nucleic" aria-label="Source 1">1</button>. DNA stores the long-term blueprint, and RNA helps turn those instructions into proteins.' },
+];
+
+const SUGGESTIONS = {
+  psych: ['What does the hippocampus do?', 'Explain fight or flight simply', 'Independent vs dependent variable?'],
+  bio: ['Why are mitochondria called powerhouses?', 'Prokaryotic vs eukaryotic cells?', 'What do nucleic acids do?'],
+};
+
+let S;
+function resetState() {
+  S = {
+    courses: freshCourses(),
+    queue: CARDS.map(c => c.id),
+    total: CARDS.length,
+    reviewed: 0,
+    flagged: 0,
+    revealed: false,
+    picked: null,
+    flagOpen: false,
+    chat: SEED_CHAT(),
+    askCourse: 'psych',
+    thinking: false,
+    linkError: '',
+    pending: {},
+  };
+}
+resetState();
+
+const $main = document.getElementById('main');
+const card = id => CARDS.find(c => c.id === id);
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+
+function route() {
+  const h = (location.hash || '#today').slice(1);
+  return ['today', 'review', 'ask', 'psych', 'bio'].includes(h) ? h : 'today';
+}
+function go(r) {
+  if (location.hash.slice(1) === r) render(true);
+  else location.hash = r;
+}
+
+function render(focus) {
+  const r = route();
+  document.querySelectorAll('[data-nav]').forEach(a => {
+    const on = a.dataset.nav === r || (r === 'review' && a.dataset.nav === 'today');
+    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
+  document.getElementById('nav-due').textContent = S.queue.length ? S.queue.length : '';
+  if (r === 'today') $main.innerHTML = viewToday();
+  else if (r === 'review') $main.innerHTML = viewReview();
+  else if (r === 'ask') $main.innerHTML = viewAsk();
+  else $main.innerHTML = viewCourse(S.courses[r]);
+  if (focus) { $main.focus({ preventScroll: true }); window.scrollTo(0, 0); }
+  if (r === 'ask') {
+    const t = document.getElementById('thread-end');
+    if (t && S.chat[S.askCourse].length > 2) t.scrollIntoView({ block: 'end' });
+  }
+}
+
+/* ---------- Today ---------- */
+function minutes(n) { return Math.max(1, Math.round(n * 0.5)); }
+function viewToday() {
+  const n = S.queue.length;
+  const hero = n
+    ? `<section class="today-hero" aria-labelledby="today-h">
+        <span class="eyebrow">Monday 26 October</span>
+        <h1 id="today-h">${n} card${n === 1 ? '' : 's'} to review</h1>
+        <p class="sub">About ${minutes(n)} minute${minutes(n) === 1 ? '' : 's'}, from Intro Psychology and Cell Biology.</p>
+        <a class="btn primary big" href="#review">Start review ${ICON.arrow}</a>
+      </section>`
+    : `<section class="today-hero" aria-labelledby="today-h">
+        <span class="eyebrow">Monday 26 October</span>
+        <h1 id="today-h">You're done for today</h1>
+        <p class="sub">${S.reviewed} cards reviewed. Tomorrow you'll have about 11 cards, around 6 minutes.</p>
+        <a class="btn" href="#ask">Ask a question about your courses</a>
+      </section>`;
+  const rows = Object.values(S.courses).map(c => {
+    const cov = c.chapters.filter(ch => ch.state === 'covered');
+    const avg = Math.round(cov.reduce((a, ch) => a + ch.know, 0) / (cov.length || 1));
+    const weakest = cov.slice().sort((a, b) => a.know - b.know)[0];
+    return `<a class="course-row" href="#${c.id}">
+      <div class="stack" style="gap:4px">
+        <h3>${c.name}</h3>
+        <span class="meta">${cov.length} of ${c.chapters.length} chapters covered · you know about ${avg}% well${weakest ? ` · shakiest: Ch. ${weakest.n}, ${weakest.t}` : ''}</span>
+      </div>
+      <span class="exam-chip">${c.exam.label} · ${c.exam.date}</span>
+    </a>`;
+  }).join('');
+  return `<div class="wrap">
+    ${hero}
+    <section class="stack" aria-labelledby="courses-h">
+      <h2 class="section-title" id="courses-h">Your courses</h2>
+      <div class="course-list">${rows}</div>
+    </section>
+  </div>`;
+}
+
+/* ---------- Review ---------- */
+function clozeHTML(c, filled) {
+  const [a, b] = c.front.split('{{}}');
+  return esc(a) + (filled ? `<span class="filled">${esc(c.answer)}</span>` : '<span class="blank" aria-label="blank"></span>') + esc(b);
+}
+function sourceHTML(key) {
+  const s = SOURCES[key];
+  if (s.slide) {
+    return `<div class="passage"><b>${esc(s.title)}</b><br>${s.bullets.map(esc).join('<br>')}</div>`;
+  }
+  return `<p class="passage">${esc(s.before)}<mark>${esc(s.mark)}</mark>${esc(s.after)}</p>`;
+}
+function viewReview() {
+  if (!S.queue.length) {
+    return `<div class="wrap"><section class="done stack" style="gap:16px">
+      <span class="eyebrow">Review finished</span>
+      <h1>Nice work. That's everything for today.</h1>
+      <p class="sub" style="font-size:18px">You reviewed ${S.reviewed} cards${S.flagged ? `, and reported ${S.flagged} card${S.flagged === 1 ? '' : 's'} with a problem` : ''}. Tomorrow you'll have about 11 cards.</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn primary" href="#today">Back to Today</a><a class="btn" href="#ask">Ask a question</a></div>
+    </section></div>`;
+  }
+  const c = card(S.queue[0]);
+  const course = S.courses[c.course];
+  const done = S.total - S.queue.length;
+  const pct = Math.round((done / S.total) * 100);
+  const isMcq = c.type === 'mcq';
+  const answered = isMcq ? S.picked !== null : S.revealed;
+
+  let body = '';
+  if (c.type === 'qa') {
+    body = `<p class="card-front">${esc(c.front)}</p>${S.revealed ? `<p class="card-back">${esc(c.back)}</p>` : ''}`;
+  } else if (c.type === 'cloze') {
+    body = `<p class="card-front">${clozeHTML(c, S.revealed)}</p>`;
+  } else {
+    const opts = c.options.map((o, i) => {
+      let cls = '';
+      if (answered && i === c.correct) cls = 'right';
+      else if (answered && i === S.picked) cls = 'wrong';
+      return `<button class="option ${cls}" type="button" data-action="pick" data-i="${i}" ${answered ? 'disabled' : ''}><span class="key">${i + 1}</span>${esc(o)}</button>`;
+    }).join('');
+    body = `<p class="card-front">${esc(c.front)}</p><div class="options">${opts}</div>`;
+  }
+
+  let actions;
+  if (isMcq && answered) {
+    const ok = S.picked === c.correct;
+    actions = `<p class="verdict ${ok ? 'ok' : 'no'}" role="status">${ok ? 'Correct.' : `Not quite. It's ${esc(c.options[c.correct])}.`} ${ok ? 'You\'ll see this again in 3 days.' : 'You\'ll see this one again soon.'}</p>
+      <div class="reveal-row"><button class="btn primary big" type="button" data-action="next">Continue <kbd class="kbd-hint">Space</kbd></button></div>`;
+  } else if (isMcq) {
+    actions = `<p class="rate-help"><span class="kbd-hint">Pick an answer, or press 1–4</span></p>`;
+  } else if (!S.revealed) {
+    actions = `<div class="reveal-row"><button class="btn primary big" type="button" data-action="reveal">Show answer <kbd class="kbd-hint">Space</kbd></button></div>`;
+  } else {
+    actions = `<p class="rate-help">How well did you remember it?</p>
+      <div class="rates">${RATES.map(r => `<button class="rate ${r.cls}" type="button" data-action="rate" data-r="${r.key}"><b>${r.label}</b><small>${r.when}</small><kbd class="kbd-hint">${r.key}</kbd></button>`).join('')}</div>`;
+  }
+
+  const flagMenu = S.flagOpen ? `<div class="flag-menu" role="menu" aria-label="Report a problem">
+      <p>What's wrong with this card? It won't come up again.</p>
+      <button type="button" role="menuitem" data-action="flag" data-why="wrong">The answer is wrong<span>It doesn't match the course material</span></button>
+      <button type="button" role="menuitem" data-action="flag" data-why="confusing">It's confusing<span>The question is unclear or has more than one answer</span></button>
+      <button type="button" role="menuitem" data-action="flag" data-why="useless">It's not useful<span>Too obvious, or not something I need to know</span></button>
+    </div>` : '';
+
+  const s = SOURCES[c.src];
+  const source = answered ? `<aside class="source" aria-label="Where this comes from">
+      <div class="source-head"><b>From ${esc(s.book)}</b><span>${esc(s.section)} · page ${s.page}</span></div>
+      ${sourceHTML(c.src)}
+      <div><button class="btn quiet" type="button" data-action="source" data-src="${c.src}">Open the page ${ICON.arrow}</button></div>
+    </aside>` : `<aside class="source pending" aria-label="Where this comes from">
+      <div class="source-head"><b>From ${esc(s.book)}</b><span>${esc(s.section)}</span></div>
+      <p class="sub">The passage this card comes from shows up here once you've answered.</p>
+    </aside>`;
+
+  return `<div class="wrap wide">
+    <div class="review-top">
+      <a class="btn quiet" href="#today">Stop for now</a>
+      <div class="progress" aria-label="${done} of ${S.total} done"><span>${done} of ${S.total}</span><div class="bar"><span style="width:${pct}%"></span></div></div>
+    </div>
+    <div class="review-grid">
+      <section class="card" aria-live="polite">
+        <div class="card-tag"><span>${esc(course.name)}</span><span class="dot"></span><span>Chapter ${c.chapter}</span><span class="dot"></span><span>${TYPE_LABEL[c.type]}</span></div>
+        ${body}
+        <div class="card-actions">${actions}</div>
+        <div class="card-foot">
+          <div class="flag-wrap">${flagMenu}<button class="btn quiet" type="button" data-action="flag-toggle" aria-expanded="${S.flagOpen}">${ICON.flag} Something wrong with this card? <kbd class="kbd-hint">F</kbd></button></div>
+        </div>
+      </section>
+      ${source}
+    </div>
+  </div>`;
+}
+
+function advance(again) {
+  const id = S.queue.shift();
+  if (again) S.queue.push(id);
+  else S.reviewed++;
+  if (again) S.total++;
+  S.revealed = false; S.picked = null; S.flagOpen = false;
+  if (!S.queue.length) S.total = S.reviewed;
+  render();
+}
+
+/* ---------- Course ---------- */
+function knowState(k) {
+  if (k >= 80) return ['state-strong', 'You know this well'];
+  if (k >= 60) return ['state-mid', 'Getting there'];
+  return ['state-shaky', 'Shaky'];
+}
+function matIcon(kind) { return { book: ICON.book, slides: ICON.slides, notes: ICON.notes, link: ICON.link }[kind] || ICON.notes; }
+function viewCourse(c) {
+  const toc = c.chapters.map(ch => {
+    let right, sub;
+    if (ch.state === 'covered') {
+      const [cls, label] = knowState(ch.know);
+      right = `<span class="covered-tag">${ICON.check} Covered</span>`;
+      sub = `<span class="know"><span class="bar"><span style="width:${ch.know}%"></span></span><span class="${cls}">${label}</span></span><span>${ch.cards} cards</span>`;
+    } else if (ch.state === 'making') {
+      right = `<span class="covered-tag"><span class="spinner" aria-hidden="true"></span> Making cards…</span>`;
+      sub = `<span>Reading the chapter and writing cards. You can leave this page.</span>`;
+    } else if (ch.state === 'fresh') {
+      right = `<span class="covered-tag">${ICON.check} Covered</span>`;
+      sub = `<span>${ch.cards} new cards. You'll start seeing them in tomorrow's review.</span>`;
+    } else {
+      right = `<button class="cover-btn" type="button" data-action="cover" data-course="${c.id}" data-n="${ch.n}">${ICON.plus} We've covered this</button>`;
+      sub = `<span>Not started</span>`;
+    }
+    return `<div class="toc-row">
+      <span class="toc-num">${ch.n}</span>
+      <div class="stack" style="gap:2px;min-width:0"><span class="toc-title">${esc(ch.t)}</span><span class="toc-sub">${sub}</span></div>
+      ${right}
+    </div>`;
+  }).join('');
+
+  const mats = c.materials.map(m => `<div class="mat">
+      <span class="mat-icon">${matIcon(m.kind)}</span>
+      <div style="min-width:0"><div class="mat-name">${esc(m.name)}</div>
+      <div class="mat-meta">${m.status === 'reading' ? '<span class="spinner" aria-hidden="true"></span> Reading it now. It\'ll be ready to ask about in a minute.' : esc(m.meta)}</div></div>
+    </div>`).join('');
+
+  return `<div class="wrap wide">
+    <div class="course-head">
+      <div class="page-head"><span class="eyebrow">Course</span><h1>${esc(c.name)}</h1><p class="sub">Textbook: ${esc(c.book)}</p></div>
+      <span class="exam-chip">${c.exam.label} · ${c.exam.date} · ${c.exam.covers}</span>
+    </div>
+    <div class="two-col">
+      <section class="stack" aria-labelledby="toc-h">
+        <div class="stack" style="gap:4px">
+          <h2 class="section-title" id="toc-h">Chapters</h2>
+          <p class="sub" style="font-size:15px">When you've covered a chapter in class, mark it and Engram will make cards for it.</p>
+        </div>
+        <div class="panel toc">${toc}</div>
+      </section>
+      <section class="stack" aria-labelledby="mat-h">
+        <h2 class="section-title" id="mat-h">Your materials</h2>
+        <div class="panel materials">${mats}</div>
+        <div class="drop" id="drop" data-course="${c.id}">
+          <label class="drop-main file-label" for="file-${c.id}">
+            ${ICON.upload}
+            <b>Add slides or notes</b>
+            <span>Drop a file here, or click to choose one. PDF, PowerPoint or a photo of your notes.</span>
+          </label>
+          <input class="sr-only" type="file" id="file-${c.id}" data-course="${c.id}" accept=".pdf,.ppt,.pptx,.png,.jpg,.jpeg,.heic">
+          <form class="link-form" data-course="${c.id}" novalidate>
+            <label for="link-${c.id}">Or paste a link to an article or reading</label>
+            <input id="link-${c.id}" type="url" placeholder="https://" autocomplete="off" aria-describedby="link-err-${c.id}">
+            <button class="btn" type="submit">Add</button>
+            <span class="field-error" id="link-err-${c.id}" role="alert">${esc(S.linkError)}</span>
+          </form>
+        </div>
+      </section>
+    </div>
+  </div>`;
+}
+
+function addMaterial(courseId, m) {
+  const c = S.courses[courseId];
+  c.materials.push(m);
+  render();
+  setTimeout(() => {
+    m.status = 'ready';
+    if (route() === courseId) render();
+    toast(`${m.name} is ready. You can ask questions about it now.`);
+  }, 4000);
+}
+
+/* ---------- Ask ---------- */
+function viewAsk() {
+  const msgs = S.chat[S.askCourse];
+  const course = S.courses[S.askCourse];
+  const thread = msgs.map(m => {
+    if (m.who === 'user') return `<div class="msg-user">${esc(m.text)}</div>`;
+    const chips = (m.sources || []).map((k, i) => {
+      const s = SOURCES[k];
+      return `<button class="source-chip" type="button" data-action="source" data-src="${k}"><b>${i + 1}</b>${esc(s.book)} · ${s.slide ? esc(s.section) : 'p. ' + s.page}</button>`;
+    }).join('');
+    const outside = m.outside ? `<div class="outside">${ICON.info}<span>This isn't covered in your ${esc(course.name)} materials. In the full app, Engram would answer from general knowledge here and keep this label on it, so you know to double-check it against your course.</span></div>` : '';
+    return `<div class="msg-bot">${outside}${m.html ? `<div class="answer">${m.html}</div>` : ''}${chips ? `<div class="sources">${chips}</div>` : ''}</div>`;
+  }).join('');
+  const thinking = S.thinking ? `<div class="msg-bot"><span class="typing" aria-label="Thinking"><span></span><span></span><span></span></span></div>` : '';
+  const scope = Object.values(S.courses).map(c => `<button class="scope-btn" type="button" data-action="scope" data-course="${c.id}" aria-pressed="${S.askCourse === c.id}">${esc(c.name)}</button>`).join('');
+  const empty = !msgs.length ? `<p class="sub">Ask anything about ${esc(course.name)}. Answers come from your textbook, slides and notes, with links to the exact page.</p>` : '';
+  return `<div class="wrap ask">
+    <div class="page-head"><h1>Ask a question</h1></div>
+    <div class="ask-scope"><span>Answering from</span>${scope}</div>
+    ${empty}
+    <div class="thread">${thread}${thinking}<span id="thread-end"></span></div>
+    <div class="suggest">${SUGGESTIONS[S.askCourse].map(q => `<button class="scope-btn" type="button" data-action="suggest" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
+    <form class="composer" id="composer">
+      <label class="sr-only" for="ask-input">Your question</label>
+      <input id="ask-input" type="text" placeholder="Ask about ${esc(course.name)}…" autocomplete="off">
+      <button class="btn primary" type="submit">Ask</button>
+    </form>
+  </div>`;
+}
+function ask(q) {
+  q = q.trim();
+  if (!q || S.thinking) return;
+  const course = S.askCourse;
+  S.chat[course].push({ who: 'user', text: q });
+  S.thinking = true;
+  render();
+  setTimeout(() => {
+    const hit = CANNED.find(c => c.course === course && c.match.test(q));
+    S.chat[course].push(hit ? { who: 'bot', html: hit.html, sources: hit.src } : { who: 'bot', outside: true });
+    S.thinking = false;
+    if (route() === 'ask') { render(); document.getElementById('ask-input')?.focus(); }
+  }, 1400);
+}
+
+/* ---------- Source viewer ---------- */
+function openSource(key) {
+  const s = SOURCES[key];
+  const inner = s.slide
+    ? `<div class="slide-sim"><h3>${esc(s.title)}</h3><ul>${s.bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul><span class="slide-num">12 / 34</span></div>`
+    : `<div class="page-sim">
+        <div class="running-head"><span>${esc(s.chapter)}</span><span>${s.page}</span></div>
+        <h3>${esc(s.section)}</h3>
+        <p class="dim">The surrounding text of the page appears here, so you can read the passage in context.</p>
+        <p>${esc(s.before)}<mark>${esc(s.mark)}</mark>${esc(s.after)}</p>
+        <p class="dim">The rest of the page continues below.</p>
+      </div>`;
+  document.getElementById('modal-root').innerHTML = `<div class="scrim" data-action="close-modal">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <div class="sheet-bar"><div><b id="sheet-title">${esc(s.book)}</b><span>${s.slide ? esc(s.section) : `${esc(s.section)} · page ${s.page}`}</span></div>
+      <button class="icon-btn" type="button" data-action="close-modal" aria-label="Close">${ICON.close}</button></div>
+      ${inner}
+    </div>
+  </div>`;
+  document.querySelector('.sheet .icon-btn').focus();
+}
+function closeModal() { document.getElementById('modal-root').innerHTML = ''; }
+function modalOpen() { return !!document.getElementById('modal-root').firstChild; }
+
+/* ---------- Toasts ---------- */
+function toast(text, undo) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = `<span>${esc(text)}</span>${undo ? '<button type="button">Undo</button>' : ''}`;
+  document.getElementById('toasts').appendChild(el);
+  let t = setTimeout(() => el.remove(), 5000);
+  if (undo) el.querySelector('button').addEventListener('click', () => { clearTimeout(t); el.remove(); undo(); });
+}
+
+/* ---------- Events ---------- */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-action]');
+  if (!t) return;
+  const a = t.dataset.action;
+  if (a === 'close-modal') {
+    if (t.classList.contains('scrim') && e.target !== t) return;
+    closeModal(); return;
+  }
+  if (a === 'reveal') { S.revealed = true; render(); }
+  else if (a === 'rate') advance(t.dataset.r === '1');
+  else if (a === 'pick') { S.picked = +t.dataset.i; render(); }
+  else if (a === 'next') { const c = card(S.queue[0]); advance(S.picked !== c.correct); }
+  else if (a === 'flag-toggle') { S.flagOpen = !S.flagOpen; render(); }
+  else if (a === 'flag') {
+    S.flagged++; S.queue.shift(); S.total--; S.revealed = false; S.picked = null; S.flagOpen = false;
+    if (!S.queue.length) S.total = S.reviewed;
+    render(); toast('Thanks. That card is removed from your reviews.');
+  }
+  else if (a === 'source') openSource(t.dataset.src);
+  else if (a === 'cover') coverChapter(t.dataset.course, +t.dataset.n);
+  else if (a === 'scope') { S.askCourse = t.dataset.course; render(); }
+  else if (a === 'suggest') ask(t.dataset.q);
+  else if (a === 'reset') { resetState(); closeModal(); go('today'); toast('Started over with the sample content.'); }
+});
+
+function coverChapter(courseId, n) {
+  const ch = S.courses[courseId].chapters.find(x => x.n === n);
+  ch.state = 'making';
+  render();
+  const timer = setTimeout(() => {
+    ch.state = 'fresh'; ch.cards = 10 + ((n * 7) % 9);
+    if (route() === courseId) render();
+    toast(`Chapter ${n} is ready: ${ch.cards} new cards.`);
+  }, 3500);
+  toast(`Making cards for Chapter ${n}.`, () => { clearTimeout(timer); ch.state = 'open'; if (route() === courseId) render(); });
+}
+
+document.addEventListener('submit', e => {
+  e.preventDefault();
+  if (e.target.id === 'composer') {
+    const inp = document.getElementById('ask-input');
+    const q = inp.value; inp.value = '';
+    ask(q);
+    return;
+  }
+  if (e.target.classList.contains('link-form')) {
+    const courseId = e.target.dataset.course;
+    const inp = e.target.querySelector('input');
+    let url;
+    try { url = new URL(inp.value.trim()); } catch (err) { url = null; }
+    if (!url || !/^https?:$/.test(url.protocol)) {
+      S.linkError = 'That doesn\'t look like a web address. Copy the link from your browser\'s address bar; it starts with https://';
+      render(); document.getElementById('link-' + courseId)?.focus();
+      return;
+    }
+    S.linkError = '';
+    addMaterial(courseId, { kind: 'link', name: url.hostname.replace(/^www\./, '') + url.pathname.replace(/\/$/, ''), meta: 'Web article', status: 'reading' });
+  }
+});
+
+function takeFile(courseId, file) {
+  if (!file) return;
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const kind = ['png', 'jpg', 'jpeg', 'heic'].includes(ext) ? 'notes' : 'slides';
+  addMaterial(courseId, { kind, name: file.name, meta: kind === 'notes' ? 'Photo of notes' : 'Lecture slides', status: 'reading' });
+}
+document.addEventListener('change', e => {
+  if (e.target.type === 'file') takeFile(e.target.dataset.course, e.target.files[0]);
+});
+['dragenter', 'dragover'].forEach(ev => document.addEventListener(ev, e => {
+  const d = e.target.closest && e.target.closest('#drop');
+  if (d) { e.preventDefault(); d.classList.add('over'); }
+}));
+['dragleave', 'drop'].forEach(ev => document.addEventListener(ev, e => {
+  const d = e.target.closest && e.target.closest('#drop');
+  if (!d) return;
+  e.preventDefault();
+  d.classList.remove('over');
+  if (ev === 'drop') takeFile(d.dataset.course, e.dataTransfer.files[0]);
+}));
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (modalOpen()) { closeModal(); return; }
+    if (S.flagOpen) { S.flagOpen = false; render(); return; }
+  }
+  if (route() !== 'review' || modalOpen() || !S.queue.length) return;
+  if (e.target.matches('input, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+  const c = card(S.queue[0]);
+  const isMcq = c.type === 'mcq';
+  if (e.key === ' ' || e.key === 'Enter') {
+    if (e.target.matches('button, a') && e.key === 'Enter') return;
+    e.preventDefault();
+    if (isMcq && S.picked !== null) advance(S.picked !== c.correct);
+    else if (!isMcq && !S.revealed) { S.revealed = true; render(); }
+    return;
+  }
+  if (/^[1-4]$/.test(e.key)) {
+    if (isMcq && S.picked === null) { S.picked = +e.key - 1; render(); }
+    else if (!isMcq && S.revealed) advance(e.key === '1');
+    return;
+  }
+  if (e.key === 'f' || e.key === 'F') { S.flagOpen = !S.flagOpen; render(); }
+});
+
+window.addEventListener('hashchange', () => { S.flagOpen = false; S.linkError = ''; render(true); });
+render();
+</script>

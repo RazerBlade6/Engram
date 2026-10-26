@@ -191,9 +191,9 @@ UX is validated with **real users before and during development**. Clickable moc
 
 ### Phase 0: Design
 
-- [ ] This roadmap
-- [ ] Clickable mockups of the core screens: home, review, course view, chat, upload
-- [ ] Mockup walkthrough with target users, with the findings folded back into this document
+- [x] This roadmap
+- [x] Clickable prototype of the core screens: home, review, course view, chat, upload ([`design/prototype`](../design/prototype/index.html))
+- [ ] Walkthrough with target users ([script](usability/mockup-walkthrough.md)), with the findings folded back into this document
 
 ### Phase 1: Functional core
 
