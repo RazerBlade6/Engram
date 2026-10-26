@@ -12,20 +12,35 @@ concurrency:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
     steps:
       - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.122.0
+      - name: Generate a throwaway JWT signing key
+        run: echo '[]' > supabase/signing_keys.json && supabase gen signing-key --algorithm ES256 --append
+      - name: Start Supabase Postgres and apply migrations
+        run: supabase db start
+      - name: Lint the schema
+        run: supabase db lint --level warning --fail-on warning
+      - name: Row-level security tests
+        run: supabase test db
       - uses: astral-sh/setup-uv@v10.3.2
         with:
           version: "0.13.5"
           enable-cache: true
-      - run: uv sync --locked
-      - run: uv run ruff format --check .
-      - run: uv run ruff check .
-      - run: uv run mypy
-      - run: uv run pytest
+      - working-directory: backend
+        run: uv sync --locked
+      - working-directory: backend
+        run: uv run ruff format --check .
+      - working-directory: backend
+        run: uv run ruff check .
+      - working-directory: backend
+        run: uv run mypy
+      - working-directory: backend
+        env:
+          ENGRAM_REQUIRE_DB: "1"
+        run: uv run pytest
 
   web:
     runs-on: ubuntu-latest

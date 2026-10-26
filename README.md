@@ -32,7 +32,8 @@ The reasoning behind each choice is in the roadmap's [decision log](docs/ROADMAP
 ```text
 backend/            FastAPI app (engram.api) and background worker (engram.worker), Python 3.13, uv
 web/                Next.js app (App Router, TypeScript, Tailwind)
-docker-compose.yml  Local stack: Postgres with pgvector, API, worker, web
+supabase/           Database migrations, row-level security tests and local Supabase config
+docker-compose.yml  Local stack: API, worker and web app (Supabase runs from its CLI)
 design/prototype/   Clickable prototype of the core screens (single HTML file, open it in a browser)
 docs/ROADMAP.md     Product, architecture, phases and decision log
 docs/usability/     Usability session scripts
@@ -40,13 +41,18 @@ docs/usability/     Usability session scripts
 
 ## Development
 
-The whole stack, with hot reload:
+Requires Docker, the [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started), [uv](https://docs.astral.sh/uv/) and Node 24.
 
 ```sh
-docker compose up --build
+echo '[]' > supabase/signing_keys.json && supabase gen signing-key --algorithm ES256 --append   # once
+supabase start                 # local Postgres, Auth and Storage, with migrations applied
+cp .env.example .env           # then paste the Publishable and Secret keys from `supabase status`
+docker compose up --build      # API, worker and web app, with hot reload
 ```
 
-The web app is on http://localhost:3000 and the API on http://localhost:8000 (interactive docs at `/docs`).
+The web app is on http://localhost:3000, the API on http://localhost:8000 (interactive docs at `/docs`), Supabase Studio on http://localhost:54323, and invite emails are caught at http://localhost:54324.
+
+Accounts are invite-only. To create the first admin locally, add a user in Studio (Authentication → Add user), then run `update profiles set role = 'admin' where id = '<user id>';` in the SQL editor. Admins invite others with `POST /admin/invites`.
 
 Or run each part directly:
 
@@ -63,7 +69,9 @@ npm run dev
 npm run lint && npm run typecheck && npm test
 ```
 
-CI runs the same lint, type and test checks on every push and pull request.
+Database changes are SQL migrations in `supabase/migrations/` (create one with `supabase migration new <name>`), and row-level security tests live in `supabase/tests/` (`supabase test db`). Migrations are applied to the hosted project when they reach `main`.
+
+CI runs the schema linter, the row-level security tests, and the backend and web lint, type and test checks on every push and pull request.
 
 ## History
 
