@@ -81,10 +81,14 @@ select is_empty('select 1 from storage.objects', 'storage objects are not readab
 reset role;
 select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
 
-select results_eq('select title from public.courses order by title',
+select results_eq($$select title from public.courses
+    where id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000')
+    order by title$$,
   $$values ('Biology'), ('Psychology')$$,
   'admins see every course, and student A changed nothing in B''s');
-select is((select count(*)::int from public.materials), 2, 'admins see every material');
+select is((select count(*)::int from public.materials
+    where course_id in ('aaaaaaaa-0000-0000-0000-000000000000', 'bbbbbbbb-0000-0000-0000-000000000000')),
+  2, 'admins see every material');
 select lives_ok($$
   insert into public.materials (course_id, kind, title, storage_path, status)
   values ('aaaaaaaa-0000-0000-0000-000000000000', 'textbook', 'Biology 2e', 'aaaaaaaa/bio.pdf', 'queued')

@@ -15,13 +15,18 @@ from typing import Any
 
 from psycopg import AsyncConnection
 
-from engram.config import get_settings
+from engram.config import Settings, get_settings
+from engram.errors import PermanentError
 from engram.worker import queue
 from engram.worker.queue import Handler, Job
 
 logger = logging.getLogger("engram.worker")
 
-HANDLERS: dict[str, Handler] = {}
+
+def build_handlers(settings: Settings) -> dict[str, Handler]:
+    from engram.ingest import job as ingest
+
+    return {ingest.KIND: ingest.make_handler(settings)}
 
 
 async def run_once(
@@ -37,8 +42,15 @@ async def run_once(
             raise LookupError(f"no handler for job kind {job.kind!r}")
         await handler(job)
     except Exception as exc:
-        logger.exception("job %s (%s) failed on attempt %s", job.id, job.kind, job.attempts)
-        await queue.fail(conn, job, f"{type(exc).__name__}: {exc}")
+        permanent = isinstance(exc, PermanentError | LookupError)
+        logger.exception(
+            "job %s (%s) failed on attempt %s%s",
+            job.id,
+            job.kind,
+            job.attempts,
+            " (permanent)" if permanent else "",
+        )
+        await queue.fail(conn, job, f"{type(exc).__name__}: {exc}", permanent=permanent)
     else:
         await queue.complete(conn, job)
         logger.info("job %s (%s) succeeded", job.id, job.kind)
@@ -49,7 +61,7 @@ async def run(
     stop: asyncio.Event,
     conn: AsyncConnection[Any],
     poll_interval: float,
-    handlers: dict[str, Handler] = HANDLERS,
+    handlers: dict[str, Handler],
 ) -> None:
     worker_id = f"{socket.gethostname()}:{os.getpid()}"
     logger.info("worker %s started", worker_id)
@@ -68,7 +80,7 @@ async def _main() -> None:
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stop.set)
     async with await AsyncConnection.connect(settings.database_url, autocommit=True) as conn:
-        await run(stop, conn, settings.worker_poll_interval_seconds)
+        await run(stop, conn, settings.worker_poll_interval_seconds, build_handlers(settings))
 
 
 def main() -> None:
@@ -76,7 +88,7 @@ def main() -> None:
     asyncio.run(_main())
 
 
-__all__ = ["HANDLERS", "Job", "main", "run", "run_once"]
+__all__ = ["Job", "build_handlers", "main", "run", "run_once"]
 
 
 if __name__ == "__main__":

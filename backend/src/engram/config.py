@@ -23,6 +23,16 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
     worker_poll_interval_seconds: float = 2.0
 
+    # Model per job, as `provider:model`. Provisional until the eval suite decides (D25);
+    # card generation stays on the stronger model until it passes the card-quality eval (D26).
+    model_figure_description: str = "anthropic:claude-haiku-5-5"
+    model_card_generation: str = "anthropic:claude-opus-5-5"
+    model_chat: str = "anthropic:claude-opus-5-5"
+    model_grading: str = "anthropic:claude-opus-5-5"
+
+    # Local embedding model (ONNX, in-process). Its dimension is fixed in the schema.
+    embedding_model: str = "BAAI/bge-small-en-v1.5"
+
 
 @lru_cache
 def get_settings() -> Settings:

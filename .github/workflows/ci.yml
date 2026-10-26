@@ -29,8 +29,16 @@ jobs:
         with:
           version: "0.13.5"
           enable-cache: true
+      - name: Cache Docling and embedding models
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cache/huggingface
+            ~/.cache/fastembed
+          key: models-${{ hashFiles('backend/uv.lock') }}
+          restore-keys: models-
       - working-directory: backend
-        run: uv sync --locked
+        run: uv sync --locked --all-extras
       - working-directory: backend
         run: uv run ruff format --check .
       - working-directory: backend
@@ -40,6 +48,7 @@ jobs:
       - working-directory: backend
         env:
           ENGRAM_REQUIRE_DB: "1"
+          FASTEMBED_CACHE_PATH: /home/runner/.cache/fastembed
         run: uv run pytest
 
   web:
