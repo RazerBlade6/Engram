@@ -1,4 +1,5 @@
 import pytest
+from docling_core.types.doc import DoclingDocument
 
 from engram.ingest.model import Location, ParsedMaterial
 from engram.ingest.structure import MAX_WORDS, _levels_from_numbering, _pack
@@ -75,3 +76,41 @@ def test_pack_respects_the_word_limit() -> None:
     assert all(len(text.split()) <= MAX_WORDS for text, _ in chunks)
     assert sum(len(text.split()) for text, _ in chunks) == 2 + 800
     assert chunks[0][0].startswith("short paragraph")
+
+
+def _doc_with_unlinked_caption() -> DoclingDocument:
+    from docling_core.types.doc import (
+        BoundingBox,
+        CoordOrigin,
+        DocItemLabel,
+        ImageRef,
+        ProvenanceItem,
+        Size,
+    )
+    from PIL import Image
+
+    def prov(top: float, bottom: float, left: float = 72, right: float = 540) -> ProvenanceItem:
+        box = BoundingBox(l=left, t=top, r=right, b=bottom, coord_origin=CoordOrigin.TOPLEFT)
+        return ProvenanceItem(page_no=1, bbox=box, charspan=(0, 0))
+
+    doc = DoclingDocument(name="unlinked")
+    doc.add_page(page_no=1, size=Size(width=612, height=792))
+    doc.add_heading("1.1 Cells", prov=prov(72, 90))
+    doc.add_text(DocItemLabel.TEXT, "Cells are small.", prov=prov(100, 140))
+    image = ImageRef.from_pil(Image.new("RGB", (300, 200), "white"), dpi=72)
+    doc.add_picture(image=image, prov=prov(150, 350, 150, 450))
+    # Labelled as plain text and not linked to the picture, as Docling sometimes reports it.
+    doc.add_text(DocItemLabel.TEXT, "Figure 1.1 A cell.", prov=prov(355, 370))
+    doc.add_text(DocItemLabel.TEXT, "Figures help.", prov=prov(380, 400))
+    return doc
+
+
+def test_unlinked_caption_is_attached_to_its_figure() -> None:
+    from engram.ingest.structure import OutlineEntry, build
+
+    parsed = build(_doc_with_unlinked_caption(), outline=[OutlineEntry(1, "1.1 Cells", 1)])
+    [figure] = parsed.figures
+    assert figure.caption == "Figure 1.1 A cell."
+    body = " ".join(c.text for c in parsed.chunks)
+    assert "Figure 1.1" not in body
+    assert "Cells are small." in body and "Figures help." in body  # caption-like rule is strict

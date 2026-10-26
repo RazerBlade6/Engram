@@ -95,9 +95,10 @@ def build(
                 add_chunk("slide", text, locations, None)
             for _position, item in page_items:
                 if isinstance(item, PictureItem):
-                    _add_figure(item, doc, None, [], figures)
+                    _add_figure(item, doc, item.caption_text(doc) or None, None, [], figures)
         return ParsedMaterial(page_count, sections, figures, chunks)
 
+    captions, claimed = _captions(items, doc)
     buffer: list[tuple[str, list[Location]]] = []
     buffer_section: Section | None = None
 
@@ -112,15 +113,15 @@ def build(
         if section is not buffer_section:
             flush()
             buffer_section = section
-        if isinstance(item, SectionHeaderItem | TitleItem):
+        if isinstance(item, SectionHeaderItem | TitleItem) or position in claimed:
             continue
         if isinstance(item, PictureItem):
             flush()
-            _add_figure(item, doc, section, path_of(section), figures)
+            _add_figure(item, doc, captions.get(position), section, path_of(section), figures)
         elif isinstance(item, TableItem):
             flush()
             table = item.export_to_markdown(doc)
-            caption = item.caption_text(doc)
+            caption = captions.get(position)
             text = f"{caption}\n\n{table}" if caption else table
             add_chunk("table", text, _locations(item, doc), section)
         elif isinstance(item, TextItem) and item.label != DocItemLabel.CAPTION:
@@ -267,9 +268,44 @@ def _split(paragraph: str) -> Iterator[str]:
         yield " ".join(current)
 
 
+_CAPTION = re.compile(r"^(fig\.|figure|table)\s*\d", re.IGNORECASE)
+
+
+def _captions(items: list[DocItem], doc: DoclingDocument) -> tuple[dict[int, str], set[int]]:
+    """Caption text for each figure and table, by position, and the positions of the text
+    items used as captions (left out of the body text).
+
+    Docling links captions to their figure most of the time, but not reliably (it varies even
+    between platforms). Without a link, the adjacent text on the same page is taken as the
+    caption when it reads like one ("Figure 3.2 ...", "Table 1 ...")."""
+    captions: dict[int, str] = {}
+    claimed: set[int] = set()
+    for position, item in enumerate(items):
+        if not isinstance(item, PictureItem | TableItem):
+            continue
+        if linked := item.caption_text(doc):
+            captions[position] = linked
+            continue
+        for near in (position + 1, position - 1):
+            if near in claimed or not 0 <= near < len(items):
+                continue
+            candidate = items[near]
+            if (
+                isinstance(candidate, TextItem)
+                and not isinstance(candidate, SectionHeaderItem | TitleItem)
+                and _page(candidate) == _page(item)
+                and _CAPTION.match(candidate.text.strip())
+            ):
+                captions[position] = candidate.text.strip()
+                claimed.add(near)
+                break
+    return captions, claimed
+
+
 def _add_figure(
     item: PictureItem,
     doc: DoclingDocument,
+    caption: str | None,
     section: Section | None,
     context: list[str],
     figures: list[Figure],
@@ -288,7 +324,7 @@ def _add_figure(
             ordinal=len(figures),
             location=location,
             image_png=png.getvalue(),
-            caption=item.caption_text(doc) or None,
+            caption=caption,
             section=section.ordinal if section else None,
             context=context,
         )
