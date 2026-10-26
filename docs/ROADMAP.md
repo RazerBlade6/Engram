@@ -195,7 +195,7 @@ Friction is the main risk: a study tool only helps if people open it. These are 
 1. **One obvious action per screen.** The home screen is "Review 23 cards · ~8 min", and everything else is secondary.
 2. **Zero jargon.** No "FSRS", "chunks", "embeddings" or "ease factor". Use "due today", "you know this well", "shaky".
 3. **Zero required configuration.** Chapters are auto-detected and defaults are sensible. No settings screen anyone has to visit.
-4. **Keyboard-first review on desktop** (Space to flip, 1–4 to rate) and large tap targets on mobile. A light theme with large, high-contrast reading text.
+4. **Keyboard-first review on desktop** (Space to flip, 1–4 to rate) and large tap targets on mobile. A light theme by default, with large, high-contrast reading text. A dark theme follows later as an option.
 5. **Every wait is visible and non-blocking.** "Reading your textbook… you can leave, it'll be ready when you're back."
 
 UX is validated with **real users before and during development**. Clickable mockups are tested before any app code is written, and moderated usability sessions close Phases 1 and 2.
@@ -231,7 +231,7 @@ A moderated walkthrough of the light-theme prototype with a target user. Overall
 | Firmly declined a daily reminder                                                                            | Reminders dropped entirely (D6)                                    |
 | Found mixed flashcards and multiple choice acceptable, but would prefer clearer separation                  | Review-order experiment (D20)                                      |
 | Asked for a calendar of all upcoming tests and dates per course                                             | Calendar (D17–D19)                                                 |
-| Light theme and larger text preferred for reading                                                           | Default Light Theme, toggleable to dark theme                      |
+| Light theme and larger text preferred for reading                                                           | Light theme by default, dark theme later (D23)                     |
 
 ### Phase 1: Functional core
 
@@ -255,7 +255,7 @@ The smallest end-to-end product. Tested by developers, not yet handed to users f
 
 A dedicated pass on design and friction. Daily use by users starts at the end of this phase.
 
-- [ ] Design system: tokens, components, light theme
+- [ ] Design system: tokens, components, light theme (tokens structured so a dark theme can be added without a redesign)
 - [ ] Redesign the core flows from the Phase 1 session findings
 - [ ] One-time welcome screen: one sentence on what Engram does, one "Start your first review" button
 - [ ] Empty states, loading states, error states
@@ -280,6 +280,7 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 - [ ] Model benchmark and benchmark-driven routing
 - [ ] Public demo account on OpenStax courses, including CS and STEM titles
 - [ ] Polished ingestion inspector
+- [ ] Dark theme as an option; light stays the default
 - [ ] Published aggregate usage statistics
 - [ ] Fitted learner model compared against the FSRS baseline
 
@@ -309,4 +310,4 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 20  | Review order (mixed, blocked, separate) chosen by a Phase 2 experiment, set by admin only | Users wanted clearer separation of card types; the zero-configuration rule keeps it out of settings            |
 | 21  | One-time welcome screen; first meaningful action within 5 s on a fresh account            | The first load was the most disorienting moment in testing                                                     |
 | 22  | File upload and link entry as separate controls                                           | The link field was mistaken for the upload area in testing                                                     |
-| 23  | Light-only theme with large, high-contrast reading text                                   | Preferred for long reading sessions                                                                            |
+| 23  | Light theme by default with large, high-contrast reading text; dark theme later           | Light preferred for long reading sessions; dark offered as an option once the light theme is settled           |
