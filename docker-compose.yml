@@ -1,0 +1,58 @@
+# Local development: `docker compose up --build` starts the full stack.
+#   web     http://localhost:3000
+#   api     http://localhost:8000  (docs at /docs)
+#   db      postgres://engram:engram@localhost:5432/engram
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: engram
+      POSTGRES_PASSWORD: engram
+      POSTGRES_DB: engram
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U engram -d engram"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: ./backend
+    command: uvicorn engram.api.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir src
+    environment: &backend-env
+      ENGRAM_DATABASE_URL: postgresql://engram:engram@db:5432/engram
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/src:/app/src
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    build: ./backend
+    command: python -m engram.worker.main
+    environment: *backend-env
+    volumes:
+      - ./backend/src:/app/src
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: ./web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./web/src:/app/src
+    depends_on:
+      - api
+
+volumes:
+  db-data:

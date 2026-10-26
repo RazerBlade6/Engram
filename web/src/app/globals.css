@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+/* Light theme is the default. A dark theme comes later by overriding these tokens. */
+:root {
+  --background: #fbfaf7;
+  --foreground: #1c1b19;
+  --muted: #55524c;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+}
+
+html {
+  /* Slightly larger base text for long reading sessions. */
+  font-size: 112.5%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}

@@ -4,7 +4,7 @@ A study system that turns course materials into spaced-repetition practice.
 
 Students bring textbooks, lecture slides, notes and readings. Engram parses them, generates flashcards and practice questions that cite the exact page they came from, schedules reviews with [FSRS](https://github.com/open-spaced-repetition/fsrs4anki/wiki/The-Algorithm), and answers questions about the material when the student gets stuck.
 
-> **Status: Phase 0 (design) complete.** The roadmap is final and a clickable prototype has been tested with a target user. Next: Phase 1, the functional core. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status: Phase 1 (functional core) in progress.** Phase 0 produced the roadmap and a clickable prototype tested with a target user. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What it does
 
@@ -30,12 +30,40 @@ The reasoning behind each choice is in the roadmap's [decision log](docs/ROADMAP
 ## Repository layout
 
 ```text
+backend/            FastAPI app (engram.api) and background worker (engram.worker), Python 3.13, uv
+web/                Next.js app (App Router, TypeScript, Tailwind)
+docker-compose.yml  Local stack: Postgres with pgvector, API, worker, web
 design/prototype/   Clickable prototype of the core screens (single HTML file, open it in a browser)
 docs/ROADMAP.md     Product, architecture, phases and decision log
 docs/usability/     Usability session scripts
 ```
 
-Application code arrives in Phase 1.
+## Development
+
+The whole stack, with hot reload:
+
+```sh
+docker compose up --build
+```
+
+The web app is on http://localhost:3000 and the API on http://localhost:8000 (interactive docs at `/docs`).
+
+Or run each part directly:
+
+```sh
+cd backend
+uv sync
+uv run uvicorn engram.api.main:app --reload   # API
+uv run engram-worker                          # worker
+uv run ruff check . && uv run mypy && uv run pytest
+
+cd web
+npm install
+npm run dev
+npm run lint && npm run typecheck && npm test
+```
+
+CI runs the same lint, type and test checks on every push and pull request.
 
 ## History
 
