@@ -176,7 +176,7 @@ Friction is the main risk: a study tool only helps if people open it. These are 
 1. **One obvious action per screen.** The home screen is "Review 23 cards · ~8 min", and everything else is secondary.
 2. **Zero jargon.** No "FSRS", "chunks", "embeddings" or "ease factor". Use "due today", "you know this well", "shaky".
 3. **Zero required configuration.** Chapters are auto-detected and defaults are sensible. No settings screen anyone has to visit.
-4. **Keyboard-first review on desktop** (Space to flip, 1–4 to rate) and large tap targets on mobile. Dark mode included.
+4. **Keyboard-first review on desktop** (Space to flip, 1–4 to rate) and large tap targets on mobile. A light theme with large, high-contrast reading text.
 5. **Every wait is visible and non-blocking.** "Reading your textbook… you can leave, it'll be ready when you're back."
 
 UX is validated with **real users before and during development**. Clickable mockups are tested before any app code is written, and moderated usability sessions close Phases 1 and 2.
