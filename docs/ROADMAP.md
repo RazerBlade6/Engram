@@ -28,11 +28,11 @@ When the second and third goals conflict with the first, usefulness to users win
 
 ## Users
 
-| Role | Who | What they do |
-|---|---|---|
-| **Student** | Non-technical university students. The initial focus is subjects heavy in terminology, diagrams and argument (life sciences, social sciences), with CS and STEM supported too. | Reviews cards, ticks chapters as covered, asks questions, adds slides, notes and links |
-| **Admin** | The operator of the instance | Ingests textbooks, inspects parse quality, manages invites |
-| **Demo visitor** | Anyone, no sign-up | Browses a read-only demo account built on openly licensed textbooks |
+| Role             | Who                                                                                                                                                                            | What they do                                                                           |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| **Student**      | Non-technical university students. The initial focus is subjects heavy in terminology, diagrams and argument (life sciences, social sciences), with CS and STEM supported too. | Reviews cards, ticks chapters as covered, asks questions, adds slides, notes and links |
+| **Admin**        | The operator of the instance                                                                                                                                                   | Ingests textbooks, inspects parse quality, manages invites                             |
+| **Demo visitor** | Anyone, no sign-up                                                                                                                                                             | Browses a read-only demo account built on openly licensed textbooks                    |
 
 Students mostly study **at a desk on a laptop**, so the experience is designed desktop-first with keyboard-driven review. Phones are supported for occasional reviews but are not the primary target.
 
@@ -44,7 +44,7 @@ Access is **invite-only**, to keep inference costs bounded.
 
 ```text
 Course
- ├─ Exam dates (optional)
+ ├─ Dates          exams, quizzes and deadlines
  ├─ Materials        textbook PDFs, slides, notes (typed or photographed), web articles
  │   └─ Sections     parsed structure with page and bounding-box provenance
  └─ Concepts         auto-extracted from chapter and heading structure
@@ -56,32 +56,51 @@ Course
 1. **Ingest.** The admin uploads a textbook. Students drop slides, notes and article links into a per-course drop zone. Everything is indexed for search and chat immediately.
 2. **Mark covered.** The course view shows the material's table of contents. Ticking "covered" on a chapter generates its cards and adds them to the student's reviews. This is the only trigger for card generation, which keeps cost proportional to use and keeps the deck matched to the syllabus.
 3. **Review.** The home screen shows what is due today and roughly how long it will take. Review is keyboard-first: Space flips the card, 1–4 rates it. The source passage sits beside the card.
-4. **Get unstuck.** Chat answers from course material first, with citations that open the source page with the passage highlighted. If the material doesn't cover the question, the answer falls back to general knowledge and is clearly labeled *not from your course materials*.
+4. **Get unstuck.** Chat answers from course material first, with citations that open the source page with the passage highlighted. If the material doesn't cover the question, the answer falls back to general knowledge and is clearly labeled _not from your course materials_.
 
 ### Card types
 
-| Type | Phase | Notes |
-|---|---|---|
-| Basic Q → A | 1 | |
-| Cloze deletion | 1 | |
-| Multiple choice | 1 | Distractors generated from related concepts |
-| Short answer | 3 | Free-text answer graded by an LLM against the source |
-| Image occlusion | 4 | Mask labels on diagrams, using labels extracted during ingestion |
-| Essay prompts | 4 | Compare-and-contrast prompts graded against a rubric |
+| Type            | Phase | Notes                                                            |
+| --------------- | ----- | ---------------------------------------------------------------- |
+| Basic Q → A     | 1     |                                                                  |
+| Cloze deletion  | 1     |                                                                  |
+| Multiple choice | 1     | Distractors generated from related concepts                      |
+| Short answer    | 3     | Free-text answer graded by an LLM against the source             |
+| Image occlusion | 4     | Mask labels on diagrams, using labels extracted during ingestion |
+| Essay prompts   | 4     | Compare-and-contrast prompts graded against a rubric             |
 
 Generated cards are **strictly grounded**: no fallback to general knowledge.
 
 ### Card quality
 
-Generated cards go directly into the deck, because a mandatory review step is a chore that stands between the user and studying. During review, a one-tap **flag** marks a card as *wrong*, *confusing* or *not useful*, and the card is suspended. An optional triage view lets users curate when they want to. Flags are stored as labeled examples and feed the [evaluation suite](#evaluation).
+Generated cards go directly into the deck, because a mandatory review step is a chore that stands between the user and studying. During review, a one-tap **flag** marks a card as _wrong_, _confusing_ or _not useful_, and the card is suspended. An optional triage view lets users curate when they want to. Flags are stored as labeled examples and feed the [evaluation suite](#evaluation).
 
-### Exams
+### Calendar and exams
 
-Each course can have exam dates, optionally mapped to chapters. Ahead of an exam, a focus mode prioritizes the chapters it covers, layered on top of normal FSRS scheduling.
+A **Calendar** page shows every important date across courses: exams, quizzes, and assignment and essay deadlines, colored by course. It has a month grid with an upcoming list beside it, and the Today screen shows the next one or two dates. Lecture timetables are out of scope: entering them is a lot of work for information students already know.
+
+Dates get in two ways:
+
+- **Quick-add** (Phase 1): a one-line form with course, what and date.
+- **Syllabus extraction** (Phase 3): upload a course syllabus, Engram extracts every date, and the user confirms them in one click.
+
+A subscribable calendar feed is not planned. It sits close to the reminders users turned down, and will only be added if users ask for it.
+
+Exams can optionally be mapped to chapters. Ahead of an exam, a focus mode (Phase 3) prioritizes the chapters it covers, layered on top of normal FSRS scheduling.
+
+### Review order
+
+Whether flashcards and multiple-choice questions are interleaved or separated is decided by experiment, not by guessing. The review queue supports three orderings behind an admin-only switch:
+
+- **Mixed**: card types interleaved in one session.
+- **Blocked**: all flashcards first, then all multiple choice.
+- **Separate**: two distinct sessions, "Review" and "Quiz".
+
+Users try each for a few days during Phase 2, and the preferred one becomes the fixed default. It is never a user-facing setting.
 
 ### Engagement
 
-Using Engram should feel optional. There are **no streaks, badges or gamification**. Skipping a week costs nothing: FSRS reschedules gracefully, and the app shows due counts and per-chapter progress ("you know 80% of Ch. 4 well") without guilt. A daily reminder exists as an opt-in setting, **off by default**.
+Using Engram should feel optional. There are **no streaks, badges or gamification**. Skipping a week costs nothing: FSRS reschedules gracefully, and the app shows due counts and per-chapter progress ("you know 80% of Ch. 4 well") without guilt. There are **no reminders or notifications**: users said a firm no in testing.
 
 ### Interop
 
@@ -115,18 +134,18 @@ flowchart LR
     WK --> LLM
 ```
 
-| Layer | Choice | Why |
-|---|---|---|
-| Frontend | Next.js PWA on Vercel | Familiar, so effort goes into UX rather than framework learning |
-| API | FastAPI (Python) | The ML and parsing ecosystem is in Python |
-| Background jobs | Worker process with a Postgres-backed queue | Ingesting a long textbook takes minutes, which rules out serverless timeouts, and a separate broker isn't worth running at this scale |
-| Database | Postgres with pgvector and full-text search (Supabase) | Relational data, vectors and keyword search in one place |
-| Auth | Supabase Auth | Invite-only accounts without building auth |
-| Storage | Supabase Storage, private buckets | Uploaded textbooks are copyrighted and are never served publicly |
-| Retrieval | Built in-house: hybrid vector and full-text search, section-aware | Owning the pipeline makes it tunable and measurable. No LlamaIndex. |
-| Embeddings | Small open-source model run in-process | Re-indexing costs nothing |
-| LLMs | Provider-agnostic interface | Each job is routed to the model that wins the benchmark for it. See below. |
-| Local dev | Docker Compose | One command brings up the full stack |
+| Layer           | Choice                                                            | Why                                                                                                                                   |
+| --------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend        | Next.js PWA on Vercel                                             | Familiar, so effort goes into UX rather than framework learning                                                                       |
+| API             | FastAPI (Python)                                                  | The ML and parsing ecosystem is in Python                                                                                             |
+| Background jobs | Worker process with a Postgres-backed queue                       | Ingesting a long textbook takes minutes, which rules out serverless timeouts, and a separate broker isn't worth running at this scale |
+| Database        | Postgres with pgvector and full-text search (Supabase)            | Relational data, vectors and keyword search in one place                                                                              |
+| Auth            | Supabase Auth                                                     | Invite-only accounts without building auth                                                                                            |
+| Storage         | Supabase Storage, private buckets                                 | Uploaded textbooks are copyrighted and are never served publicly                                                                      |
+| Retrieval       | Built in-house: hybrid vector and full-text search, section-aware | Owning the pipeline makes it tunable and measurable. No LlamaIndex.                                                                   |
+| Embeddings      | Small open-source model run in-process                            | Re-indexing costs nothing                                                                                                             |
+| LLMs            | Provider-agnostic interface                                       | Each job is routed to the model that wins the benchmark for it. See below.                                                            |
+| Local dev       | Docker Compose                                                    | One command brings up the full stack                                                                                                  |
 
 Target running cost is roughly **$10–30/month** for a small group of users: $0–10 of infrastructure on free and hobby tiers, plus inference.
 
@@ -162,12 +181,12 @@ Other source types use the same output format: slides become one chunk per slide
 
 The eval corpus is built from openly licensed [OpenStax](https://openstax.org) textbooks. The suite runs in CI.
 
-| Suite | Measures | Ground truth |
-|---|---|---|
-| **Retrieval** | recall@k, MRR | Hand-labeled question → passage pairs |
-| **Card quality** | Faithfulness to source, single unambiguous answer, distractor plausibility | LLM judge, calibrated against user flag labels |
-| **Grading** | Agreement between the LLM grader and humans | Hand-graded short answers |
-| **Model benchmark** | Quality vs. cost per job | Output of the suites above, per model. Drives [model routing](#model-routing). |
+| Suite               | Measures                                                                   | Ground truth                                                                   |
+| ------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **Retrieval**       | recall@k, MRR                                                              | Hand-labeled question → passage pairs                                          |
+| **Card quality**    | Faithfulness to source, single unambiguous answer, distractor plausibility | LLM judge, calibrated against user flag labels                                 |
+| **Grading**         | Agreement between the LLM grader and humans                                | Hand-graded short answers                                                      |
+| **Model benchmark** | Quality vs. cost per job                                                   | Output of the suites above, per model. Drives [model routing](#model-routing). |
 
 ## UX principles
 
@@ -193,7 +212,26 @@ UX is validated with **real users before and during development**. Clickable moc
 
 - [x] This roadmap
 - [x] Clickable prototype of the core screens: home, review, course view, chat, upload ([`design/prototype`](../design/prototype/index.html))
-- [ ] Walkthrough with target users ([script](usability/mockup-walkthrough.md)), with the findings folded back into this document
+- [x] Walkthrough with target users ([script](usability/mockup-walkthrough.md)), with the findings folded back into this document
+
+#### Findings
+
+A moderated walkthrough of the light-theme prototype with a target user. Overall the layout and flows held up; detailed polish is left to Phase 2.
+
+| Finding                                                                                                   | Outcome                                                         |
+| --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| The first load was the most confusing moment: about 20 s to get oriented, and about 10 s to find the review | One-time welcome screen, with a "first action under 5 s" bar (D21) |
+| Understood the four rating buttons and, when asked, preferred them to a simple two                         | Keep four ratings (D16)                                         |
+| Found the source panel as soon as prompted, and called it very helpful                                     | Keep as designed                                                |
+| Found the report option when prompted; the three reasons were clear                                        | Keep as designed                                                |
+| Marked a chapter as covered without any friction                                                           | Keep as designed                                                |
+| On the upload task, mistook the link field for the upload area; understood once explained                  | Separate upload and link controls (D22)                         |
+| Found and used chat in about 15 s                                                                          | Keep as designed                                                |
+| Noticed the exam date immediately on landing                                                               | Keep upcoming dates on Today (D18)                              |
+| Firmly declined a daily reminder                                                                           | Reminders dropped entirely (D6)                                 |
+| Found mixed flashcards and multiple choice acceptable, but would prefer clearer separation                | Review-order experiment (D20)                                   |
+| Asked for a calendar of all upcoming tests and dates per course                                            | Calendar (D17–D19)                                              |
+| Light theme and larger text preferred for reading                                                          | Light-only theme (D23)                                          |
 
 ### Phase 1: Functional core
 
@@ -204,9 +242,12 @@ The smallest end-to-end product. Tested by developers, not yet handed to users f
 - [ ] Ingestion: PDF and slides → Docling → figure captions → section-aware chunks → index
 - [ ] Minimal ingestion inspector (admin)
 - [ ] Courses, table of contents, "mark chapter covered"
+- [ ] Student upload for slides (PDF, PowerPoint): a large upload button and drop zone, kept visually separate from link entry
 - [ ] Card generation: Q → A, cloze, MCQ, with source citations
-- [ ] FSRS review with keyboard controls and an in-review flag button
+- [ ] FSRS review with four ratings, keyboard controls and an in-review flag button
+- [ ] Review ordering (mixed, blocked, separate) behind an admin-only switch
 - [ ] Cited chat with click-through to the highlighted source page
+- [ ] Calendar: quick-add for exams, quizzes and deadlines; month grid with an upcoming list; next dates on Today
 - [ ] Usage event logging
 - [ ] **Exit:** a moderated usability session with a target user
 
@@ -214,19 +255,21 @@ The smallest end-to-end product. Tested by developers, not yet handed to users f
 
 A dedicated pass on design and friction. Daily use by users starts at the end of this phase.
 
-- [ ] Design system: tokens, components, light and dark themes
+- [ ] Design system: tokens, components, light theme
 - [ ] Redesign the core flows from the Phase 1 session findings
-- [ ] Onboarding, empty states, loading states, error states
+- [ ] One-time welcome screen: one sentence on what Engram does, one "Start your first review" button
+- [ ] Empty states, loading states, error states
 - [ ] Mobile pass for review
-- [ ] **Exit:** a second moderated session, then users begin daily study
+- [ ] Review-order experiment: a few days on each ordering, then fix the preferred one as the default
+- [ ] **Exit:** a second moderated session where a user on a fresh account takes their first meaningful action within 5 seconds, then users begin daily study
 
 ### Phase 3: Depth for studying
 
-- [ ] Student drop zone: photographed and typed notes, web articles via URL
+- [ ] More sources in the drop zone: photographed and typed notes, web articles via URL ("Add a link instead")
 - [ ] Short-answer cards with LLM grading
 - [ ] Concepts, mastery and the weak-spots view
-- [ ] Exam dates and focus mode
-- [ ] Opt-in daily reminder (off by default)
+- [ ] Syllabus upload with date extraction, confirmed in one click
+- [ ] Exam focus mode: chapters mapped to exams, prioritized ahead of the date
 - [ ] Anki export
 - [ ] Eval suites in CI: retrieval, card quality, grading
 
@@ -242,20 +285,28 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 
 ## Decision log
 
-| # | Decision | Rationale |
-|---|---|---|
-| 1 | Built around active recall and spaced repetition; chat is secondary | Strongest evidence base for learning outcomes; "chat with a PDF" is a crowded category |
-| 2 | Generated cards strictly grounded; chat falls back to labeled general knowledge | Cards are memorized, so they must be right. Chat should still help when the material explains something badly. |
-| 3 | Cards auto-accepted, flagged in review, optional triage | A mandatory triage step adds friction; flags still produce eval labels |
-| 4 | Card generation triggered per chapter by "mark covered" | Cost scales with use, the deck follows the syllabus, a single obvious action |
-| 5 | Desktop-first, keyboard-driven review | The primary context is studying at a desk on a laptop |
-| 6 | No gamification; reminders opt-in and off by default | The tool should be available, not pushy |
-| 7 | Provider-agnostic LLM layer, routing decided by benchmark | Best quality per cost for each job, and a measurable model choice |
-| 8 | Docling plus vision captions, section-aware chunks with bounding boxes | Diagram-heavy, multi-column textbooks need layout-aware parsing; precise citations build trust |
-| 9 | Own retrieval pipeline instead of LlamaIndex | Tunable, measurable, no framework lock-in |
-| 10 | Supabase + Fly.io + Vercel, Postgres-backed job queue | Long-running ingestion needs a worker; one database covers relational, vector and full-text data at low cost |
-| 11 | Invite-only accounts plus a public read-only demo | Bounded costs; anyone can evaluate the product without uploading anything |
-| 12 | OpenStax for demo and eval corpus; user uploads never used | Openly licensed and legally shareable; user data stays private |
-| 13 | Dedicated UI/UX phase before daily use | A bad first impression is hard to undo, and friction is the main risk |
-| 14 | Mockups validated with users before writing code | Changing a mockup is far cheaper than changing a built app |
-| 15 | Anki export | No lock-in lowers the cost of trying Engram |
+| #   | Decision                                                                        | Rationale                                                                                                      |
+| --- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 1   | Built around active recall and spaced repetition; chat is secondary             | Strongest evidence base for learning outcomes; "chat with a PDF" is a crowded category                         |
+| 2   | Generated cards strictly grounded; chat falls back to labeled general knowledge | Cards are memorized, so they must be right. Chat should still help when the material explains something badly. |
+| 3   | Cards auto-accepted, flagged in review, optional triage                         | A mandatory triage step adds friction; flags still produce eval labels                                         |
+| 4   | Card generation triggered per chapter by "mark covered"                         | Cost scales with use, the deck follows the syllabus, a single obvious action                                   |
+| 5   | Desktop-first, keyboard-driven review                                           | The primary context is studying at a desk on a laptop                                                          |
+| 6   | No gamification, no reminders or notifications                                  | The tool should be available, not pushy; users firmly declined reminders in testing                            |
+| 7   | Provider-agnostic LLM layer, routing decided by benchmark                       | Best quality per cost for each job, and a measurable model choice                                              |
+| 8   | Docling plus vision captions, section-aware chunks with bounding boxes          | Diagram-heavy, multi-column textbooks need layout-aware parsing; precise citations build trust                 |
+| 9   | Own retrieval pipeline instead of LlamaIndex                                    | Tunable, measurable, no framework lock-in                                                                      |
+| 10  | Supabase + Fly.io + Vercel, Postgres-backed job queue                           | Long-running ingestion needs a worker; one database covers relational, vector and full-text data at low cost   |
+| 11  | Invite-only accounts plus a public read-only demo                               | Bounded costs; anyone can evaluate the product without uploading anything                                      |
+| 12  | OpenStax for demo and eval corpus; user uploads never used                      | Openly licensed and legally shareable; user data stays private                                                 |
+| 13  | Dedicated UI/UX phase before daily use                                          | A bad first impression is hard to undo, and friction is the main risk                                          |
+| 14  | Mockups validated with users before writing code                                | Changing a mockup is far cheaper than changing a built app                                                     |
+| 15  | Anki export                                                                     | No lock-in lowers the cost of trying Engram                                                                    |
+| 16  | Four self-ratings: Forgot, Hard, Got it, Easy                                   | Understood in testing, and preferred over two buttons                                                          |
+| 17  | Calendar of exams, quizzes and deadlines per course; no lecture timetable       | Requested in testing; a timetable is a lot of entry work for information students already know                 |
+| 18  | Dates via quick-add, then syllabus extraction; next dates shown on Today        | Low-effort entry; the exam date on Today was the first thing noticed in testing                                |
+| 19  | Calendar in Phase 1, exam focus mode stays in Phase 3; no calendar feed unless asked for | Cheap to build and a reason to open the app beyond reviews; a feed is close to the declined reminders |
+| 20  | Review order (mixed, blocked, separate) chosen by a Phase 2 experiment, set by admin only | Users wanted clearer separation of card types; the zero-configuration rule keeps it out of settings   |
+| 21  | One-time welcome screen; first meaningful action within 5 s on a fresh account  | The first load was the most disorienting moment in testing                                                     |
+| 22  | File upload and link entry as separate controls                                 | The link field was mistaken for the upload area in testing                                                     |
+| 23  | Light-only theme with large, high-contrast reading text                         | Preferred for long reading sessions                                                                            |
