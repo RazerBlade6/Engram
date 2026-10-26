@@ -1,0 +1,43 @@
+[project]
+name = "engram"
+version = "0.1.0"
+description = "Engram API and background worker"
+authors = [
+    { name = "Vedant Thapar", email = "vedant.thapar@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.162.0",
+    "pydantic-settings>=2.16.1",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "mypy>=2.4.0",
+    "pytest>=9.1.1",
+    "ruff>=0.17.2",
+]
+
+[project.scripts]
+engram-worker = "engram.worker.main:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "ASYNC", "RUF"]
+
+[tool.mypy]
+strict = true
+packages = ["engram"]
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
