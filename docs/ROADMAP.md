@@ -2,7 +2,7 @@
 
 Engram is a study system that turns course materials into spaced-repetition practice. Users bring textbooks, lecture slides, notes and readings. Engram parses them, generates flashcards and practice questions that cite the exact page they came from, schedules reviews with FSRS, and answers questions about the material when the user gets stuck.
 
-It replaces ScholarRAG, a single-afternoon "chat with your textbook" prototype. None of the prototype code is kept.
+It replaces an earlier single-afternoon "chat with your textbook" prototype. None of that code is kept.
 
 ## Contents
 
