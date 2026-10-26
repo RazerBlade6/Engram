@@ -5,12 +5,22 @@
   --background: #fbfaf7;
   --foreground: #1c1b19;
   --muted: #55524c;
+  --border: #d6d2c8;
+  --accent: #2f5d8a;
+  --accent-strong: #244a6f;
+  --danger: #9b2c2c;
+  --danger-soft: #fbeaea;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
 }
 
 html {

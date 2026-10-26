@@ -311,3 +311,4 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 21  | One-time welcome screen; first meaningful action within 5 s on a fresh account            | The first load was the most disorienting moment in testing                                                     |
 | 22  | File upload and link entry as separate controls                                           | The link field was mistaken for the upload area in testing                                                     |
 | 23  | Light theme by default with large, high-contrast reading text; dark theme later           | Light preferred for long reading sessions; dark offered as an option once the light theme is settled           |
+| 24  | Row-level security is the single enforcement point for data access                        | The API runs each request as the signed-in user, so one set of policies, tested in CI, guards every path       |

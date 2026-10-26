@@ -49,3 +49,6 @@ desktop.ini
 # Private local context, never commit
 .private/
 CLAUDE.local.md
+
+# Local Supabase JWT signing keys
+supabase/signing_keys.json

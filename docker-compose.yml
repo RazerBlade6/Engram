@@ -1,58 +1,53 @@
-# Local development: `docker compose up --build` starts the full stack.
-#   web     http://localhost:3000
-#   api     http://localhost:8000  (docs at /docs)
-#   db      postgres://engram:engram@localhost:5432/engram
+# Local development. Supabase (Postgres, Auth, Storage) runs from the Supabase CLI:
+#
+#   supabase start
+#   docker compose up --build
+#
+#   web       http://localhost:3000
+#   api       http://localhost:8000  (docs at /docs)
+#   supabase  http://localhost:54323 (Studio), emails caught at http://localhost:54324
+#
+# Supabase keys come from `.env` in the repo root; see `.env.example`.
+
+name: engram
+
+x-backend: &backend
+  build: ./backend
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    ENGRAM_DATABASE_URL: postgresql://postgres:postgres@host.docker.internal:54322/postgres
+    ENGRAM_SUPABASE_URL: http://host.docker.internal:54321
+    ENGRAM_SUPABASE_JWT_ISSUER: http://127.0.0.1:54321/auth/v1
+    ENGRAM_WEB_URL: http://localhost:3000
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  volumes:
+    - ./backend/src:/app/src
 
 services:
-  db:
-    image: pgvector/pgvector:pg17
-    environment:
-      POSTGRES_USER: engram
-      POSTGRES_PASSWORD: engram
-      POSTGRES_DB: engram
-    ports:
-      - "5432:5432"
-    volumes:
-      - db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U engram -d engram"]
-      interval: 2s
-      timeout: 5s
-      retries: 20
-
   api:
-    build: ./backend
+    <<: *backend
     command: uvicorn engram.api.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir src
-    environment: &backend-env
-      ENGRAM_DATABASE_URL: postgresql://engram:engram@db:5432/engram
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend/src:/app/src
-    depends_on:
-      db:
-        condition: service_healthy
 
   worker:
-    build: ./backend
+    <<: *backend
     command: python -m engram.worker.main
-    environment: *backend-env
-    volumes:
-      - ./backend/src:/app/src
-    depends_on:
-      db:
-        condition: service_healthy
 
   web:
     build: ./web
+    env_file:
+      - path: .env
+        required: false
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
     ports:
       - "3000:3000"
     volumes:
       - ./web/src:/app/src
     depends_on:
       - api
-
-volumes:
-  db-data:
