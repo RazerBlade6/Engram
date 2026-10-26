@@ -218,20 +218,20 @@ UX is validated with **real users before and during development**. Clickable moc
 
 A moderated walkthrough of the light-theme prototype with a target user. Overall the layout and flows held up; detailed polish is left to Phase 2.
 
-| Finding                                                                                                   | Outcome                                                         |
-| --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Finding                                                                                                     | Outcome                                                            |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | The first load was the most confusing moment: about 20 s to get oriented, and about 10 s to find the review | One-time welcome screen, with a "first action under 5 s" bar (D21) |
-| Understood the four rating buttons and, when asked, preferred them to a simple two                         | Keep four ratings (D16)                                         |
-| Found the source panel as soon as prompted, and called it very helpful                                     | Keep as designed                                                |
-| Found the report option when prompted; the three reasons were clear                                        | Keep as designed                                                |
-| Marked a chapter as covered without any friction                                                           | Keep as designed                                                |
-| On the upload task, mistook the link field for the upload area; understood once explained                  | Separate upload and link controls (D22)                         |
-| Found and used chat in about 15 s                                                                          | Keep as designed                                                |
-| Noticed the exam date immediately on landing                                                               | Keep upcoming dates on Today (D18)                              |
-| Firmly declined a daily reminder                                                                           | Reminders dropped entirely (D6)                                 |
-| Found mixed flashcards and multiple choice acceptable, but would prefer clearer separation                | Review-order experiment (D20)                                   |
-| Asked for a calendar of all upcoming tests and dates per course                                            | Calendar (D17–D19)                                              |
-| Light theme and larger text preferred for reading                                                          | Light-only theme (D23)                                          |
+| Understood the four rating buttons and, when asked, preferred them to a simple two                          | Keep four ratings (D16)                                            |
+| Found the source panel as soon as prompted, and called it very helpful                                      | Keep as designed                                                   |
+| Found the report option when prompted; the three reasons were clear                                         | Keep as designed                                                   |
+| Marked a chapter as covered without any friction                                                            | Keep as designed                                                   |
+| On the upload task, mistook the link field for the upload area; understood once explained                   | Separate upload and link controls (D22)                            |
+| Found and used chat in about 15 s                                                                           | Keep as designed                                                   |
+| Noticed the exam date immediately on landing                                                                | Keep upcoming dates on Today (D18)                                 |
+| Firmly declined a daily reminder                                                                            | Reminders dropped entirely (D6)                                    |
+| Found mixed flashcards and multiple choice acceptable, but would prefer clearer separation                  | Review-order experiment (D20)                                      |
+| Asked for a calendar of all upcoming tests and dates per course                                             | Calendar (D17–D19)                                                 |
+| Light theme and larger text preferred for reading                                                           | Default Light Theme, toggleable to dark theme                      |
 
 ### Phase 1: Functional core
 
@@ -285,28 +285,28 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 
 ## Decision log
 
-| #   | Decision                                                                        | Rationale                                                                                                      |
-| --- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| 1   | Built around active recall and spaced repetition; chat is secondary             | Strongest evidence base for learning outcomes; "chat with a PDF" is a crowded category                         |
-| 2   | Generated cards strictly grounded; chat falls back to labeled general knowledge | Cards are memorized, so they must be right. Chat should still help when the material explains something badly. |
-| 3   | Cards auto-accepted, flagged in review, optional triage                         | A mandatory triage step adds friction; flags still produce eval labels                                         |
-| 4   | Card generation triggered per chapter by "mark covered"                         | Cost scales with use, the deck follows the syllabus, a single obvious action                                   |
-| 5   | Desktop-first, keyboard-driven review                                           | The primary context is studying at a desk on a laptop                                                          |
-| 6   | No gamification, no reminders or notifications                                  | The tool should be available, not pushy; users firmly declined reminders in testing                            |
-| 7   | Provider-agnostic LLM layer, routing decided by benchmark                       | Best quality per cost for each job, and a measurable model choice                                              |
-| 8   | Docling plus vision captions, section-aware chunks with bounding boxes          | Diagram-heavy, multi-column textbooks need layout-aware parsing; precise citations build trust                 |
-| 9   | Own retrieval pipeline instead of LlamaIndex                                    | Tunable, measurable, no framework lock-in                                                                      |
-| 10  | Supabase + Fly.io + Vercel, Postgres-backed job queue                           | Long-running ingestion needs a worker; one database covers relational, vector and full-text data at low cost   |
-| 11  | Invite-only accounts plus a public read-only demo                               | Bounded costs; anyone can evaluate the product without uploading anything                                      |
-| 12  | OpenStax for demo and eval corpus; user uploads never used                      | Openly licensed and legally shareable; user data stays private                                                 |
-| 13  | Dedicated UI/UX phase before daily use                                          | A bad first impression is hard to undo, and friction is the main risk                                          |
-| 14  | Mockups validated with users before writing code                                | Changing a mockup is far cheaper than changing a built app                                                     |
-| 15  | Anki export                                                                     | No lock-in lowers the cost of trying Engram                                                                    |
-| 16  | Four self-ratings: Forgot, Hard, Got it, Easy                                   | Understood in testing, and preferred over two buttons                                                          |
-| 17  | Calendar of exams, quizzes and deadlines per course; no lecture timetable       | Requested in testing; a timetable is a lot of entry work for information students already know                 |
-| 18  | Dates via quick-add, then syllabus extraction; next dates shown on Today        | Low-effort entry; the exam date on Today was the first thing noticed in testing                                |
-| 19  | Calendar in Phase 1, exam focus mode stays in Phase 3; no calendar feed unless asked for | Cheap to build and a reason to open the app beyond reviews; a feed is close to the declined reminders |
-| 20  | Review order (mixed, blocked, separate) chosen by a Phase 2 experiment, set by admin only | Users wanted clearer separation of card types; the zero-configuration rule keeps it out of settings   |
-| 21  | One-time welcome screen; first meaningful action within 5 s on a fresh account  | The first load was the most disorienting moment in testing                                                     |
-| 22  | File upload and link entry as separate controls                                 | The link field was mistaken for the upload area in testing                                                     |
-| 23  | Light-only theme with large, high-contrast reading text                         | Preferred for long reading sessions                                                                            |
+| #   | Decision                                                                                  | Rationale                                                                                                      |
+| --- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| 1   | Built around active recall and spaced repetition; chat is secondary                       | Strongest evidence base for learning outcomes; "chat with a PDF" is a crowded category                         |
+| 2   | Generated cards strictly grounded; chat falls back to labeled general knowledge           | Cards are memorized, so they must be right. Chat should still help when the material explains something badly. |
+| 3   | Cards auto-accepted, flagged in review, optional triage                                   | A mandatory triage step adds friction; flags still produce eval labels                                         |
+| 4   | Card generation triggered per chapter by "mark covered"                                   | Cost scales with use, the deck follows the syllabus, a single obvious action                                   |
+| 5   | Desktop-first, keyboard-driven review                                                     | The primary context is studying at a desk on a laptop                                                          |
+| 6   | No gamification, no reminders or notifications                                            | The tool should be available, not pushy; users firmly declined reminders in testing                            |
+| 7   | Provider-agnostic LLM layer, routing decided by benchmark                                 | Best quality per cost for each job, and a measurable model choice                                              |
+| 8   | Docling plus vision captions, section-aware chunks with bounding boxes                    | Diagram-heavy, multi-column textbooks need layout-aware parsing; precise citations build trust                 |
+| 9   | Own retrieval pipeline instead of LlamaIndex                                              | Tunable, measurable, no framework lock-in                                                                      |
+| 10  | Supabase + Fly.io + Vercel, Postgres-backed job queue                                     | Long-running ingestion needs a worker; one database covers relational, vector and full-text data at low cost   |
+| 11  | Invite-only accounts plus a public read-only demo                                         | Bounded costs; anyone can evaluate the product without uploading anything                                      |
+| 12  | OpenStax for demo and eval corpus; user uploads never used                                | Openly licensed and legally shareable; user data stays private                                                 |
+| 13  | Dedicated UI/UX phase before daily use                                                    | A bad first impression is hard to undo, and friction is the main risk                                          |
+| 14  | Mockups validated with users before writing code                                          | Changing a mockup is far cheaper than changing a built app                                                     |
+| 15  | Anki export                                                                               | No lock-in lowers the cost of trying Engram                                                                    |
+| 16  | Four self-ratings: Forgot, Hard, Got it, Easy                                             | Understood in testing, and preferred over two buttons                                                          |
+| 17  | Calendar of exams, quizzes and deadlines per course; no lecture timetable                 | Requested in testing; a timetable is a lot of entry work for information students already know                 |
+| 18  | Dates via quick-add, then syllabus extraction; next dates shown on Today                  | Low-effort entry; the exam date on Today was the first thing noticed in testing                                |
+| 19  | Calendar in Phase 1, exam focus mode stays in Phase 3; no calendar feed unless asked for  | Cheap to build and a reason to open the app beyond reviews; a feed is close to the declined reminders          |
+| 20  | Review order (mixed, blocked, separate) chosen by a Phase 2 experiment, set by admin only | Users wanted clearer separation of card types; the zero-configuration rule keeps it out of settings            |
+| 21  | One-time welcome screen; first meaningful action within 5 s on a fresh account            | The first load was the most disorienting moment in testing                                                     |
+| 22  | File upload and link entry as separate controls                                           | The link field was mistaken for the upload area in testing                                                     |
+| 23  | Light-only theme with large, high-contrast reading text                                   | Preferred for long reading sessions                                                                            |
