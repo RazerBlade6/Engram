@@ -1,5 +1,7 @@
 # ScholarRAG
 
+> **Status: being rebuilt as Engram**, a spaced-repetition study system that turns course materials into cited flashcards and practice questions. See [docs/ROADMAP.md](docs/ROADMAP.md) for the design and phased plan. The code below is the original prototype and will be replaced.
+
 A textbook-focused RAG starter project using:
 
 - Backend: FastAPI

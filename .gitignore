@@ -8,3 +8,8 @@ __pycache__/
 .streamlit/
 backend/data/chroma/
 backend/data/uploads/
+.DS_Store
+
+# Private local context, never commit
+.private/
+CLAUDE.local.md
