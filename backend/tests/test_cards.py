@@ -13,7 +13,7 @@ from engram.api.main import create_app
 from engram.cards import job as cards_job
 from engram.cards.generate import CardSet, GeneratedCard, Passage, Source, accept, batches
 from engram.config import Settings
-from engram.llm import ProviderError, ProviderUnavailable, Router
+from engram.llm import ProviderError, ProviderUnavailable, Router, Usage
 from engram.worker.queue import Job
 from tests.test_api import FakeVerifier, auth, token_for
 
@@ -126,8 +126,11 @@ class FakeProvider:
         parts: list[Any],
         schema: type[BaseModel],
         max_tokens: int = 4096,
+        usage: Usage | None = None,
     ) -> Any:
         prompt = parts[-1].text
+        if usage is not None:
+            usage.add(Usage(1, 100, 10, models={model}))
         self.prompts.append(prompt)
         if self.during:
             self.during()
@@ -265,6 +268,12 @@ async def test_cards_are_made_from_the_chapter_but_not_its_review_questions(
         ("Ribosomes make proteins.", "fake:writer-1", "cards-v2"),
     ]
     assert status(database_url, chapter) == [("ready",)]
+    assert rows(
+        database_url,
+        "select job, model, requests, input_tokens, output_tokens from public.llm_usage"
+        " where section_id = %s",
+        chapter["id"],
+    ) == [("generate_cards", "writer-1", 1, 100, 10)]
 
 
 async def test_marking_again_keeps_the_cards_and_makes_no_more(

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal, Protocol
 
 from pydantic import BaseModel
@@ -38,6 +38,27 @@ class ImagePart:
 Part = TextPart | ImagePart
 
 
+@dataclass
+class Usage:
+    """Tokens billed across the requests that were given this object. Thinking counts as
+    output. A request is counted even when its output is unusable, since it is still billed."""
+
+    requests: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cache_read_input_tokens: int = 0
+    cache_creation_input_tokens: int = 0
+    models: set[str] = field(default_factory=set)
+
+    def add(self, other: "Usage") -> None:
+        self.requests += other.requests
+        self.input_tokens += other.input_tokens
+        self.output_tokens += other.output_tokens
+        self.cache_read_input_tokens += other.cache_read_input_tokens
+        self.cache_creation_input_tokens += other.cache_creation_input_tokens
+        self.models |= other.models
+
+
 class ProviderError(RuntimeError):
     """The provider declined this request, or returned nothing usable for it."""
 
@@ -57,6 +78,8 @@ class Provider(Protocol):
         parts: list[Part],
         schema: type[T],
         max_tokens: int = 4096,
+        usage: Usage | None = None,
     ) -> T:
-        """Ask for a response that validates against `schema`."""
+        """Ask for a response that validates against `schema`, adding what the request cost
+        to `usage` if given."""
         ...

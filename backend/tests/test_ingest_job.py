@@ -12,7 +12,7 @@ from engram.config import Settings
 from engram.ingest import job as ingest_job
 from engram.ingest.describe import FigureDescription
 from engram.ingest.model import Chunk, Figure, Location, ParsedMaterial, Section
-from engram.llm import ProviderError, Router
+from engram.llm import ProviderError, Router, Usage
 from engram.worker.queue import Job
 
 PNG = b"\x89PNG fake"
@@ -60,8 +60,11 @@ class FakeProvider:
         parts: list[Any],
         schema: type[BaseModel],
         max_tokens: int = 4096,
+        usage: Usage | None = None,
     ) -> Any:
         prompt = parts[-1].text
+        if usage is not None:
+            usage.add(Usage(1, 100, 10, models={model}))
         if any(word in prompt for word in self.decline):
             raise ProviderError("declined")
         return FigureDescription(
@@ -293,6 +296,12 @@ async def test_declined_figure_keeps_its_caption(
     )
     assert figures[0] == (None, [], None)
     assert figures[1][0] == "A cell with a nucleus."
+    # Both figures were sent, the declined one included: both are billed.
+    assert rows(
+        database_url,
+        "select job, model, requests from public.llm_usage where material_id = %s",
+        material["id"],
+    ) == [("describe_figures", "vision-1", 2)]
     [content] = rows(
         database_url,
         "select content from public.chunks where material_id = %s"

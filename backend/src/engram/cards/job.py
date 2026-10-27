@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import re
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from psycopg import AsyncConnection
@@ -28,7 +29,8 @@ from engram.cards.generate import (
 from engram.config import Settings
 from engram.errors import PermanentError
 from engram.llm import Job as LLMJob
-from engram.llm import ProviderError, Router, TextPart
+from engram.llm import Provider, ProviderError, Router, TextPart, Usage
+from engram.usage import record
 from engram.worker.queue import Handler, Job
 
 logger = logging.getLogger(__name__)
@@ -106,23 +108,56 @@ async def generate(conn: AsyncConnection[Any], section_id: str, *, router: Route
         await _finish(conn, section_id, material_id, [], router)
         return
 
-    async with conn.cursor() as pcur:
-        await pcur.execute(_PASSAGES, {"section": section_id})
-        passages = [
+    provider, model = router.provider_for(LLMJob.CARD_GENERATION)
+    usage = Usage()
+    try:
+        cards = await make_cards(
+            chapter,
+            await load_passages(conn, section_id),
+            provider,
+            model,
+            usage=usage,
+            still_covered=lambda: _covered(conn, section_id),
+        )
+    except Unmarked:
+        logger.info("section %s was unmarked; stopped generating", section_id)
+        return
+    finally:
+        # Recorded however the run ended: every finished request was billed.
+        await record(conn, KIND, usage, material_id=material_id, section_id=section_id)
+    await _finish(conn, section_id, material_id, cards, router)
+
+
+async def load_passages(conn: AsyncConnection[Any], section_id: str) -> list[Passage]:
+    """The chapter's passages in reading order, minus end-of-chapter material."""
+    async with conn.cursor() as cur:
+        await cur.execute(_PASSAGES, {"section": section_id})
+        return [
             Passage(chunk_id, group, kind, heading_path, content, locations)
             for chunk_id, group, group_title, kind, heading_path, content, locations in (
-                await pcur.fetchall()
+                await cur.fetchall()
             )
             if not _SKIPPED.match(group_title.strip())
         ]
 
-    provider, model = router.provider_for(LLMJob.CARD_GENERATION)
+
+async def make_cards(
+    chapter: str,
+    passages: list[Passage],
+    provider: Provider,
+    model: str,
+    *,
+    usage: Usage,
+    still_covered: Callable[[], Awaitable[bool]],
+) -> list[Card]:
+    """Cards for a chapter's passages, one request per batch, several at a time. Raises
+    `Unmarked` as soon as `still_covered` says no, cancelling requests in flight."""
     gate = asyncio.Semaphore(CONCURRENCY)
     work = batches(passages)
 
     async def one(batch: list[Passage]) -> list[Card] | None:
         async with gate:
-            if not await _covered(conn, section_id):
+            if not await still_covered():
                 raise Unmarked
             try:
                 result = await provider.structured(
@@ -131,31 +166,27 @@ async def generate(conn: AsyncConnection[Any], section_id: str, *, router: Route
                     parts=[TextPart(prompt_for(chapter, batch))],
                     schema=CardSet,
                     max_tokens=MAX_TOKENS,
+                    usage=usage,
                 )
             except ProviderError as exc:
-                logger.warning("section %s, %s passages: %s", section_id, len(batch), exc)
+                logger.warning("%s, %s passages: %s", chapter, len(batch), exc)
                 return None
         cards, dropped = accept(result.cards, batch)
         if dropped:
-            logger.info("section %s: dropped %s", section_id, dropped)
+            logger.info("%s: dropped %s", chapter, dropped)
         return cards
 
-    # A task group, so that once one batch sees the chapter unmarked, the calls still in
-    # flight are cancelled too.
     try:
         async with asyncio.TaskGroup() as group:
             tasks = [group.create_task(one(b)) for b in work]
     except ExceptionGroup as exc:
-        if exc.subgroup(Unmarked) is None:
-            # Unwrapped, so the worker still sees e.g. a permanent error as permanent.
-            raise exc.exceptions[0] from exc
-        logger.info("section %s was unmarked; stopped generating", section_id)
-        return
+        # Unwrapped, so callers can catch `Unmarked` and the worker still sees e.g. a
+        # permanent error as permanent.
+        raise (exc.subgroup(Unmarked) or exc).exceptions[0] from exc
     results = [t.result() for t in tasks]
     if work and all(r is None for r in results):
-        raise ProviderError(f"no batch of section {section_id} produced cards")
-    cards = [card for r in results if r for card in r]
-    await _finish(conn, section_id, material_id, cards, router)
+        raise ProviderError(f"no batch of {chapter!r} produced cards")
+    return [card for r in results if r for card in r]
 
 
 async def _finish(
