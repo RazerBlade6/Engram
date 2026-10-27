@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from engram import __version__
 from engram.api.pages import PdfPages
-from engram.api.routes import admin, inspector, me
+from engram.api.routes import admin, courses, inspector, materials, me, review
 from engram.config import get_settings
 from engram.storage import Storage
 
@@ -28,6 +28,7 @@ def create_app() -> FastAPI:
             Storage(settings) as storage,
         ):
             app.state.pool = pool
+            app.state.storage = storage
             app.state.pages = PdfPages(storage)
             yield
 
@@ -45,6 +46,9 @@ def create_app() -> FastAPI:
         return Health(status="ok", version=__version__)
 
     app.include_router(me.router)
+    app.include_router(courses.router)
+    app.include_router(materials.router)
+    app.include_router(review.router)
     app.include_router(admin.router)
     app.include_router(inspector.router)
     return app

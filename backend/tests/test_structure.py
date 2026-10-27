@@ -174,3 +174,46 @@ def test_caption_of_a_dropped_picture_is_kept_as_text() -> None:
     )
     assert parsed.figures == []
     assert [c.text for c in parsed.chunks] == ["Figure 5.14 Cone sensitivity."]
+
+
+def test_powerpoint_boxes_are_converted_to_points() -> None:
+    from docling_core.types.doc import (
+        BoundingBox,
+        CoordOrigin,
+        DocItemLabel,
+        DocumentOrigin,
+        ImageRef,
+        ProvenanceItem,
+        Size,
+    )
+    from PIL import Image
+
+    from engram.ingest.structure import EMU_PER_POINT, build
+
+    def prov(left: float, top: float, right: float, bottom: float) -> ProvenanceItem:
+        box = BoundingBox(
+            l=left * EMU_PER_POINT,
+            t=top * EMU_PER_POINT,
+            r=right * EMU_PER_POINT,
+            b=bottom * EMU_PER_POINT,
+            coord_origin=CoordOrigin.TOPLEFT,
+        )
+        return ProvenanceItem(page_no=1, bbox=box, charspan=(0, 0))
+
+    mimetype = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    doc = DoclingDocument(
+        name="slides",
+        origin=DocumentOrigin(mimetype=mimetype, binary_hash=1, filename="week3.pptx"),
+    )
+    doc.add_page(page_no=1, size=Size(width=720 * EMU_PER_POINT, height=540 * EMU_PER_POINT))
+    doc.add_text(DocItemLabel.TEXT, "Parts of a neuron", prov=prov(36, 21.6, 684, 111.6))
+    image = ImageRef.from_pil(Image.new("RGB", (300, 200), "white"), dpi=72)
+    doc.add_picture(image=image, prov=prov(144, 144, 504, 384))
+    # A logo: tiny once measured in points, though millions of EMU across.
+    doc.add_picture(image=image, prov=prov(650, 500, 700, 530))
+
+    parsed = build(doc, outline=[], slides=True)
+    [slide] = parsed.chunks
+    assert slide.locations[0].bbox == (36, 21.6, 684, 111.6)
+    [figure] = parsed.figures
+    assert figure.location.bbox == (144, 144, 504, 384)

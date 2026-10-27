@@ -245,10 +245,10 @@ The smallest end-to-end product. Tested by developers, not yet handed to users f
 - [x] Supabase project: schema, auth (invite-only), private storage
 - [x] Ingestion: PDF and slides → Docling → figure captions → section-aware chunks → index
 - [x] Minimal ingestion inspector (admin)
-- [ ] Courses, table of contents, "mark chapter covered"
-- [ ] Student upload for slides (PDF, PowerPoint): a large upload button and drop zone, kept visually separate from link entry
-- [ ] Card generation: Q → A, cloze, MCQ, with source citations
-- [ ] FSRS review with four ratings, keyboard controls and an in-review flag button
+- [x] Courses, table of contents, "mark chapter covered"
+- [x] Student upload for slides (PDF, PowerPoint): a large upload button and drop zone, kept visually separate from link entry
+- [x] Card generation: Q → A, cloze, MCQ, with source citations
+- [x] FSRS review with four ratings, keyboard controls and an in-review flag button
 - [ ] Review ordering (mixed, blocked, separate) behind an admin-only switch
 - [ ] Cited chat with click-through to the highlighted source page
 - [ ] Calendar: quick-add for exams, quizzes and deadlines; month grid with an upcoming list; next dates on Today
@@ -320,3 +320,9 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 26  | Card generation starts on the stronger model                                              | Cards are memorized; a cheaper model must pass the card-quality eval first                                     |
 | 27  | Citations returned as chunk IDs through the provider interface                            | Keeps native Citations without tying the product to one provider                                               |
 | 28  | Only paid LLM tiers that exclude training on submitted content                            | Uploaded materials are copyrighted and private                                                                 |
+| 29  | Unmarking a chapter keeps its cards and stops generation that hasn't finished             | Unmarking is usually a slip or a change of plan; review history shouldn't be lost to it                        |
+| 30  | Each card quotes its source verbatim; cards whose quotes aren't found are dropped         | Grounding is checked in code, not trusted to the prompt (D2)                                                   |
+| 31  | About one card per 150 words of chapter, end-of-chapter questions skipped                 | Uncapped, a 30-page chapter gave 150 cards, many trivia: more than a student keeps up with                     |
+| 32  | Up to 20 new cards a day, chapters covered first                                          | Bounds the daily load at roughly 15 minutes once reviews build up                                              |
+| 33  | Only each card's current schedule is stored; review history waits for consent             | Scheduling needs no history, and ratings are usage events                                                      |
+| 34  | Multiple choice grades itself: right is "Got it", wrong is "Forgot"                       | One action per card; asking how well you knew an answer you just got wrong adds a step                         |

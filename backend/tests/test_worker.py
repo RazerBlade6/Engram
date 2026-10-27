@@ -14,6 +14,7 @@ async def test_run_once_completes_job(conn: AsyncConnection[Any]) -> None:
     async def handler(job: Job) -> None:
         seen.append(job)
 
+    await conn.execute("delete from public.jobs")  # rolled back after the test
     job_id = await queue.enqueue(conn, "test", {"n": 1})
     assert await run_once(conn, "w", {"test": handler})
     assert [j.id for j in seen] == [job_id]
@@ -25,6 +26,7 @@ async def test_run_once_records_failure_and_unknown_kinds(conn: AsyncConnection[
     async def broken(job: Job) -> None:
         raise ValueError("bad input")
 
+    await conn.execute("delete from public.jobs")
     failing = await queue.enqueue(conn, "broken")
     unknown = await queue.enqueue(conn, "unknown")
     assert await run_once(conn, "w", {"broken": broken})
@@ -59,6 +61,7 @@ async def test_permanent_errors_skip_retries(conn: AsyncConnection[Any]) -> None
     async def misconfigured(job: Job) -> None:
         raise PermanentError("no credentials")
 
+    await conn.execute("delete from public.jobs")
     job_id = await queue.enqueue(conn, "needs-key")
     assert await run_once(conn, "w", {"needs-key": misconfigured})
     cur = await conn.execute(

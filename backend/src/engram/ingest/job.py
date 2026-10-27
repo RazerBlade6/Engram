@@ -17,8 +17,9 @@ from engram.ingest import store
 from engram.ingest.describe import describe_figures, figure_text
 from engram.ingest.model import Chunk, ParsedMaterial
 from engram.llm import Job as LLMJob
-from engram.llm import Router
+from engram.llm import Router, Usage
 from engram.storage import Storage
+from engram.usage import record
 from engram.worker.queue import Handler, Job
 
 logger = logging.getLogger(__name__)
@@ -105,7 +106,11 @@ async def ingest(
         len(parsed.chunks),
     )
 
-    descriptions = await describe_figures(parsed.figures, router)
+    usage = Usage()
+    try:
+        descriptions = await describe_figures(parsed.figures, router, usage)
+    finally:
+        await record(conn, "describe_figures", usage, material_id=material_id)
     figure_prefix = f"{Path(storage_path).parent}/figures"
     await storage.remove_prefix(figure_prefix)
     figure_paths = []

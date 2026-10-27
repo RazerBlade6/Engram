@@ -5,7 +5,7 @@ import pytest
 from pydantic import BaseModel
 
 from engram.config import Settings
-from engram.llm import ImagePart, Job, ModelRef, ProviderError, Router, TextPart
+from engram.llm import ImagePart, Job, ModelRef, ProviderError, Router, TextPart, Usage
 from engram.llm.anthropic import AnthropicProvider
 
 
@@ -74,3 +74,20 @@ async def test_missing_credentials_are_permanent() -> None:
     provider = AnthropicProvider(SimpleNamespace(messages=NoAuth()))  # type: ignore[arg-type]
     with pytest.raises(PermanentError):
         await provider.structured("m", system="s", parts=[TextPart("x")], schema=Answer)
+
+
+async def test_anthropic_usage_is_counted_even_when_the_output_is_unusable() -> None:
+    billed = SimpleNamespace(
+        input_tokens=1000,
+        output_tokens=200,
+        cache_read_input_tokens=None,
+        cache_creation_input_tokens=50,
+    )
+    usage = Usage()
+    provider = AnthropicProvider(stub_client(usage=billed))
+    await provider.structured("m", system="s", parts=[TextPart("x")], schema=Answer, usage=usage)
+    with pytest.raises(ProviderError):
+        await AnthropicProvider(stub_client(usage=billed, stop_reason="refusal")).structured(
+            "m", system="s", parts=[TextPart("x")], schema=Answer, usage=usage
+        )
+    assert usage == Usage(2, 2000, 400, 0, 100, {"m"})

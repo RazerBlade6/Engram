@@ -12,7 +12,7 @@ from engram.config import Settings
 from engram.ingest import job as ingest_job
 from engram.ingest.describe import FigureDescription
 from engram.ingest.model import Chunk, Figure, Location, ParsedMaterial, Section
-from engram.llm import ProviderError, Router
+from engram.llm import ProviderError, Router, Usage
 from engram.worker.queue import Job
 
 PNG = b"\x89PNG fake"
@@ -53,9 +53,18 @@ class FakeProvider:
         self.decline = decline or set()
 
     async def structured(
-        self, model: str, *, system: str, parts: list[Any], schema: type[BaseModel]
+        self,
+        model: str,
+        *,
+        system: str,
+        parts: list[Any],
+        schema: type[BaseModel],
+        max_tokens: int = 4096,
+        usage: Usage | None = None,
     ) -> Any:
         prompt = parts[-1].text
+        if usage is not None:
+            usage.add(Usage(1, 100, 10, models={model}))
         if any(word in prompt for word in self.decline):
             raise ProviderError("declined")
         return FigureDescription(
@@ -213,6 +222,63 @@ async def test_reingesting_replaces_previous_rows(
     assert len(storage.objects) == 1
 
 
+async def test_reingesting_keeps_coverage_of_matching_sections(
+    database_url: str, material: dict[str, str]
+) -> None:
+    settings = Settings(database_url=database_url)
+    job = Job(1, ingest_job.KIND, {"material_id": material["id"]}, 1, 3)
+    await handler(settings, FakeStorage(), lambda p, s: parsed_material())(job)
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute(
+            "insert into public.covered_sections (section_id, covered_by)"
+            " select id, %s from public.sections where material_id = %s",
+            (material["owner"], material["id"]),
+        )
+
+    # Chapter 2 is renamed by the new parse, so its mark has nothing to attach to.
+    reparsed = parsed_material()
+    reparsed.sections[2] = Section(2, 1, "Chapter 2 Heredity", 4, 4)
+    await handler(settings, FakeStorage(), lambda p, s: reparsed)(job)
+
+    covered = rows(
+        database_url,
+        "select s.title, c.covered_by::text from public.covered_sections c"
+        " join public.sections s on s.id = c.section_id"
+        " where s.material_id = %s order by s.ordinal",
+        material["id"],
+    )
+    assert covered == [("Chapter 1 Cells", material["owner"]), ("1.1 Structure", material["owner"])]
+
+
+async def test_reingesting_keeps_cards_with_their_chapter(
+    database_url: str, material: dict[str, str]
+) -> None:
+    settings = Settings(database_url=database_url)
+    job = Job(1, ingest_job.KIND, {"material_id": material["id"]}, 1, 3)
+    await handler(settings, FakeStorage(), lambda p, s: parsed_material())(job)
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute(
+            "insert into public.cards (material_id, section_id, ordinal, kind, concept, prompt,"
+            " answer, sources, generated_by, prompt_version)"
+            " select material_id, id, 0, 'basic', 'c', 'Q', 'A', %s, 'm', 'v'"
+            " from public.sections where material_id = %s and level = 1",
+            ('[{"quote": "q", "locations": []}]', material["id"]),
+        )
+
+    reparsed = parsed_material()
+    reparsed.sections[2] = Section(2, 1, "Chapter 2 Heredity", 4, 4)
+    await handler(settings, FakeStorage(), lambda p, s: reparsed)(job)
+
+    cards = rows(
+        database_url,
+        "select s.title from public.cards k left join public.sections s on s.id = k.section_id"
+        " where k.material_id = %s order by s.title nulls last",
+        material["id"],
+    )
+    # Chapter 2 was renamed: its card is kept, waiting for a chapter to belong to.
+    assert cards == [("Chapter 1 Cells",), (None,)]
+
+
 async def test_declined_figure_keeps_its_caption(
     database_url: str, material: dict[str, str]
 ) -> None:
@@ -230,6 +296,12 @@ async def test_declined_figure_keeps_its_caption(
     )
     assert figures[0] == (None, [], None)
     assert figures[1][0] == "A cell with a nucleus."
+    # Both figures were sent, the declined one included: both are billed.
+    assert rows(
+        database_url,
+        "select job, model, requests from public.llm_usage where material_id = %s",
+        material["id"],
+    ) == [("describe_figures", "vision-1", 2)]
     [content] = rows(
         database_url,
         "select content from public.chunks where material_id = %s"

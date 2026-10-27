@@ -24,9 +24,10 @@ logger = logging.getLogger("engram.worker")
 
 
 def build_handlers(settings: Settings) -> dict[str, Handler]:
+    from engram.cards import job as cards
     from engram.ingest import job as ingest
 
-    return {ingest.KIND: ingest.make_handler(settings)}
+    return {ingest.KIND: ingest.make_handler(settings), cards.KIND: cards.make_handler(settings)}
 
 
 async def run_once(

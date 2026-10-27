@@ -13,6 +13,7 @@ from engram.llm.base import (
     ProviderError,
     ProviderUnavailable,
     TextPart,
+    Usage,
 )
 from engram.llm.router import Job, Router
 
@@ -25,4 +26,5 @@ __all__ = [
     "ProviderUnavailable",
     "Router",
     "TextPart",
+    "Usage",
 ]

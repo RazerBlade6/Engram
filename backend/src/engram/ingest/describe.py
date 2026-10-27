@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from engram.ingest.model import Figure
-from engram.llm import ImagePart, Job, ProviderError, Router, TextPart
+from engram.llm import ImagePart, Job, ProviderError, Router, TextPart, Usage
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +33,9 @@ class FigureDescription(BaseModel):
     )
 
 
-async def describe_figures(figures: list[Figure], router: Router) -> list[FigureDescription | None]:
+async def describe_figures(
+    figures: list[Figure], router: Router, usage: Usage | None = None
+) -> list[FigureDescription | None]:
     """One description per figure, in order. A figure the model declines gets None; any other
     error (bad credentials, an outage after retries) fails the whole batch."""
     provider, model = router.provider_for(Job.FIGURE_DESCRIPTION)
@@ -49,6 +51,7 @@ async def describe_figures(figures: list[Figure], router: Router) -> list[Figure
                     system=SYSTEM,
                     parts=[ImagePart(figure.image_png), TextPart(prompt)],
                     schema=FigureDescription,
+                    usage=usage,
                 )
             except ProviderError as exc:
                 logger.warning(
