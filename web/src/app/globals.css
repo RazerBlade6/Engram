@@ -10,6 +10,11 @@
   --accent-strong: #244a6f;
   --danger: #9b2c2c;
   --danger-soft: #fbeaea;
+  --success: #2e6b3a;
+  /* Ingestion inspector overlays */
+  --box-text: #2f5d8a;
+  --box-table: #2e7d4f;
+  --box-figure: #b5541c;
 }
 
 @theme inline {
@@ -21,6 +26,7 @@
   --color-accent-strong: var(--accent-strong);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
 }
 
 html {

@@ -7,8 +7,10 @@ from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel
 
 from engram import __version__
-from engram.api.routes import admin, me
+from engram.api.pages import PdfPages
+from engram.api.routes import admin, inspector, me
 from engram.config import get_settings
+from engram.storage import Storage
 
 
 class Health(BaseModel):
@@ -21,8 +23,12 @@ def create_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        async with AsyncConnectionPool(settings.database_url, min_size=1, open=False) as pool:
+        async with (
+            AsyncConnectionPool(settings.database_url, min_size=1, open=False) as pool,
+            Storage(settings) as storage,
+        ):
             app.state.pool = pool
+            app.state.pages = PdfPages(storage)
             yield
 
     app = FastAPI(title="Engram API", version=__version__, lifespan=lifespan)
@@ -40,6 +46,7 @@ def create_app() -> FastAPI:
 
     app.include_router(me.router)
     app.include_router(admin.router)
+    app.include_router(inspector.router)
     return app
 
 

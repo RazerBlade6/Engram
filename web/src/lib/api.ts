@@ -16,8 +16,8 @@ export class ApiError extends Error {
   }
 }
 
-/** Calls the Engram API as the signed-in user and returns the parsed JSON body. */
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+/** Calls the Engram API as the signed-in user; throws ApiError unless the response is OK. */
+export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const { data } = await supabase().auth.getSession();
   const headers = new Headers(init.headers);
   if (data.session) headers.set("Authorization", `Bearer ${data.session.access_token}`);
@@ -28,5 +28,11 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     const body = await response.json().catch(() => ({}));
     throw new ApiError(response.status, body.detail ?? response.statusText);
   }
+  return response;
+}
+
+/** Calls the Engram API as the signed-in user and returns the parsed JSON body. */
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await apiFetch(path, init);
   return response.json() as Promise<T>;
 }

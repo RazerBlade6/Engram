@@ -1,28 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 
-import { api } from "@/lib/api";
+import { useProfile } from "@/lib/profile";
 import { supabase } from "@/lib/supabase";
-
-type Profile = { id: string; display_name: string | null; role: "student" | "admin" };
 
 export default function Home() {
   const router = useRouter();
-  const [profile, setProfile] = useState<Profile | null>(null);
-
-  useEffect(() => {
-    supabase()
-      .auth.getSession()
-      .then(async ({ data }) => {
-        if (!data.session) {
-          router.replace("/sign-in");
-          return;
-        }
-        setProfile(await api<Profile>("/me"));
-      });
-  }, [router]);
+  const profile = useProfile();
 
   async function signOut() {
     await supabase().auth.signOut();
@@ -42,6 +28,13 @@ export default function Home() {
         </button>
       </div>
       <p className="mt-4 text-muted">Nothing due yet.</p>
+      {profile.role === "admin" && (
+        <p className="mt-8">
+          <Link href="/admin" className="text-accent underline">
+            Ingested materials
+          </Link>
+        </p>
+      )}
     </main>
   );
 }
