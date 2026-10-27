@@ -387,16 +387,27 @@ def _page(item: DocItem) -> int:
 def _locations(item: DocItem, doc: DoclingDocument) -> list[Location]:
     """Every region the item occupies: a paragraph can continue into the next column or page."""
     locations = []
+    unit = _points_per_unit(doc)
     for prov in item.prov:
         height = doc.pages[prov.page_no].size.height
         bbox = prov.bbox.to_top_left_origin(page_height=height)
+        edges = (bbox.l, bbox.t, bbox.r, bbox.b)
         locations.append(
             Location(
                 page=prov.page_no,
-                bbox=(round(bbox.l, 1), round(bbox.t, 1), round(bbox.r, 1), round(bbox.b, 1)),
+                bbox=tuple(round(edge * unit, 1) for edge in edges),  # type: ignore[arg-type]
             )
         )
     return locations
+
+
+EMU_PER_POINT = 12700
+
+
+def _points_per_unit(doc: DoclingDocument) -> float:
+    """Boxes are stored in PDF points. Docling reports PowerPoint positions in EMU."""
+    mimetype = doc.origin.mimetype if doc.origin else ""
+    return 1 / EMU_PER_POINT if "presentationml" in mimetype else 1.0
 
 
 def _by_page(items: list[DocItem]) -> Iterator[tuple[int, list[tuple[int, DocItem]]]]:
