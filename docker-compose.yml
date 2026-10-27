@@ -25,6 +25,7 @@ x-backend: &backend
     - "host.docker.internal:host-gateway"
   volumes:
     - ./backend/src:/app/src
+    - models:/models  # Docling and embedding models, downloaded on first use
 
 services:
   api:
@@ -35,6 +36,10 @@ services:
 
   worker:
     <<: *backend
+    build:
+      context: ./backend
+      args:
+        EXTRAS: --extra ingest
     command: python -m engram.worker.main
 
   web:
@@ -51,3 +56,6 @@ services:
       - ./web/src:/app/src
     depends_on:
       - api
+
+volumes:
+  models:

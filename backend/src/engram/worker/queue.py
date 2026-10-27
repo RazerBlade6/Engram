@@ -72,9 +72,12 @@ async def complete(conn: AsyncConnection[Any], job: Job) -> None:
     )
 
 
-async def fail(conn: AsyncConnection[Any], job: Job, error: str) -> None:
-    """Requeue with exponential backoff, or mark failed once attempts are used up."""
-    if job.attempts >= job.max_attempts:
+async def fail(
+    conn: AsyncConnection[Any], job: Job, error: str, *, permanent: bool = False
+) -> None:
+    """Requeue with exponential backoff, or mark failed once attempts are used up (or at once,
+    for a permanent error)."""
+    if permanent or job.attempts >= job.max_attempts:
         await conn.execute(
             "update public.jobs set status = 'failed', last_error = %s,"
             " locked_at = null, locked_by = null where id = %s",

@@ -7,7 +7,9 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "anthropic>=2.3.0",
     "fastapi>=0.162.0",
+    "fastembed>=0.9.1",
     "httpx>=0.28.1",
     "psycopg[binary,pool]>=3.3.6",
     "pydantic-settings>=2.16.1",
@@ -15,6 +17,10 @@ dependencies = [
     "pyjwt[crypto]>=2.15.1",
     "uvicorn[standard]>=0.54.0",
 ]
+
+[project.optional-dependencies]
+# Document parsing pulls in PyTorch and layout models; only the worker installs it.
+ingest = ["docling>=2.142.1", "torch", "torchvision"]
 
 [build-system]
 requires = ["uv_build>=0.13.5,<0.14.0"]
@@ -25,11 +31,13 @@ dev = [
     "mypy>=2.4.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.1",
+    "reportlab>=5.1.0",
     "ruff>=0.17.2",
 ]
 
 [project.scripts]
 engram-worker = "engram.worker.main:main"
+engram-admin = "engram.admin:main"
 
 [tool.ruff]
 line-length = 100
@@ -43,7 +51,25 @@ strict = true
 packages = ["engram"]
 mypy_path = "src"
 
+[[tool.mypy.overrides]]
+module = ["pypdfium2", "pypdfium2.*", "fastembed", "fastembed.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["docling_core.*"]
+implicit_reexport = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+# CPU-only PyTorch on Linux (Docker, CI): the default wheels bundle CUDA and are several GB.
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

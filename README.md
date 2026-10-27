@@ -54,11 +54,24 @@ The web app is on http://localhost:3000, the API on http://localhost:8000 (inter
 
 Accounts are invite-only. To create the first admin locally, add a user in Studio (Authentication → Add user), then run `update profiles set role = 'admin' where id = '<user id>';` in the SQL editor. Admins invite others with `POST /admin/invites`.
 
+### Ingesting a textbook
+
+Admins add textbooks from the command line. The worker parses the file with Docling, describes each figure with a vision model (set `ANTHROPIC_API_KEY` in `.env`), embeds the chunks and builds the table of contents.
+
+```sh
+cd backend
+uv run engram-admin create-course --owner student@example.com --title "Biology 101"
+uv run engram-admin ingest ~/books/biology.pdf --course <course id>
+uv run engram-admin materials            # status: queued → processing → ready (or failed, with the error)
+```
+
+The first ingestion downloads Docling's layout models and the embedding model (a few hundred MB); later runs reuse them.
+
 Or run each part directly:
 
 ```sh
 cd backend
-uv sync
+uv sync --all-extras                          # the ingest extra brings Docling and PyTorch
 uv run uvicorn engram.api.main:app --reload   # API
 uv run engram-worker                          # worker
 uv run ruff check . && uv run mypy && uv run pytest

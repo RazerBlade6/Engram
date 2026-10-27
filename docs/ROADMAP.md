@@ -143,7 +143,7 @@ flowchart LR
 | Auth            | Supabase Auth                                                     | Invite-only accounts without building auth                                                                                            |
 | Storage         | Supabase Storage, private buckets                                 | Uploaded textbooks are copyrighted and are never served publicly                                                                      |
 | Retrieval       | Built in-house: hybrid vector and full-text search, section-aware | Owning the pipeline makes it tunable and measurable. No LlamaIndex.                                                                   |
-| Embeddings      | Small open-source model run in-process                            | Re-indexing costs nothing                                                                                                             |
+| Embeddings      | Small open-source model run in-process (ONNX)                     | Re-indexing costs nothing                                                                                                             |
 | LLMs            | Provider-agnostic interface                                       | Each job is routed to the model that wins the benchmark for it. See below.                                                            |
 | Local dev       | Docker Compose                                                    | One command brings up the full stack                                                                                                  |
 
@@ -153,9 +153,13 @@ Target running cost is roughly **$10–30/month** for a small group of users: $0
 
 LLM calls go through a thin interface, so no provider is hard-coded.
 
-- **Reasoning-heavy jobs** (grading, explanations, chat) default to Claude via the Anthropic API, using its native PDF input, Citations and prompt caching.
-- **Bulk jobs** (figure captioning, card generation) use the cheapest model that passes the quality bar.
-- The routing is decided by the [model benchmark](#evaluation), not by preference.
+- **Reasoning-heavy jobs** (grading, explanations, chat) default to Claude via the Anthropic API, using its Citations and prompt caching.
+- **Bulk jobs** (figure captioning) use the cheapest model that passes the quality bar.
+- **Card generation** starts on the stronger model and moves to a cheaper one only once the card-quality eval shows it passes. Cards are memorized, so a wrong one costs more than the tokens saved.
+- The routing is decided by the [model benchmark](#evaluation), not by preference. Until the eval suites exist (Phase 3), each job runs on a **provisional default** set in configuration, and every generated card records the model and prompt version that produced it, so later evals can compare models and attribute flags.
+- **Citations are part of the interface.** A grounded answer comes back with the IDs of the chunks it cites, which map to a page and a highlight box. The Anthropic adapter fills this from native Citations, passing retrieved chunks as custom-content documents; any other provider must produce chunk IDs and have them validated.
+- Only the Anthropic adapter is built at first. Other providers are added when the benchmark needs them, and only on paid tiers whose terms exclude training on submitted content.
+- **Embeddings** run in-process via ONNX, in both the worker (documents) and the API (questions). The provisional model is `bge-small-en-v1.5` (384 dimensions). Each stored embedding records its model, so switching is a migration plus a re-embed job.
 
 ## Ingestion pipeline
 
@@ -238,8 +242,8 @@ A moderated walkthrough of the light-theme prototype with a target user. Overall
 The smallest end-to-end product. Tested by developers, not yet handed to users for daily study.
 
 - [x] Repo scaffold: FastAPI, worker, Next.js, Docker Compose, CI (lint, types, tests)
-- [ ] Supabase project: schema, auth (invite-only), private storage
-- [ ] Ingestion: PDF and slides → Docling → figure captions → section-aware chunks → index
+- [x] Supabase project: schema, auth (invite-only), private storage
+- [x] Ingestion: PDF and slides → Docling → figure captions → section-aware chunks → index
 - [ ] Minimal ingestion inspector (admin)
 - [ ] Courses, table of contents, "mark chapter covered"
 - [ ] Student upload for slides (PDF, PowerPoint): a large upload button and drop zone, kept visually separate from link entry
@@ -312,3 +316,7 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 22  | File upload and link entry as separate controls                                           | The link field was mistaken for the upload area in testing                                                     |
 | 23  | Light theme by default with large, high-contrast reading text; dark theme later           | Light preferred for long reading sessions; dark offered as an option once the light theme is settled           |
 | 24  | Row-level security is the single enforcement point for data access                        | The API runs each request as the signed-in user, so one set of policies, tested in CI, guards every path       |
+| 25  | Provisional per-job model defaults in config until the eval suites exist                  | Routing by benchmark needs the benchmark; defaults keep Phase 1 moving and stay swappable                      |
+| 26  | Card generation starts on the stronger model                                              | Cards are memorized; a cheaper model must pass the card-quality eval first                                     |
+| 27  | Citations returned as chunk IDs through the provider interface                            | Keeps native Citations without tying the product to one provider                                               |
+| 28  | Only paid LLM tiers that exclude training on submitted content                            | Uploaded materials are copyrighted and private                                                                 |

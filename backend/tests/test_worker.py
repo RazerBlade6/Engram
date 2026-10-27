@@ -51,3 +51,17 @@ async def test_worker_stops_when_signalled(conn: AsyncConnection[Any]) -> None:
     await asyncio.sleep(0.05)
     stop.set()
     await asyncio.wait_for(task, timeout=1)
+
+
+async def test_permanent_errors_skip_retries(conn: AsyncConnection[Any]) -> None:
+    from engram.errors import PermanentError
+
+    async def misconfigured(job: Job) -> None:
+        raise PermanentError("no credentials")
+
+    job_id = await queue.enqueue(conn, "needs-key")
+    assert await run_once(conn, "w", {"needs-key": misconfigured})
+    cur = await conn.execute(
+        "select status::text, attempts from public.jobs where id = %s", (job_id,)
+    )
+    assert await cur.fetchone() == ("failed", 1)
