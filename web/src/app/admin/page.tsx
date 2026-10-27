@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { AdminOnly } from "@/components/admin-only";
 import { Toast, type ToastMessage } from "@/components/toast";
-import { api, apiFetch } from "@/lib/api";
+import { ApiError, api, apiFetch } from "@/lib/api";
 import type { MaterialSummary } from "@/lib/inspector";
 import { ORDER_LABEL, type ReviewOrder } from "@/lib/review";
 
@@ -102,8 +102,9 @@ function People() {
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const toastId = useRef(0);
 
+  const load = () => api<Person[]>("/admin/people").then(setPeople);
   useEffect(() => {
-    api<Person[]>("/admin/people").then(setPeople);
+    load();
   }, []);
 
   /** Shows the change at once and puts it back if it can't be saved. */
@@ -142,6 +143,7 @@ function People() {
         <b className="text-foreground">Usage logging</b> records what they do (ratings, flags, pages, timings, never
         their words). Turn it on only after they&apos;ve agreed. Turning it off stops logging.
       </p>
+      <InviteForm onInvited={load} />
       <table className="mt-6 w-full border-collapse text-left">
         <thead className="border-b border-border text-muted">
           <tr>
@@ -198,6 +200,75 @@ function People() {
       </table>
       <Toast key={toast?.id} toast={toast} onDone={() => setToast(null)} />
     </section>
+  );
+}
+
+/** Accounts are invite-only: the email's link opens the page where they choose a password. */
+function InviteForm({ onInvited }: { onInvited: () => void }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function invite(e: FormEvent) {
+    e.preventDefault();
+    setSending(true);
+    setResult(null);
+    try {
+      await apiFetch("/admin/invites", {
+        method: "POST",
+        body: JSON.stringify({ email: email.trim(), display_name: name.trim() || null }),
+      });
+      setResult({ ok: true, text: `Invite sent to ${email.trim()}.` });
+      setName("");
+      setEmail("");
+      onInvited();
+    } catch (error) {
+      const text =
+        error instanceof ApiError && error.status === 409
+          ? "That email already has an account."
+          : "The invite couldn't be sent. Check the email address and try again.";
+      setResult({ ok: false, text });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <form onSubmit={invite} className="mt-6 flex flex-wrap items-end gap-3">
+      <label className="flex flex-col gap-1">
+        <span className="font-medium">Name</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoComplete="off"
+          className="rounded-lg border border-border bg-white px-3 py-2"
+        />
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="font-medium">Email</span>
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="off"
+          className="w-72 rounded-lg border border-border bg-white px-3 py-2"
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={sending}
+        className="rounded-lg bg-accent px-6 py-2 font-medium text-white hover:bg-accent-strong disabled:opacity-50"
+      >
+        {sending ? "Sending…" : "Send invite"}
+      </button>
+      {result && (
+        <p role="status" className={`w-full ${result.ok ? "text-muted" : "text-danger"}`}>
+          {result.text}
+        </p>
+      )}
+    </form>
   );
 }
 
