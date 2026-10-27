@@ -52,9 +52,13 @@ def client(storage: FakeStorage) -> Iterator[TestClient]:
 
 
 @pytest.fixture
-def course(database_url: str, make_user: Callable[..., str]) -> dict[str, str]:
+def course(database_url: str, make_user: Callable[..., str]) -> Iterator[dict[str, str]]:
+    """A course with a textbook. Uploads queue real ingestion jobs; they are removed afterwards
+    so they can't be claimed by tests that run the worker."""
     owner = make_user()
     with psycopg.connect(database_url, autocommit=True) as c:
+        last_job = c.execute("select coalesce(max(id), 0) from public.jobs").fetchone()
+        assert last_job
         row = c.execute(
             "insert into public.courses (owner_id, title) values (%s, 'Psychology') returning id",
             (owner,),
@@ -66,7 +70,11 @@ def course(database_url: str, make_user: Callable[..., str]) -> dict[str, str]:
             (row[0], f"{row[0]}/book/psych.pdf"),
         ).fetchone()
         assert textbook
-    return {"id": str(row[0]), "owner": owner, "textbook": str(textbook[0])}
+    yield {"id": str(row[0]), "owner": owner, "textbook": str(textbook[0])}
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute(
+            "delete from public.jobs where id > %s and kind = 'ingest_material'", (last_job[0],)
+        )
 
 
 def rows(database_url: str, sql: str, *params: Any) -> list[tuple[Any, ...]]:
