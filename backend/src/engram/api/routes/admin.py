@@ -1,5 +1,6 @@
 """Admin-only operations. Accounts are invite-only: public sign-up is disabled in Supabase."""
 
+from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -57,6 +58,13 @@ class Person(BaseModel):
     display_name: str | None
     role: Literal["student", "admin"]
     review_order: Order
+    # When they agreed to usage logging, as recorded by an admin; None if they haven't.
+    usage_consent_at: datetime | None
+    events_this_week: int
+
+
+class UsageConsent(BaseModel):
+    consented: bool
 
 
 class ReviewOrder(BaseModel):
@@ -65,11 +73,15 @@ class ReviewOrder(BaseModel):
 
 @router.get("/people", dependencies=[Depends(require_admin)])
 async def people(db: UserDb) -> list[Person]:
-    """Everyone with an account, with the review order each is trying."""
+    """Everyone with an account, the review order each is trying, and whether they agreed to
+    usage logging."""
     async with db.cursor(row_factory=class_row(Person)) as cur:
         await cur.execute(
-            "select id, display_name, role::text as role, review_order::text as review_order"
-            " from public.profiles order by role, display_name nulls last, created_at"
+            "select p.id, p.display_name, p.role::text as role,"
+            " p.review_order::text as review_order, p.usage_consent_at,"
+            " (select count(*) from public.usage_events e where e.user_id = p.id"
+            "   and e.created_at > now() - interval '7 days')::int as events_this_week"
+            " from public.profiles p order by p.role, p.display_name nulls last, p.created_at"
         )
         return await cur.fetchall()
 
@@ -82,6 +94,24 @@ async def people(db: UserDb) -> list[Person]:
 async def set_review_order(person_id: UUID, body: ReviewOrder, db: UserDb) -> Response:
     cur = await db.execute(
         "update public.profiles set review_order = %s where id = %s", (body.order, person_id)
+    )
+    if cur.rowcount == 0:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such person")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put(
+    "/people/{person_id}/usage-consent",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+async def set_usage_consent(person_id: UUID, body: UsageConsent, db: UserDb) -> Response:
+    """Record that a person agreed to usage logging, or that they withdrew. Withdrawing stops
+    logging; events already logged are kept unless they ask for them to be deleted."""
+    cur = await db.execute(
+        "update public.profiles set usage_consent_at ="
+        " case when %s then coalesce(usage_consent_at, now()) end where id = %s",
+        (body.consented, person_id),
     )
     if cur.rowcount == 0:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No such person")

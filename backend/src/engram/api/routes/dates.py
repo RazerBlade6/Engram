@@ -16,7 +16,9 @@ from fastapi import APIRouter, HTTPException, Response, status
 from psycopg.rows import class_row
 from pydantic import BaseModel, Field, StringConstraints
 
+from engram.api import usage
 from engram.api.db import UserDb
+from engram.api.usage import Visit
 
 router = APIRouter()
 
@@ -90,6 +92,11 @@ async def _one(db: UserDb, date_id: UUID) -> CourseDate:
     return found
 
 
+def _described(body: NewDate) -> dict[str, object]:
+    """A date for the usage log: its kind and how many chapters, not its name."""
+    return {"kind": body.kind, "on": body.on, "chapters": len(body.chapters)}
+
+
 @router.get("/dates")
 async def list_dates(db: UserDb) -> list[CourseDate]:
     """Every date across the student's courses, earliest first."""
@@ -99,7 +106,7 @@ async def list_dates(db: UserDb) -> list[CourseDate]:
 
 
 @router.post("/courses/{course_id}/dates", status_code=status.HTTP_201_CREATED)
-async def add_date(course_id: UUID, body: NewDate, db: UserDb) -> CourseDate:
+async def add_date(course_id: UUID, body: NewDate, db: UserDb, visit: Visit) -> CourseDate:
     try:
         cur = await db.execute(
             "insert into public.course_dates (course_id, kind, title, on_date)"
@@ -112,11 +119,12 @@ async def add_date(course_id: UUID, body: NewDate, db: UserDb) -> CourseDate:
     row = await cur.fetchone()
     assert row is not None
     await _set_chapters(db, row[0], body.chapters)
+    await usage.log(db, visit, "date_added", date_id=row[0], **_described(body))
     return await _one(db, row[0])
 
 
 @router.put("/dates/{date_id}")
-async def change_date(date_id: UUID, body: NewDate, db: UserDb) -> CourseDate:
+async def change_date(date_id: UUID, body: NewDate, db: UserDb, visit: Visit) -> CourseDate:
     cur = await db.execute(
         "update public.course_dates set kind = %s, title = %s, on_date = %s where id = %s",
         (body.kind, body.title, body.on, date_id),
@@ -124,10 +132,13 @@ async def change_date(date_id: UUID, body: NewDate, db: UserDb) -> CourseDate:
     if cur.rowcount == 0:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Date not found")
     await _set_chapters(db, date_id, body.chapters)
+    await usage.log(db, visit, "date_changed", date_id=date_id, **_described(body))
     return await _one(db, date_id)
 
 
 @router.delete("/dates/{date_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_date(date_id: UUID, db: UserDb) -> Response:
-    await db.execute("delete from public.course_dates where id = %s", (date_id,))
+async def delete_date(date_id: UUID, db: UserDb, visit: Visit) -> Response:
+    cur = await db.execute("delete from public.course_dates where id = %s", (date_id,))
+    if cur.rowcount:
+        await usage.log(db, visit, "date_deleted", date_id=date_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

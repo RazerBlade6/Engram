@@ -15,7 +15,9 @@ from fastapi import APIRouter, HTTPException, Response, status
 from psycopg.rows import class_row
 from pydantic import BaseModel
 
+from engram.api import usage
 from engram.api.db import UserDb
+from engram.api.usage import Visit
 
 router = APIRouter()
 
@@ -190,9 +192,9 @@ async def get_course(course_id: UUID, db: UserDb) -> Course:
 
 
 @router.put("/sections/{section_id}/covered")
-async def mark_covered(section_id: UUID, db: UserDb) -> Coverage:
+async def mark_covered(section_id: UUID, db: UserDb, visit: Visit) -> Coverage:
     try:
-        await db.execute(
+        inserted = await db.execute(
             "insert into public.covered_sections (section_id) values (%s)"
             " on conflict (section_id) do nothing",
             (section_id,),
@@ -206,6 +208,8 @@ async def mark_covered(section_id: UUID, db: UserDb) -> Coverage:
     row = await cur.fetchone()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Section not found")
+    if inserted.rowcount:
+        await usage.log(db, visit, "chapter_covered", section_id=section_id)
     return Coverage(section_id=section_id, covered_at=row[0])
 
 
@@ -241,6 +245,10 @@ async def list_cards(section_id: UUID, db: UserDb) -> list[Card]:
 
 
 @router.delete("/sections/{section_id}/covered", status_code=status.HTTP_204_NO_CONTENT)
-async def unmark_covered(section_id: UUID, db: UserDb) -> Response:
-    await db.execute("delete from public.covered_sections where section_id = %s", (section_id,))
+async def unmark_covered(section_id: UUID, db: UserDb, visit: Visit) -> Response:
+    cur = await db.execute(
+        "delete from public.covered_sections where section_id = %s", (section_id,)
+    )
+    if cur.rowcount:
+        await usage.log(db, visit, "chapter_unmarked", section_id=section_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { apiFetch, api } from "@/lib/api";
 import { findQuote } from "@/lib/chat";
 import { boxStyle } from "@/lib/inspector";
+import { track } from "@/lib/usage";
 
 type SourcePage = {
   chunk_id: string;
@@ -22,7 +23,17 @@ type SourcePage = {
  * The page a citation points to, with the cited passage boxed and scrolled into view. Materials
  * without page images (PowerPoint uploads) show the passage text with the quoted words marked.
  */
-export function SourceViewer({ chunkId, quote, onClose }: { chunkId: string; quote: string | null; onClose: () => void }) {
+export function SourceViewer({
+  chunkId,
+  quote,
+  origin,
+  onClose,
+}: {
+  chunkId: string;
+  quote: string | null;
+  origin: "chat" | "review";
+  onClose: () => void;
+}) {
   const [source, setSource] = useState<SourcePage | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -36,7 +47,9 @@ export function SourceViewer({ chunkId, quote, onClose }: { chunkId: string; quo
       .then(async (s) => {
         if (cancelled) return;
         setSource(s);
-        if (s.page === null || s.width === null) return;
+        const pageImage = s.page !== null && s.width !== null;
+        track({ name: "source_opened", origin, page_image: pageImage });
+        if (!pageImage) return;
         const blob = await apiFetch(`/materials/${s.material_id}/pages/${s.page}/image`).then((r) => r.blob());
         if (cancelled) return;
         url = URL.createObjectURL(blob);
@@ -47,7 +60,7 @@ export function SourceViewer({ chunkId, quote, onClose }: { chunkId: string; quo
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [chunkId]);
+  }, [chunkId, origin]);
 
   useEffect(() => {
     close.current?.focus();

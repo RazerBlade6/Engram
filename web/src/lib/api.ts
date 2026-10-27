@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { currentVisit } from "./visit";
 
 const DEFAULT_API_URL = "http://localhost:8000";
 
@@ -24,6 +25,8 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   // So "due today" means the student's today.
   headers.set("X-Timezone", Intl.DateTimeFormat().resolvedOptions().timeZone);
+  // Groups usage events into visits; logged only for people who agreed.
+  headers.set("X-Session", currentVisit());
 
   const response = await fetch(apiUrl(path), { ...init, headers });
   if (!response.ok) {

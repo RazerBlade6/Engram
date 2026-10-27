@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+
+import { UsageTracker } from "@/components/usage-tracker";
+
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,7 +12,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        {children}
+        <UsageTracker />
+      </body>
     </html>
   );
 }

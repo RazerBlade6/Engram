@@ -18,7 +18,9 @@ from psycopg.rows import dict_row
 from pydantic import BaseModel, Field
 
 from engram import review as scheduling
+from engram.api import usage
 from engram.api.db import UserDb
+from engram.api.usage import Visit
 from engram.chat.retrieve import body
 from engram.review import Day, Order, Progress, Session
 
@@ -79,6 +81,8 @@ class Summary(BaseModel):
 
 class Rating(BaseModel):
     rating: int = Field(ge=1, le=4)
+    # From showing the card to rating it, for the usage log.
+    ms: int | None = Field(default=None, ge=0, le=3_600_000)
 
 
 class Reviewed(BaseModel):
@@ -252,8 +256,9 @@ async def _current(db: UserDb, card_id: UUID) -> dict[str, Any]:
 
 
 @router.post("/cards/{card_id}/review")
-async def rate(card_id: UUID, body: Rating, db: UserDb, day: Today) -> Reviewed:
-    progress = _progress(await _current(db, card_id))
+async def rate(card_id: UUID, body: Rating, db: UserDb, day: Today, visit: Visit) -> Reviewed:
+    row = await _current(db, card_id)
+    progress = _progress(row)
     after = scheduling.review(progress, body.rating, day.now)
     try:
         await db.execute(
@@ -276,11 +281,43 @@ async def rate(card_id: UUID, body: Rating, db: UserDb, day: Today) -> Reviewed:
         )
     except psycopg.errors.InsufficientPrivilege:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Card not found") from None
+    await usage.log(db, visit, "review", **_review_event(card_id, row, body, progress, after, day))
     return Reviewed(due=after.due, next=scheduling.preview(after, day.now))
 
 
+def _days(later: datetime, earlier: datetime) -> float:
+    return round((later - earlier).total_seconds() / 86_400, 4)
+
+
+def _review_event(
+    card_id: UUID,
+    row: dict[str, Any],
+    body: Rating,
+    before: Progress | None,
+    after: Progress,
+    day: Day,
+) -> dict[str, Any]:
+    """What a review log needs to evaluate or fit the scheduler later: the state before and
+    after, the rating, and the time since the card was last seen."""
+    last = before.last_review if before else None
+    return {
+        "card_id": card_id,
+        "kind": row["kind"],
+        "rating": body.rating,
+        "ms": body.ms,
+        "state_before": before.state if before else "new",
+        "stability_before": before.stability if before else None,
+        "difficulty_before": before.difficulty if before else None,
+        "elapsed_days": _days(day.now, last) if last else None,
+        "state_after": after.state,
+        "stability_after": after.stability,
+        "difficulty_after": after.difficulty,
+        "scheduled_days": _days(after.due, day.now),
+    }
+
+
 @router.put("/cards/{card_id}/flag", status_code=status.HTTP_204_NO_CONTENT)
-async def flag(card_id: UUID, body: Flag, db: UserDb, day: Today) -> Response:
+async def flag(card_id: UUID, body: Flag, db: UserDb, day: Today, visit: Visit) -> Response:
     """Take the card out of the student's reviews, noting why."""
     await _current(db, card_id)
     try:
@@ -294,15 +331,18 @@ async def flag(card_id: UUID, body: Flag, db: UserDb, day: Today) -> Response:
         )
     except psycopg.errors.InsufficientPrivilege:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Card not found") from None
+    await usage.log(db, visit, "flag", card_id=card_id, reason=body.reason)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete("/cards/{card_id}/flag", status_code=status.HTTP_204_NO_CONTENT)
-async def unflag(card_id: UUID, db: UserDb) -> Response:
+async def unflag(card_id: UUID, db: UserDb, visit: Visit) -> Response:
     """Put a flagged card back into reviews, where it was."""
-    await db.execute(
+    cur = await db.execute(
         "update public.card_progress set flag = null, flagged_at = null"
-        " where card_id = %s and user_id = (select auth.uid())",
+        " where card_id = %s and user_id = (select auth.uid()) and flag is not null",
         (card_id,),
     )
+    if cur.rowcount:
+        await usage.log(db, visit, "unflag", card_id=card_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

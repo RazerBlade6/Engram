@@ -81,9 +81,22 @@ function Materials() {
   );
 }
 
-type Person = { id: string; display_name: string | null; role: "student" | "admin"; review_order: ReviewOrder };
+type Person = {
+  id: string;
+  display_name: string | null;
+  role: "student" | "admin";
+  review_order: ReviewOrder;
+  /** When they agreed to usage logging, as recorded here; null if they haven't. */
+  usage_consent_at: string | null;
+  events_this_week: number;
+};
 
-/** The review-order experiment: which ordering each person is trying (never a student setting). */
+const consentDate = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long", year: "numeric" });
+
+/**
+ * Per-person switches no student sees: the review-order experiment, and whether they agreed to
+ * usage logging.
+ */
 function People() {
   const [people, setPeople] = useState<Person[] | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -93,63 +106,94 @@ function People() {
     api<Person[]>("/admin/people").then(setPeople);
   }, []);
 
-  async function choose(person: Person, order: ReviewOrder) {
-    const previous = person.review_order;
-    const set = (o: ReviewOrder) =>
-      setPeople((ps) => ps && ps.map((p) => (p.id === person.id ? { ...p, review_order: o } : p)));
-    set(order);
+  /** Shows the change at once and puts it back if it can't be saved. */
+  async function change(person: Person, changed: Partial<Person>, save: () => Promise<unknown>) {
+    const set = (values: Partial<Person>) =>
+      setPeople((ps) => ps && ps.map((p) => (p.id === person.id ? { ...p, ...values } : p)));
+    set(changed);
     try {
-      await apiFetch(`/admin/people/${person.id}/review-order`, {
-        method: "PUT",
-        body: JSON.stringify({ order }),
-      });
+      await save();
     } catch {
-      set(previous);
+      set(person);
       toastId.current += 1;
       setToast({ id: toastId.current, text: "That change couldn't be saved. Please try again." });
     }
   }
 
+  const chooseOrder = (person: Person, order: ReviewOrder) =>
+    change(person, { review_order: order }, () =>
+      apiFetch(`/admin/people/${person.id}/review-order`, { method: "PUT", body: JSON.stringify({ order }) }),
+    );
+
+  const recordConsent = (person: Person, consented: boolean) =>
+    change(person, { usage_consent_at: consented ? (person.usage_consent_at ?? new Date().toISOString()) : null }, () =>
+      apiFetch(`/admin/people/${person.id}/usage-consent`, { method: "PUT", body: JSON.stringify({ consented }) }),
+    );
+
   if (!people) return null;
   return (
     <section className="mt-14" aria-labelledby="people-heading">
       <h2 id="people-heading" className="text-2xl font-semibold">
-        Review order
+        People
       </h2>
       <p className="mt-2 text-muted">
-        How each person&apos;s reviews arrange flashcards and multiple choice. It takes effect the next time they
-        start a review.
+        <b className="text-foreground">Review order</b> is how each person&apos;s reviews arrange flashcards and
+        multiple choice; it takes effect the next time they start a review.{" "}
+        <b className="text-foreground">Usage logging</b> records what they do (ratings, flags, pages, timings, never
+        their words). Turn it on only after they&apos;ve agreed. Turning it off stops logging.
       </p>
       <table className="mt-6 w-full border-collapse text-left">
         <thead className="border-b border-border text-muted">
           <tr>
             <th className="py-2 pr-4 font-medium">Person</th>
-            <th className="py-2 font-medium">Order</th>
+            <th className="py-2 pr-4 font-medium">Review order</th>
+            <th className="py-2 font-medium">Usage logging</th>
           </tr>
         </thead>
         <tbody>
-          {people.map((p) => (
-            <tr key={p.id} className="border-b border-border">
-              <td className="py-3 pr-4">
-                {p.display_name ?? <span className="text-muted">No name</span>}
-                {p.role === "admin" && <span className="ml-2 text-muted">admin</span>}
-              </td>
-              <td className="py-3">
-                <select
-                  value={p.review_order}
-                  onChange={(e) => choose(p, e.target.value as ReviewOrder)}
-                  aria-label={`Review order for ${p.display_name ?? "this person"}`}
-                  className="rounded-lg border border-border bg-white px-3 py-2"
-                >
-                  {(Object.keys(ORDER_LABEL) as ReviewOrder[]).map((o) => (
-                    <option key={o} value={o}>
-                      {ORDER_LABEL[o]}
-                    </option>
-                  ))}
-                </select>
-              </td>
-            </tr>
-          ))}
+          {people.map((p) => {
+            const name = p.display_name ?? "this person";
+            return (
+              <tr key={p.id} className="border-b border-border">
+                <td className="py-3 pr-4">
+                  {p.display_name ?? <span className="text-muted">No name</span>}
+                  {p.role === "admin" && <span className="ml-2 text-muted">admin</span>}
+                </td>
+                <td className="py-3 pr-4">
+                  <select
+                    value={p.review_order}
+                    onChange={(e) => chooseOrder(p, e.target.value as ReviewOrder)}
+                    aria-label={`Review order for ${name}`}
+                    className="rounded-lg border border-border bg-white px-3 py-2"
+                  >
+                    {(Object.keys(ORDER_LABEL) as ReviewOrder[]).map((o) => (
+                      <option key={o} value={o}>
+                        {ORDER_LABEL[o]}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="py-3">
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={p.usage_consent_at !== null}
+                      onChange={(e) => recordConsent(p, e.target.checked)}
+                      aria-label={`${name} agreed to usage logging`}
+                      className="size-5 accent-accent"
+                    />
+                    <span className="text-muted">
+                      {p.usage_consent_at
+                        ? `Agreed ${consentDate.format(new Date(p.usage_consent_at))} · ${p.events_this_week} ${
+                            p.events_this_week === 1 ? "event" : "events"
+                          } this week`
+                        : "Not agreed"}
+                    </span>
+                  </label>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       <Toast key={toast?.id} toast={toast} onDone={() => setToast(null)} />

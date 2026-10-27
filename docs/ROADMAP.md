@@ -209,7 +209,7 @@ UX is validated with **real users before and during development**. Clickable moc
 
 - Uploaded materials are stored in private buckets and are visible only to the account that owns the course.
 - User uploads are never used for the demo account or the eval corpus. Both use OpenStax content (CC BY).
-- Usage events (reviews, ratings, flags, sessions) are logged only with each user's consent. Only **aggregate, anonymized** statistics are ever published; never content or answers.
+- Usage events (reviews, ratings, flags, sessions) are logged only with each user's consent, which an admin records after asking. Events hold ids, counts, ratings and timings, never text a user wrote or read. Only **aggregate, anonymized** statistics are ever published; never content or answers.
 
 ## Phases
 
@@ -253,7 +253,7 @@ The smallest end-to-end product. Tested by developers, not yet handed to users f
 - [x] Review ordering (mixed, blocked, separate) behind an admin-only switch
 - [x] Cited chat with click-through to the highlighted source page
 - [x] Calendar: quick-add for exams, quizzes and deadlines; month grid with an upcoming list; next dates on Today
-- [ ] Usage event logging
+- [x] Usage event logging
 - [ ] Deploy: web on Vercel, API on Cloud Run, worker on Modal (woken by new jobs, with a periodic sweep for retries), deployed from `main` by CI, so users can use Engram on their own devices
 - [ ] **Exit:** a moderated usability session with a target user
 
@@ -335,3 +335,6 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 39  | An answer outside the materials is detected by a marker the model writes, not by missing citations | An off-topic answer can still cite a passing mention, which would hide the "not from your materials" label |
 | 40  | Dates are calendar days with no time; "upcoming" is worked out in the browser            | Students know the time of their exam; a day with no time zone can't shift when the server's today differs from theirs |
 | 41  | A date's chapters are recorded from Phase 1, though nothing uses them until focus mode   | Dates entered from the start already say what they cover, so focus mode works on them without re-entry |
+| 42  | Consent to usage logging is recorded by an admin, per person; turning it off stops logging, and past events are deleted on request | Users have no settings (zero configuration), and consent is asked for in person |
+| 43  | Events never contain text: no questions, answers, card content or date names              | The statistics need counts and timings, not words; nothing personal can leak from the log |
+| 44  | Each rating logs the scheduler state before and after, and the time since the last review | Enough to evaluate FSRS on real reviews, and later fit its parameters to each user |

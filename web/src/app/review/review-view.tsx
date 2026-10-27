@@ -9,6 +9,7 @@ import { api, apiFetch } from "@/lib/api";
 import { clozeParts, KIND_LABEL } from "@/lib/cards";
 import { splitChapterTitle } from "@/lib/courses";
 import { useProfile } from "@/lib/profile";
+import { msSince } from "@/lib/usage";
 import {
   choiceRating,
   comesBackToday,
@@ -40,6 +41,8 @@ export function ReviewView() {
   const [flagOpen, setFlagOpen] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const toastId = useRef(0);
+  // When the current card appeared, for how long it took to rate (usage log).
+  const shownAt = useRef(0);
 
   useEffect(() => {
     if (!profile) return;
@@ -60,6 +63,10 @@ export function ReviewView() {
   const card = queue?.[0] ?? null;
   const answered = card?.kind === "mcq" ? picked !== null : revealed;
 
+  useEffect(() => {
+    shownAt.current = performance.now();
+  }, [card?.id, answers]);
+
   const next = useCallback(() => {
     setRevealed(false);
     setPicked(null);
@@ -76,7 +83,7 @@ export function ReviewView() {
       try {
         const saved = await api<Reviewed>(`/cards/${card.id}/review`, {
           method: "POST",
-          body: JSON.stringify({ rating }),
+          body: JSON.stringify({ rating, ms: msSince(shownAt.current) }),
         });
         if (comesBackToday(saved.due, new Date())) {
           // Still being learned: it comes back later in this session.

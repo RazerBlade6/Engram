@@ -19,6 +19,7 @@ import {
 } from "@/lib/chat";
 import type { CourseSummary } from "@/lib/courses";
 import { useProfile } from "@/lib/profile";
+import { msSince, track } from "@/lib/usage";
 
 /** Each course's conversation lasts as long as the browser tab; nothing is kept on the server. */
 const storageKey = (course: string) => `engram.ask.${course}`;
@@ -84,6 +85,9 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
       const q = text.trim();
       if (!q || busy) return;
       const history = historyOf(messages);
+      const started = performance.now();
+      // For the usage log: how the answer went, never what it said.
+      const outcome = { firstText: null as number | null, grounded: false, outside: false, sources: 0, failed: false };
       setQuestion("");
       setMessages((ms) => [...ms, { role: "user", text: q }, emptyAnswer()]);
       const update = (change: (a: AnswerMessage) => AnswerMessage) =>
@@ -100,12 +104,31 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
           if (done) break;
           const { events, rest } = parseEvents(buffer + value);
           buffer = rest;
+          for (const e of events) {
+            if (e.event === "text" && outcome.firstText === null) outcome.firstText = msSince(started);
+            else if (e.event === "source") outcome.sources += 1;
+            else if (e.event === "outside") outcome.outside = true;
+            else if (e.event === "done") outcome.grounded = e.data.grounded;
+            else if (e.event === "error") outcome.failed = true;
+          }
           if (events.length) update((a) => events.reduce(applyEvent, a));
         }
         update((a) => (a.status === "streaming" ? { ...a, status: "done" } : a));
       } catch {
+        outcome.failed = true;
         update((a) => ({ ...a, status: "error", error: "That question couldn't be answered. Please try again." }));
       }
+      track({
+        name: "chat_question",
+        course_id: course.id,
+        first_text_ms: outcome.firstText,
+        total_ms: msSince(started),
+        grounded: outcome.grounded,
+        outside: outcome.outside,
+        sources: outcome.sources,
+        follow_up: history.length > 0,
+        failed: outcome.failed,
+      });
       input.current?.focus();
     },
     [course, busy, messages],
@@ -185,7 +208,7 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
         </button>
       </form>
 
-      {open && <SourceViewer chunkId={open.chunkId} quote={open.quote} onClose={() => setOpen(null)} />}
+      {open && <SourceViewer chunkId={open.chunkId} quote={open.quote} origin="chat" onClose={() => setOpen(null)} />}
     </main>
   );
 }

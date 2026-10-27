@@ -14,8 +14,10 @@ from uuid import UUID, uuid4
 import psycopg
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, status
 
+from engram.api import usage
 from engram.api.db import UserDb
 from engram.api.routes.courses import Material
+from engram.api.usage import Visit
 from engram.storage import Storage, safe_filename
 
 logger = logging.getLogger(__name__)
@@ -59,7 +61,9 @@ def title_from(filename: str) -> str:
 
 
 @router.post("/courses/{course_id}/materials", status_code=status.HTTP_201_CREATED)
-async def upload(course_id: UUID, file: UploadFile, db: UserDb, storage: Files) -> Material:
+async def upload(
+    course_id: UUID, file: UploadFile, db: UserDb, storage: Files, visit: Visit
+) -> Material:
     cur = await db.execute("select 1 from public.courses where id = %s", (course_id,))
     if await cur.fetchone() is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found")
@@ -91,6 +95,15 @@ async def upload(course_id: UUID, file: UploadFile, db: UserDb, storage: Files) 
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found") from None
 
     data = await asyncio.to_thread(file.file.read)
+    await usage.log(
+        db,
+        visit,
+        "material_uploaded",
+        material_id=material_id,
+        course_id=course_id,
+        type="pdf" if content_type == PDF else "pptx",
+        bytes=len(data),
+    )
     await storage.upload(path, data, content_type)
     try:
         await db.execute("select public.queue_material(%s)", (material_id,))
@@ -101,13 +114,14 @@ async def upload(course_id: UUID, file: UploadFile, db: UserDb, storage: Files) 
 
 
 @router.delete("/materials/{material_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def remove(material_id: UUID, db: UserDb, storage: Files) -> Response:
+async def remove(material_id: UUID, db: UserDb, storage: Files, visit: Visit) -> Response:
     cur = await db.execute(
         "delete from public.materials where id = %s returning storage_path", (material_id,)
     )
     row = await cur.fetchone()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Material not found")
+    await usage.log(db, visit, "material_deleted", material_id=material_id)
     folder = str(Path(row[0]).parent)
     try:
         await storage.remove_prefix(f"{folder}/figures")
