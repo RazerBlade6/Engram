@@ -16,12 +16,18 @@ class AnthropicProvider:
         self._client = client or anthropic.AsyncAnthropic()
 
     async def structured[T: BaseModel](
-        self, model: str, *, system: str, parts: list[Part], schema: type[T]
+        self,
+        model: str,
+        *,
+        system: str,
+        parts: list[Part],
+        schema: type[T],
+        max_tokens: int = 4096,
     ) -> T:
         try:
             response = await self._client.messages.parse(
                 model=model,
-                max_tokens=4096,
+                max_tokens=max_tokens,
                 system=system,
                 messages=[{"role": "user", "content": [_content(p) for p in parts]}],
                 output_format=schema,

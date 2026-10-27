@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Toast, type ToastMessage } from "@/components/toast";
 import { api, apiFetch } from "@/lib/api";
 import {
-  pageRange,
+  chapterNote,
   splitChapterTitle,
   type Chapter,
   type Coverage,
@@ -15,6 +15,7 @@ import {
 } from "@/lib/courses";
 import { useProfile } from "@/lib/profile";
 
+import { CardList } from "./card-list";
 import { MaterialsPanel } from "./materials-panel";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" });
@@ -39,8 +40,11 @@ export function CourseView() {
     if (profile) reload();
   }, [profile, reload]);
 
-  // While anything is still being read, check back every few seconds.
-  const reading = course?.materials.some((m) => pending(m.status)) ?? false;
+  // While anything is still being read, or cards are being made, check back every few seconds.
+  const reading =
+    (course?.materials.some((m) => pending(m.status)) ||
+      course?.textbooks.some((t) => t.chapters.some((ch) => ch.cards_status === "pending"))) ??
+    false;
   useEffect(() => {
     if (!reading) return;
     const timer = setInterval(reload, POLL_MS);
@@ -53,7 +57,11 @@ export function CourseView() {
         ...c,
         textbooks: c.textbooks.map((t) => ({
           ...t,
-          chapters: t.chapters.map((ch) => (ch.id === chapterId ? { ...ch, covered_at: coveredAt } : ch)),
+          chapters: t.chapters.map((ch) =>
+            ch.id === chapterId
+              ? { ...ch, covered_at: coveredAt, cards_status: coveredAt ? (ch.cards_status ?? "pending") : null }
+              : ch,
+          ),
         })),
       },
     );
@@ -73,6 +81,17 @@ export function CourseView() {
       if (before && pending(before) && m.status === "ready") show(`${m.title} is ready.`);
       if (before && pending(before) && m.status === "failed") show(`${m.title} couldn't be read.`);
       statuses.current.set(m.id, m.status);
+    }
+    // And when a chapter's cards have been made.
+    for (const ch of course?.textbooks.flatMap((t) => t.chapters) ?? []) {
+      const before = statuses.current.get(ch.id);
+      if (before === "pending" && ch.cards_status === "ready") {
+        show(`${chapterName(ch)}: ${ch.cards} ${ch.cards === 1 ? "card is" : "cards are"} ready.`);
+      }
+      if (before === "pending" && ch.cards_status === "failed") {
+        show(`The cards for ${chapterName(ch)} couldn't be made.`);
+      }
+      statuses.current.set(ch.id, ch.cards_status ?? "");
     }
   }, [course, show]);
 
@@ -163,39 +182,67 @@ function ChapterRow({
   onUncover: (chapter: Chapter) => void;
 }) {
   const { number, title } = splitChapterTitle(chapter.title);
-  const pages = pageRange(chapter);
+  const [open, setOpen] = useState(false);
+  const note = chapterNote(chapter, (iso) => dateFormat.format(new Date(iso)));
   return (
-    <li className="flex items-center gap-4 px-5 py-4">
-      <span className="w-8 shrink-0 text-lg font-semibold text-muted tabular-nums">{number}</span>
-      <div className="min-w-0 flex-1">
-        <div className="font-medium">{title}</div>
-        <div className="text-sm text-muted">
-          {chapter.covered_at ? `Covered on ${dateFormat.format(new Date(chapter.covered_at))}` : pages}
+    <li className="px-5 py-4">
+      <div className="flex items-center gap-4">
+        <span className="w-8 shrink-0 text-lg font-semibold text-muted tabular-nums">{number}</span>
+        <div className="min-w-0 flex-1">
+          <div className="font-medium">{title}</div>
+          <div className="text-sm text-muted">
+            {note}
+            {chapter.cards > 0 && (
+              <>
+                {" · "}
+                <button
+                  onClick={() => setOpen((o) => !o)}
+                  aria-expanded={open}
+                  className="underline hover:text-foreground"
+                >
+                  {open ? "Hide cards" : "See cards"}
+                </button>
+              </>
+            )}
+          </div>
         </div>
+        <ChapterAction chapter={chapter} onCover={onCover} onUncover={onUncover} />
       </div>
-      {chapter.covered_at ? (
-        <span className="flex shrink-0 items-center gap-3">
-          <span className="flex items-center gap-1 font-medium text-success">
-            <CheckIcon /> Covered
-          </span>
-          <button
-            onClick={() => onUncover(chapter)}
-            className="text-sm text-muted underline hover:text-foreground"
-            aria-label={`Unmark ${chapterName(chapter)}`}
-          >
-            Unmark
-          </button>
-        </span>
-      ) : (
-        <button
-          onClick={() => onCover(chapter)}
-          className="shrink-0 rounded-lg border border-accent px-4 py-2 font-medium text-accent hover:bg-accent hover:text-white"
-          aria-label={`Mark ${chapterName(chapter)} as covered`}
-        >
-          We&apos;ve covered this
-        </button>
-      )}
+      {open && <CardList sectionId={chapter.id} />}
     </li>
+  );
+}
+
+function ChapterAction({
+  chapter,
+  onCover,
+  onUncover,
+}: {
+  chapter: Chapter;
+  onCover: (chapter: Chapter) => void;
+  onUncover: (chapter: Chapter) => void;
+}) {
+  return chapter.covered_at ? (
+    <span className="flex shrink-0 items-center gap-3">
+      <span className="flex items-center gap-1 font-medium text-success">
+        <CheckIcon /> Covered
+      </span>
+      <button
+        onClick={() => onUncover(chapter)}
+        className="text-sm text-muted underline hover:text-foreground"
+        aria-label={`Unmark ${chapterName(chapter)}`}
+      >
+        Unmark
+      </button>
+    </span>
+  ) : (
+    <button
+      onClick={() => onCover(chapter)}
+      className="shrink-0 rounded-lg border border-accent px-4 py-2 font-medium text-accent hover:bg-accent hover:text-white"
+      aria-label={`Mark ${chapterName(chapter)} as covered`}
+    >
+      We&apos;ve covered this
+    </button>
   );
 }
 

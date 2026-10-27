@@ -8,6 +8,10 @@ export type Chapter = {
   page_start: number | null;
   page_end: number | null;
   covered_at: string | null;
+  /** Kept when a chapter is unmarked. */
+  cards: number;
+  /** Only while covered: "pending" until its cards are made. */
+  cards_status: "pending" | "ready" | "failed" | null;
 };
 
 export type Textbook = { material_id: string; title: string; chapters: Chapter[] };
@@ -36,4 +40,22 @@ export function pageRange(chapter: Chapter): string | null {
     return `page ${chapter.page_start}`;
   }
   return `pages ${chapter.page_start}–${chapter.page_end}`;
+}
+
+/** The second line of a chapter row: when it was covered and how its cards are doing. */
+export function chapterNote(chapter: Chapter, coveredOn: (iso: string) => string): string | null {
+  const cards = `${chapter.cards} ${chapter.cards === 1 ? "card" : "cards"}`;
+  if (!chapter.covered_at) {
+    const pages = pageRange(chapter);
+    return chapter.cards ? [pages, cards].filter(Boolean).join(" · ") : pages;
+  }
+  const covered = `Covered on ${coveredOn(chapter.covered_at)}`;
+  switch (chapter.cards_status) {
+    case "ready":
+      return `${covered} · ${cards}`;
+    case "failed":
+      return `${covered} · Its cards couldn't be made. Unmark it and mark it again to retry.`;
+    default:
+      return `${covered} · Making cards…`;
+  }
 }

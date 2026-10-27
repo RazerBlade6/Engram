@@ -50,7 +50,13 @@ class Provider(Protocol):
     name: str
 
     async def structured[T: BaseModel](
-        self, model: str, *, system: str, parts: list[Part], schema: type[T]
+        self,
+        model: str,
+        *,
+        system: str,
+        parts: list[Part],
+        schema: type[T],
+        max_tokens: int = 4096,
     ) -> T:
         """Ask for a response that validates against `schema`."""
         ...

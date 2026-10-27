@@ -53,7 +53,13 @@ class FakeProvider:
         self.decline = decline or set()
 
     async def structured(
-        self, model: str, *, system: str, parts: list[Any], schema: type[BaseModel]
+        self,
+        model: str,
+        *,
+        system: str,
+        parts: list[Any],
+        schema: type[BaseModel],
+        max_tokens: int = 4096,
     ) -> Any:
         prompt = parts[-1].text
         if any(word in prompt for word in self.decline):
@@ -239,6 +245,35 @@ async def test_reingesting_keeps_coverage_of_matching_sections(
         material["id"],
     )
     assert covered == [("Chapter 1 Cells", material["owner"]), ("1.1 Structure", material["owner"])]
+
+
+async def test_reingesting_keeps_cards_with_their_chapter(
+    database_url: str, material: dict[str, str]
+) -> None:
+    settings = Settings(database_url=database_url)
+    job = Job(1, ingest_job.KIND, {"material_id": material["id"]}, 1, 3)
+    await handler(settings, FakeStorage(), lambda p, s: parsed_material())(job)
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute(
+            "insert into public.cards (material_id, section_id, ordinal, kind, concept, prompt,"
+            " answer, sources, generated_by, prompt_version)"
+            " select material_id, id, 0, 'basic', 'c', 'Q', 'A', %s, 'm', 'v'"
+            " from public.sections where material_id = %s and level = 1",
+            ('[{"quote": "q", "locations": []}]', material["id"]),
+        )
+
+    reparsed = parsed_material()
+    reparsed.sections[2] = Section(2, 1, "Chapter 2 Heredity", 4, 4)
+    await handler(settings, FakeStorage(), lambda p, s: reparsed)(job)
+
+    cards = rows(
+        database_url,
+        "select s.title from public.cards k left join public.sections s on s.id = k.section_id"
+        " where k.material_id = %s order by s.title nulls last",
+        material["id"],
+    )
+    # Chapter 2 was renamed: its card is kept, waiting for a chapter to belong to.
+    assert cards == [("Chapter 1 Cells",), (None,)]
 
 
 async def test_declined_figure_keeps_its_caption(

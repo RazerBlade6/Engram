@@ -247,7 +247,7 @@ The smallest end-to-end product. Tested by developers, not yet handed to users f
 - [x] Minimal ingestion inspector (admin)
 - [x] Courses, table of contents, "mark chapter covered"
 - [x] Student upload for slides (PDF, PowerPoint): a large upload button and drop zone, kept visually separate from link entry
-- [ ] Card generation: Q → A, cloze, MCQ, with source citations
+- [x] Card generation: Q → A, cloze, MCQ, with source citations
 - [ ] FSRS review with four ratings, keyboard controls and an in-review flag button
 - [ ] Review ordering (mixed, blocked, separate) behind an admin-only switch
 - [ ] Cited chat with click-through to the highlighted source page
@@ -320,3 +320,6 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 26  | Card generation starts on the stronger model                                              | Cards are memorized; a cheaper model must pass the card-quality eval first                                     |
 | 27  | Citations returned as chunk IDs through the provider interface                            | Keeps native Citations without tying the product to one provider                                               |
 | 28  | Only paid LLM tiers that exclude training on submitted content                            | Uploaded materials are copyrighted and private                                                                 |
+| 29  | Unmarking a chapter keeps its cards and stops generation that hasn't finished             | Unmarking is usually a slip or a change of plan; review history shouldn't be lost to it                        |
+| 30  | Each card quotes its source verbatim; cards whose quotes aren't found are dropped         | Grounding is checked in code, not trusted to the prompt (D2)                                                   |
+| 31  | About one card per 150 words of chapter, end-of-chapter questions skipped                 | Uncapped, a 30-page chapter gave 150 cards, many trivia: more than a student keeps up with                     |

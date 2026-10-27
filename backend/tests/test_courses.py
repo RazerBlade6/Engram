@@ -21,6 +21,8 @@ def section(level: int, title: str) -> _SectionRow:
         page_start=1,
         page_end=1,
         covered_at=None,
+        cards=0,
+        cards_status=None,
     )
 
 

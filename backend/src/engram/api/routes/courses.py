@@ -1,7 +1,8 @@
 """Courses as students see them: each textbook's chapters, and which have been covered.
 
-Marking a chapter covered is the only trigger for card generation (D4). Coverage is stored
-per section; students mark chapters, which `chapters` picks out of the parsed sections.
+Marking a chapter covered is the only trigger for card generation (D4): a database trigger
+queues the job (see the cards migration). Coverage is stored per section; students mark
+chapters, which `chapters` picks out of the parsed sections.
 """
 
 import re
@@ -25,6 +26,10 @@ class Chapter(BaseModel):
     page_start: int | None
     page_end: int | None
     covered_at: datetime | None
+    # Kept when a chapter is unmarked, so an unmarked chapter can still have cards.
+    cards: int
+    # While covered: 'pending' until its cards are made, then 'ready' or 'failed'.
+    cards_status: str | None
 
 
 class Textbook(BaseModel):
@@ -67,6 +72,24 @@ class _SectionRow(BaseModel):
     page_start: int | None
     page_end: int | None
     covered_at: datetime | None
+    cards: int
+    cards_status: str | None
+
+
+class Source(BaseModel):
+    quote: str
+    heading_path: list[str]
+    page: int | None
+
+
+class Card(BaseModel):
+    id: UUID
+    kind: str
+    concept: str
+    prompt: str
+    answer: str
+    choices: list[str]
+    sources: list[Source]
 
 
 _CHAPTER = re.compile(r"^chapter\s+(\w+)", re.IGNORECASE)
@@ -97,7 +120,9 @@ def chapters[S: _SectionRow](sections: list[S]) -> list[S]:
 
 
 _SECTIONS = """
-select s.id, s.material_id, s.level, s.title, s.page_start, s.page_end, c.covered_at
+select s.id, s.material_id, s.level, s.title, s.page_start, s.page_end, c.covered_at,
+       (select count(*) from public.cards k where k.section_id = s.id)::int as cards,
+       c.cards_status::text as cards_status
   from public.sections s
   join public.materials m on m.id = s.material_id
   left join public.covered_sections c on c.section_id = s.id
@@ -182,6 +207,37 @@ async def mark_covered(section_id: UUID, db: UserDb) -> Coverage:
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Section not found")
     return Coverage(section_id=section_id, covered_at=row[0])
+
+
+@router.get("/sections/{section_id}/cards")
+async def list_cards(section_id: UUID, db: UserDb) -> list[Card]:
+    cur = await db.execute("select 1 from public.sections where id = %s", (section_id,))
+    if await cur.fetchone() is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Section not found")
+    cur = await db.execute(
+        "select id, kind::text, concept, prompt, answer, choices, sources from public.cards"
+        " where section_id = %s order by ordinal",
+        (section_id,),
+    )
+    return [
+        Card(
+            id=id,
+            kind=kind,
+            concept=concept,
+            prompt=prompt,
+            answer=answer,
+            choices=choices,
+            sources=[
+                Source(
+                    quote=src["quote"],
+                    heading_path=src["heading_path"],
+                    page=src["locations"][0]["page"] if src["locations"] else None,
+                )
+                for src in sources
+            ],
+        )
+        for id, kind, concept, prompt, answer, choices, sources in await cur.fetchall()
+    ]
 
 
 @router.delete("/sections/{section_id}/covered", status_code=status.HTTP_204_NO_CONTENT)
