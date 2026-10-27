@@ -40,6 +40,13 @@ export default function Home() {
         </button>
       </div>
       {reviews && <ReviewHero summary={reviews} />}
+      {courses && courses.length > 0 && (
+        <p className="mt-6">
+          <Link href="/ask" className="text-lg text-accent underline">
+            Ask a question about your courses
+          </Link>
+        </p>
+      )}
 
       {courses && (
         <section aria-labelledby="courses-heading" className="mt-10">

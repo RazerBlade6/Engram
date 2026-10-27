@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from engram import review as scheduling
 from engram.api.db import UserDb
+from engram.chat.retrieve import body
 from engram.review import Day, Order, Progress, Session
 
 router = APIRouter()
@@ -170,9 +171,7 @@ def _source(row: dict[str, Any]) -> Source | None:
     first = sources[0]
     passage = first["quote"]
     if row["chunk"]:
-        # Chunks begin with their heading path, which the card already shows.
-        prefix = " > ".join(row["chunk_heading_path"]) + "\n\n"
-        passage = row["chunk"].removeprefix(prefix)
+        passage = body(row["chunk"], row["chunk_heading_path"])
     locations = first.get("locations") or []
     return Source(
         book=row["book"],

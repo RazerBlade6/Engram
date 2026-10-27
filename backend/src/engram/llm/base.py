@@ -1,3 +1,4 @@
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Literal, Protocol
 
@@ -36,6 +37,42 @@ class ImagePart:
 
 
 Part = TextPart | ImagePart
+
+
+@dataclass(frozen=True)
+class Document:
+    """A passage the answer may cite. Citations point back to it by its position in the list."""
+
+    title: str
+    text: str
+
+
+@dataclass(frozen=True)
+class Turn:
+    """An earlier message in the conversation, as plain text."""
+
+    role: Literal["user", "assistant"]
+    text: str
+
+
+@dataclass(frozen=True)
+class TextDelta:
+    """More of the answer. Text arrives in blocks; a block's citations follow its text."""
+
+    block: int
+    text: str
+
+
+@dataclass(frozen=True)
+class Cite:
+    """The text of `block` is supported by `documents[document]`, which says `quote`."""
+
+    block: int
+    document: int
+    quote: str
+
+
+AnswerEvent = TextDelta | Cite
 
 
 @dataclass
@@ -82,4 +119,19 @@ class Provider(Protocol):
     ) -> T:
         """Ask for a response that validates against `schema`, adding what the request cost
         to `usage` if given."""
+        ...
+
+    def cited(
+        self,
+        model: str,
+        *,
+        system: str,
+        documents: list[Document],
+        history: list[Turn],
+        question: str,
+        max_tokens: int = 2048,
+        usage: Usage | None = None,
+    ) -> AsyncIterator[AnswerEvent]:
+        """Stream an answer to `question` that cites `documents` where it uses them, adding
+        what the request cost to `usage` if given."""
         ...

@@ -158,7 +158,7 @@ LLM calls go through a thin interface, so no provider is hard-coded.
 - **Bulk jobs** (figure captioning) use the cheapest model that passes the quality bar.
 - **Card generation** starts on the stronger model and moves to a cheaper one only once the card-quality eval shows it passes. Cards are memorized, so a wrong one costs more than the tokens saved.
 - The routing is decided by the [model benchmark](#evaluation), not by preference. Until the eval suites exist (Phase 3), each job runs on a **provisional default** set in configuration, and every generated card records the model and prompt version that produced it, so later evals can compare models and attribute flags.
-- **Citations are part of the interface.** A grounded answer comes back with the IDs of the chunks it cites, which map to a page and a highlight box. The Anthropic adapter fills this from native Citations, passing retrieved chunks as custom-content documents; any other provider must produce chunk IDs and have them validated.
+- **Citations are part of the interface.** A grounded answer comes back with the IDs of the chunks it cites, which map to a page and a highlight box. The Anthropic adapter fills this from native Citations, passing each retrieved chunk as a plain-text document so citations quote the exact sentences; any other provider must produce chunk IDs and have them validated.
 - Only the Anthropic adapter is built at first. Other providers are added when the benchmark needs them, and only on paid tiers whose terms exclude training on submitted content.
 - **Embeddings** run in-process via ONNX, in both the worker (documents) and the API (questions). The provisional model is `bge-small-en-v1.5` (384 dimensions). Each stored embedding records its model, so switching is a migration plus a re-embed job.
 
@@ -251,7 +251,7 @@ The smallest end-to-end product. Tested by developers, not yet handed to users f
 - [x] Card generation: Q → A, cloze, MCQ, with source citations
 - [x] FSRS review with four ratings, keyboard controls and an in-review flag button
 - [x] Review ordering (mixed, blocked, separate) behind an admin-only switch
-- [ ] Cited chat with click-through to the highlighted source page
+- [x] Cited chat with click-through to the highlighted source page
 - [ ] Calendar: quick-add for exams, quizzes and deadlines; month grid with an upcoming list; next dates on Today
 - [ ] Usage event logging
 - [ ] Deploy: web on Vercel, API on Cloud Run, worker on Modal (woken by new jobs, with a periodic sweep for retries), deployed from `main` by CI, so users can use Engram on their own devices
@@ -330,3 +330,6 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 34  | Multiple choice grades itself: right is "Got it", wrong is "Forgot"                       | One action per card; asking how well you knew an answer you just got wrong adds a step                         |
 | 35  | API on Cloud Run, worker on Modal, both scaling to zero                                   | The backend is idle almost all the time; free tiers cover a few users, at a few seconds on the first load after a quiet spell |
 | 36  | Review order is set per person, and every order shows the same day's cards               | Each user can try each order in turn, and only the arrangement differs between them                            |
+| 37  | Chat retrieves 8 passages by hybrid search (vectors and keywords, fused by rank), Opus at low effort | First words in about 1.5 seconds, about $0.035 a question; keywords catch names that embeddings blur |
+| 38  | Chat conversations aren't stored on the server; they last as long as the browser tab      | Questions can be personal, and nothing needs them later; only token counts are recorded, with no user       |
+| 39  | An answer outside the materials is detected by a marker the model writes, not by missing citations | An off-topic answer can still cite a passing mention, which would hide the "not from your materials" label |

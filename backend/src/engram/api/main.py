@@ -8,9 +8,21 @@ from pydantic import BaseModel
 
 from engram import __version__
 from engram.api.pages import PdfPages
-from engram.api.routes import admin, courses, inspector, materials, me, review
+from engram.api.routes import (
+    admin,
+    chat,
+    courses,
+    inspector,
+    materials,
+    me,
+    review,
+    sources,
+)
 from engram.config import get_settings
 from engram.storage import Storage
+
+# Connections for concurrent requests; a few users need few.
+POOL_SIZE = 5
 
 
 class Health(BaseModel):
@@ -24,7 +36,9 @@ def create_app() -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         async with (
-            AsyncConnectionPool(settings.database_url, min_size=1, open=False) as pool,
+            AsyncConnectionPool(
+                settings.database_url, min_size=1, max_size=POOL_SIZE, open=False
+            ) as pool,
             Storage(settings) as storage,
         ):
             app.state.pool = pool
@@ -49,6 +63,8 @@ def create_app() -> FastAPI:
     app.include_router(courses.router)
     app.include_router(materials.router)
     app.include_router(review.router)
+    app.include_router(chat.router)
+    app.include_router(sources.router)
     app.include_router(admin.router)
     app.include_router(inspector.router)
     return app
