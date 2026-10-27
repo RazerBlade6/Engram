@@ -81,7 +81,7 @@ A **Calendar** page shows every important date across courses: exams, quizzes, a
 
 Dates get in two ways:
 
-- **Quick-add** (Phase 1): a one-line form with course, what and date.
+- **Quick-add** (Phase 1): a one-line form with course, type (exam, quiz or deadline), what and date. Clicking a day in the month grid fills in the date.
 - **Syllabus extraction** (Phase 3): upload a course syllabus, Engram extracts every date, and the user confirms them in one click.
 
 A subscribable calendar feed is not planned. It sits close to the reminders users turned down, and will only be added if users ask for it.
@@ -252,7 +252,7 @@ The smallest end-to-end product. Tested by developers, not yet handed to users f
 - [x] FSRS review with four ratings, keyboard controls and an in-review flag button
 - [x] Review ordering (mixed, blocked, separate) behind an admin-only switch
 - [x] Cited chat with click-through to the highlighted source page
-- [ ] Calendar: quick-add for exams, quizzes and deadlines; month grid with an upcoming list; next dates on Today
+- [x] Calendar: quick-add for exams, quizzes and deadlines; month grid with an upcoming list; next dates on Today
 - [ ] Usage event logging
 - [ ] Deploy: web on Vercel, API on Cloud Run, worker on Modal (woken by new jobs, with a periodic sweep for retries), deployed from `main` by CI, so users can use Engram on their own devices
 - [ ] **Exit:** a moderated usability session with a target user
@@ -333,3 +333,4 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 37  | Chat retrieves 8 passages by hybrid search (vectors and keywords, fused by rank), Opus at low effort | First words in about 1.5 seconds, about $0.035 a question; keywords catch names that embeddings blur |
 | 38  | Chat conversations aren't stored on the server; they last as long as the browser tab      | Questions can be personal, and nothing needs them later; only token counts are recorded, with no user       |
 | 39  | An answer outside the materials is detected by a marker the model writes, not by missing citations | An off-topic answer can still cite a passing mention, which would hide the "not from your materials" label |
+| 40  | Dates are calendar days with no time; "upcoming" is worked out in the browser            | Students know the time of their exam; a day with no time zone can't shift when the server's today differs from theirs |

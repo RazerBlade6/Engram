@@ -12,6 +12,7 @@ from engram.api.routes import (
     admin,
     chat,
     courses,
+    dates,
     inspector,
     materials,
     me,
@@ -61,6 +62,7 @@ def create_app() -> FastAPI:
 
     app.include_router(me.router)
     app.include_router(courses.router)
+    app.include_router(dates.router)
     app.include_router(materials.router)
     app.include_router(review.router)
     app.include_router(chat.router)
