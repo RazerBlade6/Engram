@@ -224,10 +224,13 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
       setEmail("");
       onInvited();
     } catch (error) {
+      const status = error instanceof ApiError ? error.status : 0;
       const text =
-        error instanceof ApiError && error.status === 409
+        status === 409
           ? "That email already has an account."
-          : "The invite couldn't be sent. Check the email address and try again.";
+          : status === 422
+            ? "That doesn't look like an email address. Check it and try again."
+            : "The invite couldn't be sent. Please try again.";
       setResult({ ok: false, text });
     } finally {
       setSending(false);
