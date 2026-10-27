@@ -1,6 +1,10 @@
 # Deployment
 
-Production runs in Seoul, next to the database. Everything scales to zero (D35).
+Production is at https://engramstudy.app and runs in Seoul, next to the database. Everything
+scales to zero (D35).
+
+The domain's DNS is on Cloudflare with the proxy off, so Vercel issues the certificate. `www`
+and the project's vercel.app address redirect to it, and it is the only origin the API allows.
 
 | Part     | Where                                  | Deployed by                                   |
 | -------- | -------------------------------------- | --------------------------------------------- |
