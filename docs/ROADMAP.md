@@ -338,3 +338,5 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 42  | Consent to usage logging is recorded by an admin, per person; turning it off stops logging, and past events are deleted on request | Users have no settings (zero configuration), and consent is asked for in person |
 | 43  | Events never contain text: no questions, answers, card content or date names              | The statistics need counts and timings, not words; nothing personal can leak from the log |
 | 44  | Each rating logs the scheduler state before and after, and the time since the last review | Enough to evaluate FSRS on real reviews, and later fit its parameters to each user |
+| 45  | A new job wakes the worker through a database trigger; a sweep every 15 minutes catches retries | Every way a job is queued is covered in one place, and the worker costs nothing while idle |
+| 46  | Production deploys from `main` on push: migrations, then API and worker; Vercel deploys the web app itself | The schema is never behind the code, and a deploy is just a fast-forward of `main` |

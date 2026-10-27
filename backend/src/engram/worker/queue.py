@@ -42,17 +42,31 @@ async def enqueue(
     return int(row[0])
 
 
+# Jobs a worker may claim now: queued and due, or left running by a worker that died.
+READY = """
+    (status = 'queued' and run_after <= now())
+    or (status = 'running' and locked_at < now() - %(stale)s)
+"""
+
+
+async def has_ready(conn: AsyncConnection[Any]) -> bool:
+    cur = await conn.execute(
+        f"select exists (select 1 from public.jobs where {READY})", {"stale": STALE_LOCK}
+    )
+    row = await cur.fetchone()
+    return bool(row and row[0])
+
+
 async def claim(conn: AsyncConnection[Any], worker_id: str) -> Job | None:
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
-            """
+            f"""
             update public.jobs
                set status = 'running', locked_at = now(), locked_by = %(worker)s,
                    attempts = attempts + 1
              where id = (
                    select id from public.jobs
-                    where (status = 'queued' and run_after <= now())
-                       or (status = 'running' and locked_at < now() - %(stale)s)
+                    where {READY}
                     order by run_after, id
                     for update skip locked
                     limit 1)

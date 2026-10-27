@@ -74,6 +74,17 @@ async def run(
     logger.info("worker %s stopped", worker_id)
 
 
+async def drain(settings: Settings, worker_id: str) -> int:
+    """Run jobs until none is ready, then return how many ran. Used where the worker scales
+    to zero (Modal): it starts when woken, empties the queue and stops."""
+    handlers = build_handlers(settings)
+    ran = 0
+    async with await AsyncConnection.connect(settings.database_url, autocommit=True) as conn:
+        while await run_once(conn, worker_id, handlers):
+            ran += 1
+    return ran
+
+
 async def _main() -> None:
     settings = get_settings()
     stop = asyncio.Event()
@@ -89,7 +100,7 @@ def main() -> None:
     asyncio.run(_main())
 
 
-__all__ = ["Job", "build_handlers", "main", "run", "run_once"]
+__all__ = ["Job", "build_handlers", "drain", "main", "run", "run_once"]
 
 
 if __name__ == "__main__":

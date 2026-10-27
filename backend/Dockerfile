@@ -22,6 +22,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev $EXTRAS
 
 ENV PATH="/app/.venv/bin:$PATH"
+
+# The API embeds chat questions; downloading the model at build time keeps it out of the
+# first request after a cold start (D35).
+RUN python -c "from engram.config import Settings; from fastembed import TextEmbedding; \
+TextEmbedding(Settings().embedding_model)"
+
 EXPOSE 8000
 
 # The same image runs the worker: docker compose overrides the command.

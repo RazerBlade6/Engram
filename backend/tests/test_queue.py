@@ -52,6 +52,16 @@ async def test_fail_requeues_with_backoff_then_gives_up(conn: AsyncConnection[An
     assert (await status_of(conn, job_id))[0] == "failed"
 
 
+async def test_has_ready_skips_jobs_waiting_for_backoff(conn: AsyncConnection[Any]) -> None:
+    assert not await queue.has_ready(conn)
+    await queue.enqueue(conn, "test")
+    assert await queue.has_ready(conn)
+    job = await queue.claim(conn, "w1")
+    assert job is not None and not await queue.has_ready(conn)
+    await queue.fail(conn, job, "boom")
+    assert not await queue.has_ready(conn)
+
+
 async def test_stale_running_job_is_reclaimed(conn: AsyncConnection[Any]) -> None:
     job_id = await queue.enqueue(conn, "test")
     assert await queue.claim(conn, "dead-worker") is not None

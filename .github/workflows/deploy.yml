@@ -1,0 +1,71 @@
+name: Deploy
+
+# main only ever fast-forwards to a dev commit that CI has passed, so each push to main is
+# deployed as it is. The schema goes first, so the API and worker never run against an older
+# one. The web app deploys through Vercel's own GitHub integration. See docs/DEPLOY.md.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  PROJECT: engram-512911
+  REGION: asia-northeast3
+  IMAGE: asia-northeast3-docker.pkg.dev/engram-512911/engram/api
+
+jobs:
+  migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.122.0
+      - name: Apply new migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          supabase link --project-ref qfdlwgfgeqajstswbtkr
+          supabase db push
+
+  api:
+    needs: migrations
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/433974648215/locations/global/workloadIdentityPools/github/providers/engram
+          service_account: github-deploy@engram-512911.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Build and push the image
+        run: |
+          gcloud auth configure-docker $REGION-docker.pkg.dev -q
+          docker build -t $IMAGE:${{ github.sha }} backend
+          docker push $IMAGE:${{ github.sha }}
+      # Only the image changes; the service's settings and secrets stay as set up.
+      - name: Deploy to Cloud Run
+        run: gcloud run deploy engram-api --image $IMAGE:${{ github.sha }} --region $REGION -q
+
+  worker:
+    needs: migrations
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          version: "0.13.5"
+      - name: Deploy to Modal
+        working-directory: backend
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: uv run --no-dev --with modal==1.6.2 modal deploy modal_app.py
