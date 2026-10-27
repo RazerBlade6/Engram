@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { DateRow } from "@/components/dates";
 import { api } from "@/lib/api";
+import { courseColors, isoDay, upcoming, type CourseDate } from "@/lib/calendar";
 import type { CourseSummary } from "@/lib/courses";
 import type { ReviewSummary, SessionSummary } from "@/lib/review";
 import { useProfile } from "@/lib/profile";
@@ -15,11 +17,13 @@ export default function Home() {
   const profile = useProfile();
   const [courses, setCourses] = useState<CourseSummary[] | null>(null);
   const [reviews, setReviews] = useState<ReviewSummary | null>(null);
+  const [dates, setDates] = useState<CourseDate[] | null>(null);
 
   useEffect(() => {
     if (!profile) return;
     api<CourseSummary[]>("/courses").then(setCourses);
     api<ReviewSummary>("/review/summary").then(setReviews);
+    api<CourseDate[]>("/dates").then(setDates);
   }, [profile]);
 
   async function signOut() {
@@ -40,6 +44,7 @@ export default function Home() {
         </button>
       </div>
       {reviews && <ReviewHero summary={reviews} />}
+      {courses && courses.length > 0 && dates && <ComingUp courses={courses} dates={dates} />}
       {courses && courses.length > 0 && (
         <p className="mt-6">
           <Link href="/ask" className="text-lg text-accent underline">
@@ -83,6 +88,36 @@ export default function Home() {
         </p>
       )}
     </main>
+  );
+}
+
+/** The next two exams, quizzes or deadlines. */
+const COMING_UP = 2;
+
+function ComingUp({ courses, dates }: { courses: CourseSummary[]; dates: CourseDate[] }) {
+  const [today] = useState(() => isoDay(new Date()));
+  const next = upcoming(dates, today).slice(0, COMING_UP);
+  const colors = courseColors(courses);
+  return (
+    <section aria-labelledby="coming-up-heading" className="mt-10">
+      <h2 id="coming-up-heading" className="text-xl font-semibold">
+        Coming up
+      </h2>
+      {next.length > 0 && (
+        <ul className="mt-3 space-y-3">
+          {next.map((d) => (
+            <li key={d.id} className="rounded-lg border border-border bg-white px-5 py-4">
+              <DateRow date={d} color={colors.get(d.course_id)} today={today} />
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="mt-3">
+        <Link href="/calendar" className="text-lg text-accent underline">
+          {next.length ? "Open the calendar" : "Add your exams and deadlines to the calendar"}
+        </Link>
+      </p>
+    </section>
   );
 }
 

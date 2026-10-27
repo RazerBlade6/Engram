@@ -15,6 +15,13 @@
   --box-text: #2f5d8a;
   --box-table: #2e7d4f;
   --box-figure: #b5541c;
+  /* Course colors on the calendar: distinct, and dark enough to read on white. */
+  --course-1: #2f5d8a;
+  --course-2: #b5541c;
+  --course-3: #2e7d4f;
+  --course-4: #7a4f9a;
+  --course-5: #a8325e;
+  --course-6: #6b6416;
 }
 
 @theme inline {
