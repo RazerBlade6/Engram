@@ -30,6 +30,8 @@ jobs:
         env:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
+          # config.toml names a local signing-keys file that isn't committed; db push never reads it.
+          echo '[]' > supabase/signing_keys.json
           password=$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["SUPABASE_DB_PASSWORD"], safe=""))')
           echo "::add-mask::$password"
           supabase db push --db-url "postgresql://postgres.qfdlwgfgeqajstswbtkr:$password@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres"
