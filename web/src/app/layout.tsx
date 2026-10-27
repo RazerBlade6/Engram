@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { UsageTracker } from "@/components/usage-tracker";
 
@@ -14,7 +15,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en">
       <body>
         {children}
-        <UsageTracker />
+        {/* It reads the URL, which some routes know only at request time. */}
+        <Suspense>
+          <UsageTracker />
+        </Suspense>
       </body>
     </html>
   );
