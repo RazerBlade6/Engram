@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { choiceRating, comesBackToday, passageParts, whenLabel, type ReviewCard } from "./review";
+import { choiceRating, comesBackToday, passageParts, requeue, whenLabel, type ReviewCard } from "./review";
 
 const now = new Date("2026-10-27T12:00:00Z");
 const later = (ms: number) => new Date(now.getTime() + ms).toISOString();
@@ -38,5 +38,20 @@ describe("passageParts", () => {
     const source = { book: "b", heading_path: [], page: 1, passage: "One. Two three. Four.", highlight: [5, 15] as [number, number] };
     expect(passageParts(source)).toEqual({ before: "One. ", marked: "Two three.", after: " Four." });
     expect(passageParts({ ...source, highlight: null })).toEqual({ before: source.passage, marked: "", after: "" });
+  });
+});
+
+describe("requeue", () => {
+  const card = (id: string, kind: ReviewCard["kind"]) => ({ id, kind }) as ReviewCard;
+  const ids = (q: ReviewCard[]) => q.map((c) => c.id);
+  const queue = [card("b1", "basic"), card("m1", "mcq"), card("m2", "mcq")];
+
+  it("keeps a relearned flashcard ahead of the multiple-choice block", () => {
+    expect(ids(requeue(queue, card("c1", "cloze"), "blocked"))).toEqual(["b1", "c1", "m1", "m2"]);
+    expect(ids(requeue(queue, card("m3", "mcq"), "blocked"))).toEqual(["b1", "m1", "m2", "m3"]);
+  });
+
+  it("otherwise puts it at the end", () => {
+    expect(ids(requeue(queue, card("c1", "cloze"), "mixed"))).toEqual(["b1", "m1", "m2", "c1"]);
   });
 });

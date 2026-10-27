@@ -39,9 +39,9 @@ select results_eq('select title from public.courses', $$values ('Biology')$$,
 select is_empty('select 1 from public.materials', 'students cannot see materials in other courses');
 select throws_ok('select 1 from public.jobs', '42501', null, 'the job queue is not readable by users');
 
-update public.profiles set role = 'admin' where id = '11111111-1111-1111-1111-111111111111';
-select is((select role::text from public.profiles where id = '11111111-1111-1111-1111-111111111111'),
-  'student', 'students cannot make themselves admins');
+select throws_ok($$ update public.profiles set role = 'admin'
+  where id = '11111111-1111-1111-1111-111111111111' $$, '42501', null,
+  'students cannot make themselves admins');
 
 update public.courses set title = 'Hijacked' where id = 'bbbbbbbb-0000-0000-0000-000000000000';
 delete from public.courses where id = 'bbbbbbbb-0000-0000-0000-000000000000';

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Toast, type ToastMessage } from "@/components/toast";
@@ -14,15 +15,21 @@ import {
   FLAG_REASONS,
   passageParts,
   RATINGS,
+  requeue,
   whenLabel,
   type Rating,
   type ReviewCard,
+  type ReviewOrder,
+  type ReviewQueue,
+  type ReviewSession,
   type Reviewed,
 } from "@/lib/review";
 
 export function ReviewView() {
   const profile = useProfile();
+  const session: ReviewSession = useSearchParams().get("session") === "quiz" ? "quiz" : "review";
   const [queue, setQueue] = useState<ReviewCard[] | null>(null);
+  const [order, setOrder] = useState<ReviewOrder>("mixed");
   const [failed, setFailed] = useState(false);
   // Answers given this session (a card still being learned is answered more than once),
   // and cards finished for today.
@@ -36,10 +43,13 @@ export function ReviewView() {
 
   useEffect(() => {
     if (!profile) return;
-    api<{ cards: ReviewCard[] }>("/review/queue")
-      .then((body) => setQueue(body.cards))
+    api<ReviewQueue>(`/review/queue?session=${session}`)
+      .then((body) => {
+        setOrder(body.order);
+        setQueue(body.cards);
+      })
       .catch(() => setFailed(true));
-  }, [profile]);
+  }, [profile, session]);
 
   const show = useCallback((text: string, undo?: () => void) => {
     toastId.current += 1;
@@ -70,7 +80,7 @@ export function ReviewView() {
         });
         if (comesBackToday(saved.due, new Date())) {
           // Still being learned: it comes back later in this session.
-          setQueue((q) => q && [...q, { ...card, new: false, next: saved.next }]);
+          setQueue((q) => q && requeue(q, { ...card, new: false, next: saved.next }, order));
         } else {
           setFinished((n) => n + 1);
         }
@@ -80,7 +90,7 @@ export function ReviewView() {
         show("That rating couldn't be saved. Please try again.");
       }
     },
-    [card, next, show],
+    [card, next, show, order],
   );
 
   const flag = useCallback(

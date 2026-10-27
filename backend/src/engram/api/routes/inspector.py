@@ -122,7 +122,7 @@ async def inspect(material_id: UUID, db: UserDb) -> Inspection:
         material = await cur.fetchone()
     if material is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Material not found")
-    storage_path = await _storage_path(db, material_id)
+    path = await storage_path(db, material_id)
 
     async with db.cursor(row_factory=class_row(Section)) as cur:
         await cur.execute(
@@ -144,14 +144,12 @@ async def inspect(material_id: UUID, db: UserDb) -> Inspection:
         )
         pages = await cur.fetchall()
 
-    return Inspection(
-        material=material, preview=_is_pdf(storage_path), sections=sections, pages=pages
-    )
+    return Inspection(material=material, preview=is_pdf(path), sections=sections, pages=pages)
 
 
 @router.get("/{material_id}/pages/{page}")
 async def page_contents(material_id: UUID, page: int, db: UserDb, pdf: Pages) -> Page:
-    storage_path = await _storage_path(db, material_id)
+    path = await storage_path(db, material_id)
 
     async with db.cursor(row_factory=class_row(ChunkBox)) as cur:
         # Figures have their own boxes below; their chunks would only draw the same box twice.
@@ -176,9 +174,9 @@ async def page_contents(material_id: UUID, page: int, db: UserDb, pdf: Pages) ->
         figures = await cur.fetchall()
 
     width = height = None
-    if _is_pdf(storage_path):
+    if is_pdf(path):
         try:
-            width, height = await pdf.size(storage_path, page)
+            width, height = await pdf.size(path, page)
         except PageNotFound:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "No such page") from None
     return Page(page=page, width=width, height=height, chunks=chunks, figures=figures)
@@ -190,11 +188,18 @@ async def page_contents(material_id: UUID, page: int, db: UserDb, pdf: Pages) ->
     responses={200: {"content": {"image/jpeg": {}}}},
 )
 async def page_image(material_id: UUID, page: int, db: UserDb, pdf: Pages) -> Response:
-    storage_path = await _storage_path(db, material_id)
-    if not _is_pdf(storage_path):
+    return await page_jpeg(db, pdf, material_id, page)
+
+
+async def page_jpeg(
+    db: AsyncConnection[Any], pdf: PdfPages, material_id: UUID, page: int
+) -> Response:
+    """A page of a material the caller can read, as a JPEG (also used by the source viewer)."""
+    path = await storage_path(db, material_id)
+    if not is_pdf(path):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Only PDF pages can be rendered")
     try:
-        image = await pdf.render(storage_path, page)
+        image = await pdf.render(path, page)
     except PageNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No such page") from None
     return Response(
@@ -202,7 +207,7 @@ async def page_image(material_id: UUID, page: int, db: UserDb, pdf: Pages) -> Re
     )
 
 
-async def _storage_path(db: AsyncConnection[Any], material_id: UUID) -> str:
+async def storage_path(db: AsyncConnection[Any], material_id: UUID) -> str:
     cur = await db.execute(
         "select storage_path from public.materials where id = %s", (material_id,)
     )
@@ -213,5 +218,5 @@ async def _storage_path(db: AsyncConnection[Any], material_id: UUID) -> str:
     return path
 
 
-def _is_pdf(storage_path: str) -> bool:
-    return storage_path.lower().endswith(".pdf")
+def is_pdf(path: str) -> bool:
+    return path.lower().endswith(".pdf")

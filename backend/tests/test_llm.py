@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from engram.config import Settings
 from engram.llm import ImagePart, Job, ModelRef, ProviderError, Router, TextPart, Usage
 from engram.llm.anthropic import AnthropicProvider
+from engram.llm.base import Cite, Document, TextDelta, Turn
 
 
 class Answer(BaseModel):
@@ -91,3 +92,73 @@ async def test_anthropic_usage_is_counted_even_when_the_output_is_unusable() -> 
             "m", system="s", parts=[TextPart("x")], schema=Answer, usage=usage
         )
     assert usage == Usage(2, 2000, 400, 0, 100, {"m"})
+
+
+class StubStream:
+    """Plays back raw stream events, like the SDK's `messages.stream(...)` manager."""
+
+    def __init__(self, events: list[Any], message: Any) -> None:
+        self.events = events
+        self.current_message_snapshot = message
+
+    async def __aenter__(self) -> "StubStream":
+        return self
+
+    async def __aexit__(self, *exc: Any) -> None:
+        return None
+
+    def __aiter__(self) -> Any:
+        async def play() -> Any:
+            for event in self.events:
+                yield event
+
+        return play()
+
+
+async def test_anthropic_cited_streams_text_and_citations() -> None:
+    def delta(index: int, **fields: Any) -> Any:
+        return SimpleNamespace(
+            type="content_block_delta", index=index, delta=SimpleNamespace(**fields)
+        )
+
+    citation = SimpleNamespace(type="char_location", document_index=1, cited_text="Water boils.")
+    events = [
+        SimpleNamespace(type="message_start"),
+        delta(1, type="text_delta", text="It boils at 100°C"),
+        delta(1, type="citations_delta", citation=citation),
+        delta(2, type="text_delta", text="."),
+    ]
+    billed = SimpleNamespace(
+        input_tokens=900,
+        output_tokens=60,
+        cache_read_input_tokens=None,
+        cache_creation_input_tokens=None,
+    )
+    message = SimpleNamespace(usage=billed, stop_reason="end_turn", _request_id="r")
+    calls: list[dict[str, Any]] = []
+
+    def stream(**kwargs: Any) -> StubStream:
+        calls.append(kwargs)
+        return StubStream(events, message)
+
+    provider = AnthropicProvider(SimpleNamespace(messages=SimpleNamespace(stream=stream)))  # type: ignore[arg-type]
+    usage = Usage()
+    got = [
+        e
+        async for e in provider.cited(
+            "m",
+            system="s",
+            documents=[Document("A", "Ice melts."), Document("B", "Water boils.")],
+            history=[Turn("user", "Hi"), Turn("assistant", "Hello")],
+            question="When does water boil?",
+            usage=usage,
+        )
+    ]
+    assert got == [TextDelta(1, "It boils at 100°C"), Cite(1, 1, "Water boils."), TextDelta(2, ".")]
+    assert usage == Usage(1, 900, 60, 0, 0, {"m"})
+    sent = calls[0]
+    assert sent["output_config"] == {"effort": "low"}
+    assert [m["role"] for m in sent["messages"]] == ["user", "assistant", "user"]
+    documents = sent["messages"][-1]["content"][:2]
+    assert all(d["type"] == "document" and d["citations"] == {"enabled": True} for d in documents)
+    assert sent["messages"][-1]["content"][-1] == {"type": "text", "text": "When does water boil?"}

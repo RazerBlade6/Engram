@@ -113,9 +113,9 @@ flowchart LR
     subgraph Client
         W[Next.js PWA<br/>Vercel]
     end
-    subgraph Backend [Fly.io]
-        API[FastAPI]
-        WK[Job worker]
+    subgraph Backend
+        API[FastAPI<br/>Cloud Run]
+        WK[Job worker<br/>Modal]
     end
     subgraph Supabase
         PG[(Postgres<br/>pgvector + FTS<br/>job queue)]
@@ -132,13 +132,14 @@ flowchart LR
     WK --> PG
     WK --> ST
     WK --> LLM
+    PG -. wakes on new job .-> WK
 ```
 
 | Layer           | Choice                                                            | Why                                                                                                                                   |
 | --------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | Frontend        | Next.js PWA on Vercel                                             | Familiar, so effort goes into UX rather than framework learning                                                                       |
 | API             | FastAPI (Python)                                                  | The ML and parsing ecosystem is in Python                                                                                             |
-| Background jobs | Worker process with a Postgres-backed queue                       | Ingesting a long textbook takes minutes, which rules out serverless timeouts, and a separate broker isn't worth running at this scale |
+| Background jobs | Worker with a Postgres-backed queue, started on demand            | Ingesting a long textbook takes minutes, so it runs outside requests; a separate broker isn't worth running at this scale             |
 | Database        | Postgres with pgvector and full-text search (Supabase)            | Relational data, vectors and keyword search in one place                                                                              |
 | Auth            | Supabase Auth                                                     | Invite-only accounts without building auth                                                                                            |
 | Storage         | Supabase Storage, private buckets                                 | Uploaded textbooks are copyrighted and are never served publicly                                                                      |
@@ -147,7 +148,7 @@ flowchart LR
 | LLMs            | Provider-agnostic interface                                       | Each job is routed to the model that wins the benchmark for it. See below.                                                            |
 | Local dev       | Docker Compose                                                    | One command brings up the full stack                                                                                                  |
 
-Target running cost is roughly **$10–30/month** for a small group of users: $0–10 of infrastructure on free and hobby tiers, plus inference.
+Target running cost is roughly **$10–30/month** for a small group of users: Vercel, Cloud Run and Modal within their free tiers, plus Supabase and inference.
 
 ### Model routing
 
@@ -157,7 +158,7 @@ LLM calls go through a thin interface, so no provider is hard-coded.
 - **Bulk jobs** (figure captioning) use the cheapest model that passes the quality bar.
 - **Card generation** starts on the stronger model and moves to a cheaper one only once the card-quality eval shows it passes. Cards are memorized, so a wrong one costs more than the tokens saved.
 - The routing is decided by the [model benchmark](#evaluation), not by preference. Until the eval suites exist (Phase 3), each job runs on a **provisional default** set in configuration, and every generated card records the model and prompt version that produced it, so later evals can compare models and attribute flags.
-- **Citations are part of the interface.** A grounded answer comes back with the IDs of the chunks it cites, which map to a page and a highlight box. The Anthropic adapter fills this from native Citations, passing retrieved chunks as custom-content documents; any other provider must produce chunk IDs and have them validated.
+- **Citations are part of the interface.** A grounded answer comes back with the IDs of the chunks it cites, which map to a page and a highlight box. The Anthropic adapter fills this from native Citations, passing each retrieved chunk as a plain-text document so citations quote the exact sentences; any other provider must produce chunk IDs and have them validated.
 - Only the Anthropic adapter is built at first. Other providers are added when the benchmark needs them, and only on paid tiers whose terms exclude training on submitted content.
 - **Embeddings** run in-process via ONNX, in both the worker (documents) and the API (questions). The provisional model is `bge-small-en-v1.5` (384 dimensions). Each stored embedding records its model, so switching is a migration plus a re-embed job.
 
@@ -249,10 +250,11 @@ The smallest end-to-end product. Tested by developers, not yet handed to users f
 - [x] Student upload for slides (PDF, PowerPoint): a large upload button and drop zone, kept visually separate from link entry
 - [x] Card generation: Q → A, cloze, MCQ, with source citations
 - [x] FSRS review with four ratings, keyboard controls and an in-review flag button
-- [ ] Review ordering (mixed, blocked, separate) behind an admin-only switch
-- [ ] Cited chat with click-through to the highlighted source page
+- [x] Review ordering (mixed, blocked, separate) behind an admin-only switch
+- [x] Cited chat with click-through to the highlighted source page
 - [ ] Calendar: quick-add for exams, quizzes and deadlines; month grid with an upcoming list; next dates on Today
 - [ ] Usage event logging
+- [ ] Deploy: web on Vercel, API on Cloud Run, worker on Modal (woken by new jobs, with a periodic sweep for retries), deployed from `main` by CI, so users can use Engram on their own devices
 - [ ] **Exit:** a moderated usability session with a target user
 
 ### Phase 2: UI/UX
@@ -301,7 +303,7 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 7   | Provider-agnostic LLM layer, routing decided by benchmark                                 | Best quality per cost for each job, and a measurable model choice                                              |
 | 8   | Docling plus vision captions, section-aware chunks with bounding boxes                    | Diagram-heavy, multi-column textbooks need layout-aware parsing; precise citations build trust                 |
 | 9   | Own retrieval pipeline instead of LlamaIndex                                              | Tunable, measurable, no framework lock-in                                                                      |
-| 10  | Supabase + Fly.io + Vercel, Postgres-backed job queue                                     | Long-running ingestion needs a worker; one database covers relational, vector and full-text data at low cost   |
+| 10  | Supabase + Vercel, Postgres-backed job queue (backend hosting in D35)                     | Long-running ingestion needs a worker; one database covers relational, vector and full-text data at low cost   |
 | 11  | Invite-only accounts plus a public read-only demo                                         | Bounded costs; anyone can evaluate the product without uploading anything                                      |
 | 12  | OpenStax for demo and eval corpus; user uploads never used                                | Openly licensed and legally shareable; user data stays private                                                 |
 | 13  | Dedicated UI/UX phase before daily use                                                    | A bad first impression is hard to undo, and friction is the main risk                                          |
@@ -326,3 +328,8 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 32  | Up to 20 new cards a day, chapters covered first                                          | Bounds the daily load at roughly 15 minutes once reviews build up                                              |
 | 33  | Only each card's current schedule is stored; review history waits for consent             | Scheduling needs no history, and ratings are usage events                                                      |
 | 34  | Multiple choice grades itself: right is "Got it", wrong is "Forgot"                       | One action per card; asking how well you knew an answer you just got wrong adds a step                         |
+| 35  | API on Cloud Run, worker on Modal, both scaling to zero                                   | The backend is idle almost all the time; free tiers cover a few users, at a few seconds on the first load after a quiet spell |
+| 36  | Review order is set per person, and every order shows the same day's cards               | Each user can try each order in turn, and only the arrangement differs between them                            |
+| 37  | Chat retrieves 8 passages by hybrid search (vectors and keywords, fused by rank), Opus at low effort | First words in about 1.5 seconds, about $0.035 a question; keywords catch names that embeddings blur |
+| 38  | Chat conversations aren't stored on the server; they last as long as the browser tab      | Questions can be personal, and nothing needs them later; only token counts are recorded, with no user       |
+| 39  | An answer outside the materials is detected by a marker the model writes, not by missing citations | An off-topic answer can still cite a passing mention, which would hide the "not from your materials" label |

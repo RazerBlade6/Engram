@@ -40,4 +40,7 @@ async def service_db(pool: Pool) -> AsyncIterator[AsyncConnection[Any]]:
 
 
 UserDb = Annotated[AsyncConnection[Any], Depends(user_db)]
+# For streaming responses: the transaction ends when the handler returns rather than when
+# the response finishes, so a long stream doesn't hold a connection.
+UserDbUntilStreaming = Annotated[AsyncConnection[Any], Depends(user_db, scope="function")]
 ServiceDb = Annotated[AsyncConnection[Any], Depends(service_db)]

@@ -5,6 +5,7 @@ new cards are introduced a few at a time each day, and a card in its first short
 (minutes apart) can be shown a little early, so a session doesn't stall waiting for it.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
 from typing import Literal
@@ -21,6 +22,13 @@ LEARN_AHEAD = timedelta(minutes=20)
 SECONDS_PER_CARD = 20
 
 State = Literal["learning", "review", "relearning"]
+
+# How flashcards (basic, cloze) and multiple choice are arranged; set per student by an admin
+# while the experiment runs (see "Review order" in the roadmap).
+Order = Literal["mixed", "blocked", "separate"]
+# With "separate", flashcards are the "review" session and multiple choice the "quiz". In the
+# other orders, "review" is everything.
+Session = Literal["review", "quiz"]
 
 _scheduler = fsrs.Scheduler()
 # Without fuzzing, so the "when you'll see it again" labels are stable.
@@ -65,6 +73,28 @@ def preview(progress: Progress | None, now: datetime) -> dict[int, datetime]:
     """When the card would next be due for each rating, to label the rating buttons."""
     card = _card(progress, now)
     return {r.value: _preview.review_card(card, r, now)[0].due for r in fsrs.Rating}
+
+
+def is_quiz(kind: str) -> bool:
+    return kind == "mcq"
+
+
+def sessions(order: Order) -> list[Session]:
+    return ["review", "quiz"] if order == "separate" else ["review"]
+
+
+def arrange[T](cards: list[T], kind: Callable[[T], str], order: Order, session: Session) -> list[T]:
+    """Today's cards, in the order the session shows them.
+
+    Every order uses the same cards; only their arrangement differs, so the orders can be
+    compared fairly. "Mixed" keeps them as they come (due first, then new in chapter order,
+    where card types already alternate).
+    """
+    if order == "separate":
+        return [c for c in cards if is_quiz(kind(c)) == (session == "quiz")]
+    if order == "blocked" and session == "review":
+        return sorted(cards, key=lambda c: is_quiz(kind(c)))  # stable: flashcards first
+    return cards if session == "review" else []
 
 
 def timezone(name: str | None) -> ZoneInfo:

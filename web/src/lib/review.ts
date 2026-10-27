@@ -24,7 +24,20 @@ export type ReviewCard = {
   source: ReviewSource | null;
 };
 
-export type ReviewSummary = { due: number; new: number; minutes: number; courses: string[] };
+/** How flashcards and multiple choice are arranged; set per student by an admin. */
+export type ReviewOrder = "mixed" | "blocked" | "separate";
+/** With "separate", flashcards are the "review" and multiple choice the "quiz". */
+export type ReviewSession = "review" | "quiz";
+
+export type SessionSummary = { session: ReviewSession; cards: number; minutes: number; courses: string[] };
+export type ReviewSummary = { order: ReviewOrder; sessions: SessionSummary[] };
+export type ReviewQueue = { order: ReviewOrder; cards: ReviewCard[] };
+
+export const ORDER_LABEL: Record<ReviewOrder, string> = {
+  mixed: "Mixed: card types interleaved",
+  blocked: "Blocked: flashcards, then multiple choice",
+  separate: "Separate: a Review and a Quiz session",
+};
 
 export type Reviewed = { due: string; next: Record<Rating, string> };
 
@@ -60,6 +73,17 @@ export function whenLabel(due: string, now: Date): string {
 /** Whether a card just rated comes back before the session ends. */
 export function comesBackToday(due: string, now: Date): boolean {
   return new Date(due).getTime() - now.getTime() < LEARN_AHEAD_MS;
+}
+
+/**
+ * Puts a card that's still being learned back in the session. In the blocked order it goes
+ * to the end of its own block, so flashcards stay ahead of multiple choice.
+ */
+export function requeue(queue: ReviewCard[], card: ReviewCard, order: ReviewOrder): ReviewCard[] {
+  if (order !== "blocked" || card.kind === "mcq") return [...queue, card];
+  const quiz = queue.findIndex((c) => c.kind === "mcq");
+  if (quiz === -1) return [...queue, card];
+  return [...queue.slice(0, quiz), card, ...queue.slice(quiz)];
 }
 
 /** A multiple-choice answer rates itself: right is "Got it", wrong is "Forgot". */

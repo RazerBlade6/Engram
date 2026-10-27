@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
 import type { CourseSummary } from "@/lib/courses";
-import type { ReviewSummary } from "@/lib/review";
+import type { ReviewSummary, SessionSummary } from "@/lib/review";
 import { useProfile } from "@/lib/profile";
 import { supabase } from "@/lib/supabase";
 
@@ -40,6 +40,13 @@ export default function Home() {
         </button>
       </div>
       {reviews && <ReviewHero summary={reviews} />}
+      {courses && courses.length > 0 && (
+        <p className="mt-6">
+          <Link href="/ask" className="text-lg text-accent underline">
+            Ask a question about your courses
+          </Link>
+        </p>
+      )}
 
       {courses && (
         <section aria-labelledby="courses-heading" className="mt-10">
@@ -71,7 +78,7 @@ export default function Home() {
       {profile.role === "admin" && (
         <p className="mt-10">
           <Link href="/admin" className="text-accent underline">
-            Ingested materials
+            Admin: materials and review order
           </Link>
         </p>
       )}
@@ -80,8 +87,8 @@ export default function Home() {
 }
 
 function ReviewHero({ summary }: { summary: ReviewSummary }) {
-  const count = summary.due + summary.new;
-  if (!count) {
+  const sessions = summary.sessions.filter((s) => s.cards > 0);
+  if (!sessions.length) {
     return (
       <section className="mt-8">
         <h2 className="text-2xl font-semibold">Nothing to review right now</h2>
@@ -89,19 +96,34 @@ function ReviewHero({ summary }: { summary: ReviewSummary }) {
       </section>
     );
   }
+  // With the "separate" order, the review (flashcards) and the quiz (multiple choice) are
+  // started on their own.
+  const separate = summary.order === "separate";
+  return sessions.map((s) => <SessionHero key={s.session} summary={s} separate={separate} />);
+}
+
+const SESSION_TEXT = {
+  review: { one: "card", many: "cards", heading: "to review", action: "Start review" },
+  flashcards: { one: "flashcard", many: "flashcards", heading: "to review", action: "Start review" },
+  quiz: { one: "question", many: "questions", heading: "in your quiz", action: "Start quiz" },
+};
+
+function SessionHero({ summary, separate }: { summary: SessionSummary; separate: boolean }) {
+  const text = SESSION_TEXT[summary.session === "quiz" ? "quiz" : separate ? "flashcards" : "review"];
+  const id = `${summary.session}-heading`;
   return (
-    <section className="mt-8 rounded-2xl border border-border bg-white p-8" aria-labelledby="review-heading">
-      <h2 id="review-heading" className="text-3xl font-semibold">
-        {count} {count === 1 ? "card" : "cards"} to review
+    <section className="mt-8 rounded-2xl border border-border bg-white p-8" aria-labelledby={id}>
+      <h2 id={id} className="text-3xl font-semibold">
+        {summary.cards} {summary.cards === 1 ? text.one : text.many} {text.heading}
       </h2>
       <p className="mt-2 text-lg text-muted">
         About {summary.minutes} {summary.minutes === 1 ? "minute" : "minutes"}, from {listOf(summary.courses)}.
       </p>
       <Link
-        href="/review"
+        href={summary.session === "quiz" ? "/review?session=quiz" : "/review"}
         className="mt-6 inline-block rounded-lg bg-accent px-6 py-3 text-lg font-medium text-white hover:bg-accent-strong"
       >
-        Start review
+        {text.action}
       </Link>
     </section>
   );

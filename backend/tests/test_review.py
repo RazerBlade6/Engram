@@ -11,7 +11,7 @@ from engram import review as scheduling
 from engram.api.auth import get_verifier
 from engram.api.main import create_app
 from engram.api.routes.review import highlight
-from engram.review import Day, preview, review
+from engram.review import Day, arrange, preview, review
 from tests.test_api import FakeVerifier, auth, token_for
 
 NOW = datetime(2026, 10, 27, 12, tzinfo=UTC)
@@ -48,6 +48,26 @@ def test_highlight_finds_the_quote_despite_spacing() -> None:
     span = highlight(passage, "the nucleus stores DNA")
     assert span and passage[slice(*span)] == "The nucleus   stores DNA"
     assert highlight(passage, "ribosomes make proteins") is None
+
+
+def test_each_order_arranges_the_same_cards() -> None:
+    today = ["basic 1", "mcq 1", "cloze 1", "mcq 2", "basic 2"]
+
+    def kind(card: str) -> str:
+        return card.split()[0]
+
+    assert arrange(today, kind, "mixed", "review") == today
+    assert arrange(today, kind, "blocked", "review") == [
+        "basic 1",
+        "cloze 1",
+        "basic 2",
+        "mcq 1",
+        "mcq 2",
+    ]
+    assert arrange(today, kind, "separate", "review") == ["basic 1", "cloze 1", "basic 2"]
+    assert arrange(today, kind, "separate", "quiz") == ["mcq 1", "mcq 2"]
+    # Outside "separate" there is no quiz session: everything is in the review.
+    assert arrange(today, kind, "mixed", "quiz") == []
 
 
 # The API ------------------------------------------------------------------------------
@@ -149,7 +169,10 @@ def test_new_cards_are_introduced_a_few_a_day_covered_chapters_first(
     assert (source["book"], source["page"]) == ("Biology 2e", 6)
 
     summary = client.get("/review/summary", headers=headers).json()
-    assert summary == {"due": 0, "new": 3, "minutes": 1, "courses": ["Biology"]}
+    assert summary == {
+        "order": "mixed",
+        "sessions": [{"session": "review", "cards": 3, "minutes": 1, "courses": ["Biology"]}],
+    }
 
 
 def test_rating_schedules_the_card(
@@ -202,3 +225,43 @@ def test_other_students_and_admins_cannot_review_someone_elses_cards(
     assert flag.status_code == 404
     # Admins can read every course, but their reviews hold only their own courses' cards.
     assert prompts(client, make_user("admin")) == []
+
+
+def test_an_admin_sets_each_students_review_order(
+    client: TestClient, deck: dict[str, Any], database_url: str, make_user: Callable[..., str]
+) -> None:
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute(
+            "update public.cards set kind = 'mcq', choices = array['A', 'B', 'C', 'D']"
+            " where id = %s",
+            (deck["cards"]["Chapter 2 Genes Q0"],),
+        )
+    student = auth(token_for(deck["owner"]))
+    admin = auth(token_for(make_user("admin")))
+    url = f"/admin/people/{deck['owner']}/review-order"
+
+    # Students can neither see the switch nor flip it.
+    assert client.get("/admin/people", headers=student).status_code == 403
+    assert client.put(url, json={"order": "separate"}, headers=student).status_code == 403
+
+    people = client.get("/admin/people", headers=admin).json()
+    assert {"id": deck["owner"], "review_order": "mixed"}.items() <= next(
+        p for p in people if p["id"] == deck["owner"]
+    ).items()
+
+    assert client.put(url, json={"order": "blocked"}, headers=admin).status_code == 204
+    body = client.get("/review/queue", headers=student).json()
+    assert body["order"] == "blocked"
+    assert [c["prompt"] for c in body["cards"]][-1] == "Chapter 2 Genes Q0"  # quiz last
+
+    assert client.put(url, json={"order": "separate"}, headers=admin).status_code == 204
+    review_only = prompts(client, deck["owner"])
+    quiz = client.get("/review/queue?session=quiz", headers=student).json()["cards"]
+    assert [c["prompt"] for c in quiz] == ["Chapter 2 Genes Q0"]
+    assert "Chapter 2 Genes Q0" not in review_only and len(review_only) == 3
+    summary = client.get("/review/summary", headers=student).json()
+    assert [(s["session"], s["cards"]) for s in summary["sessions"]] == [("review", 3), ("quiz", 1)]
+
+    assert client.put(url, json={"order": "sideways"}, headers=admin).status_code == 422
+    missing = "/admin/people/00000000-0000-0000-0000-000000000000/review-order"
+    assert client.put(missing, json={"order": "mixed"}, headers=admin).status_code == 404

@@ -41,7 +41,8 @@ select throws_ok($$ insert into public.card_progress (card_id, user_id, state, d
           'review', now()) $$, '42501', null, 'nobody writes progress for someone else');
 
 reset role;
-select cmp_ok((select due from public.card_progress), '<', now() + interval '1 day',
+select cmp_ok((select due from public.card_progress
+                where card_id = 'eeeeeeee-0000-0000-0000-000000000000'), '<', now() + interval '1 day',
   'others cannot change the progress');
 
 select * from finish();
