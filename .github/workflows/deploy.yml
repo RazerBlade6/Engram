@@ -25,13 +25,14 @@ jobs:
       - uses: supabase/setup-cli@v3
         with:
           version: 2.122.0
+      # Through the session pooler with the database password; no Supabase account token.
       - name: Apply new migrations
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
-          supabase link --project-ref qfdlwgfgeqajstswbtkr
-          supabase db push
+          password=$(python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ["SUPABASE_DB_PASSWORD"], safe=""))')
+          echo "::add-mask::$password"
+          supabase db push --db-url "postgresql://postgres.qfdlwgfgeqajstswbtkr:$password@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres"
 
   api:
     needs: migrations

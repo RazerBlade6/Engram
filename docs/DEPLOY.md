@@ -33,8 +33,8 @@ Nothing secret is in the repository.
 - **Modal** reads everything from the secret `engram`, including `ENGRAM_WORKER_WAKE_TOKEN`.
 - **Vercel** has `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and
   `NEXT_PUBLIC_API_URL`.
-- **GitHub Actions** has `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `MODAL_TOKEN_ID`
-  and `MODAL_TOKEN_SECRET`. Google Cloud access needs no key: the workflow signs in through
+- **GitHub Actions** has `SUPABASE_DB_PASSWORD` (migrations connect through the session
+  pooler), `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET`. Google Cloud access needs no key: the workflow signs in through
   workload identity federation, trusted only for `main` of this repository.
 - Both the API and the worker connect through Supabase's session pooler (port 5432), which
   works over IPv4 and keeps prepared statements working.
