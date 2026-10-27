@@ -243,7 +243,7 @@ The smallest end-to-end product. Tested by developers, not yet handed to users f
 
 - [x] Repo scaffold: FastAPI, worker, Next.js, Docker Compose, CI (lint, types, tests)
 - [x] Supabase project: schema, auth (invite-only), private storage
-- [ ] Ingestion: PDF and slides → Docling → figure captions → section-aware chunks → index
+- [x] Ingestion: PDF and slides → Docling → figure captions → section-aware chunks → index
 - [ ] Minimal ingestion inspector (admin)
 - [ ] Courses, table of contents, "mark chapter covered"
 - [ ] Student upload for slides (PDF, PowerPoint): a large upload button and drop zone, kept visually separate from link entry

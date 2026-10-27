@@ -234,7 +234,8 @@ def _pack(
     paragraphs: list[tuple[str, list[Location]]],
 ) -> Iterator[tuple[str, list[Location]]]:
     """Packs consecutive paragraphs into chunks of at most MAX_WORDS, splitting a paragraph
-    that is too long on its own at sentence boundaries."""
+    that is too long on its own at sentence boundaries (or between words, for text with no
+    sentences, such as a glossary)."""
     texts: list[str] = []
     locations: list[Location] = []
     words = 0
@@ -257,7 +258,7 @@ def _split(paragraph: str) -> Iterator[str]:
         return
     current: list[str] = []
     count = 0
-    for sentence in _SENTENCE_END.split(paragraph):
+    for sentence in _pieces(paragraph):
         n = len(sentence.split())
         if current and count + n > MAX_WORDS:
             yield " ".join(current)
@@ -266,6 +267,13 @@ def _split(paragraph: str) -> Iterator[str]:
         count += n
     if current:
         yield " ".join(current)
+
+
+def _pieces(paragraph: str) -> Iterator[str]:
+    for sentence in _SENTENCE_END.split(paragraph):
+        words = sentence.split()
+        for start in range(0, len(words), MAX_WORDS):
+            yield " ".join(words[start : start + MAX_WORDS])
 
 
 _CAPTION = re.compile(r"^(fig\.|figure|table)\s*\d", re.IGNORECASE)

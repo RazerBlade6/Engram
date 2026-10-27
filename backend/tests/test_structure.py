@@ -78,6 +78,15 @@ def test_pack_respects_the_word_limit() -> None:
     assert chunks[0][0].startswith("short paragraph")
 
 
+def test_pack_splits_text_without_sentences() -> None:
+    # Glossaries come through as one run of terms and definitions with no full stops.
+    here = [Location(1, (0, 0, 1, 1))]
+    glossary = " ".join(f"term{i} what term {i} means" for i in range(120))  # 600 words
+    chunks = list(_pack([(glossary, here)]))
+    assert all(len(text.split()) <= MAX_WORDS for text, _ in chunks)
+    assert " ".join(text for text, _ in chunks) == glossary
+
+
 def _doc_with_unlinked_caption() -> DoclingDocument:
     from docling_core.types.doc import (
         BoundingBox,
