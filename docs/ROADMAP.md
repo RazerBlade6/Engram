@@ -250,7 +250,7 @@ The smallest end-to-end product. Tested by developers, not yet handed to users f
 - [x] Student upload for slides (PDF, PowerPoint): a large upload button and drop zone, kept visually separate from link entry
 - [x] Card generation: Q → A, cloze, MCQ, with source citations
 - [x] FSRS review with four ratings, keyboard controls and an in-review flag button
-- [ ] Review ordering (mixed, blocked, separate) behind an admin-only switch
+- [x] Review ordering (mixed, blocked, separate) behind an admin-only switch
 - [ ] Cited chat with click-through to the highlighted source page
 - [ ] Calendar: quick-add for exams, quizzes and deadlines; month grid with an upcoming list; next dates on Today
 - [ ] Usage event logging
@@ -329,3 +329,4 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 33  | Only each card's current schedule is stored; review history waits for consent             | Scheduling needs no history, and ratings are usage events                                                      |
 | 34  | Multiple choice grades itself: right is "Got it", wrong is "Forgot"                       | One action per card; asking how well you knew an answer you just got wrong adds a step                         |
 | 35  | API on Cloud Run, worker on Modal, both scaling to zero                                   | The backend is idle almost all the time; free tiers cover a few users, at a few seconds on the first load after a quiet spell |
+| 36  | Review order is set per person, and every order shows the same day's cards               | Each user can try each order in turn, and only the arrangement differs between them                            |

@@ -1,7 +1,8 @@
 """Reviewing cards: what's due, rating a card, and flagging one that's wrong.
 
 The queue is cards due today plus a few new ones (see `engram.review`), from the courses the
-student owns. Cards of a chapter that has since been unmarked stay in it. Rows are read and
+student owns, arranged in the review order an admin set for them. Cards of a chapter that has
+since been unmarked stay in it. Rows are read and
 written as the student, so RLS keeps each student to their own progress.
 """
 
@@ -18,7 +19,7 @@ from pydantic import BaseModel, Field
 
 from engram import review as scheduling
 from engram.api.db import UserDb
-from engram.review import Day, Progress
+from engram.review import Day, Order, Progress, Session
 
 router = APIRouter()
 
@@ -58,14 +59,21 @@ class ReviewCard(BaseModel):
 
 
 class Queue(BaseModel):
+    order: Order
     cards: list[ReviewCard]
 
 
-class Summary(BaseModel):
-    due: int
-    new: int
+class SessionSummary(BaseModel):
+    session: Session
+    cards: int
     minutes: int
     courses: list[str]
+
+
+class Summary(BaseModel):
+    order: Order
+    # One entry, "review", unless the order is "separate": then "review" and "quiz".
+    sessions: list[SessionSummary]
 
 
 class Rating(BaseModel):
@@ -191,30 +199,50 @@ def _card(row: dict[str, Any], now: datetime) -> ReviewCard:
     )
 
 
-async def _queue(db: UserDb, day: Day) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+async def _order(db: UserDb) -> Order:
+    cur = await db.execute(
+        "select review_order::text from public.profiles where id = (select auth.uid())"
+    )
+    row = await cur.fetchone()
+    return row[0] if row else "mixed"
+
+
+async def _today(db: UserDb, day: Day) -> list[dict[str, Any]]:
+    """Cards due today first, then today's new cards."""
     due = await _rows(
         db,
         _DUE,
         {"end": day.end, "ahead": day.now + scheduling.LEARN_AHEAD, "limit": QUEUE_LIMIT},
     )
     new = await _rows(db, _NEW, {"limit": await _new_allowance(db, day)})
-    return due, new
+    return [*due, *new]
+
+
+def _kind(row: dict[str, Any]) -> str:
+    return str(row["kind"])
 
 
 @router.get("/review/queue")
-async def queue(db: UserDb, day: Today) -> Queue:
-    """Cards due today first, then today's new cards."""
-    due, new = await _queue(db, day)
-    return Queue(cards=[_card(row, day.now) for row in [*due, *new]])
+async def queue(db: UserDb, day: Today, session: Session = "review") -> Queue:
+    order = await _order(db)
+    rows = scheduling.arrange(await _today(db, day), _kind, order, session)
+    return Queue(order=order, cards=[_card(row, day.now) for row in rows])
 
 
 @router.get("/review/summary")
 async def summary(db: UserDb, day: Today) -> Summary:
-    due, new = await _queue(db, day)
-    count = len(due) + len(new)
-    courses = list(dict.fromkeys(row["course"] for row in [*due, *new]))
-    minutes = max(1, round(count * scheduling.SECONDS_PER_CARD / 60)) if count else 0
-    return Summary(due=len(due), new=len(new), minutes=minutes, courses=courses)
+    order = await _order(db)
+    today = await _today(db, day)
+    sessions = []
+    for session in scheduling.sessions(order):
+        rows = scheduling.arrange(today, _kind, order, session)
+        count = len(rows)
+        minutes = max(1, round(count * scheduling.SECONDS_PER_CARD / 60)) if count else 0
+        courses = list(dict.fromkeys(row["course"] for row in rows))
+        sessions.append(
+            SessionSummary(session=session, cards=count, minutes=minutes, courses=courses)
+        )
+    return Summary(order=order, sessions=sessions)
 
 
 async def _current(db: UserDb, card_id: UUID) -> dict[str, Any]:
