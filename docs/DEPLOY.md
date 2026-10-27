@@ -16,6 +16,11 @@ and the project's vercel.app address redirect to it, and it is the only origin t
 `main` only fast-forwards to a `dev` commit that CI passed, so the deploy workflow doesn't
 test again. It applies new migrations first, then deploys the API and worker.
 
+Both CI and deploys run only for the parts of the repository a push changed. A web-only
+change runs the web checks and a Vercel build, and nothing else; documentation runs nothing.
+Vercel skips its build when nothing under `web/` changed (`ignoreCommand` in
+`web/vercel.json`). Running the deploy workflow by hand deploys everything.
+
 ## How the worker wakes
 
 The worker isn't running between jobs. When a job is queued, a trigger on `public.jobs`

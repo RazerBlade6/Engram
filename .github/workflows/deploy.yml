@@ -2,7 +2,8 @@ name: Deploy
 
 # main only ever fast-forwards to a dev commit that CI has passed, so each push to main is
 # deployed as it is. The schema goes first, so the API and worker never run against an older
-# one. The web app deploys through Vercel's own GitHub integration. See docs/DEPLOY.md.
+# one. Each part deploys only when it changed (all of them when run by hand). The web app
+# deploys through Vercel's own GitHub integration. See docs/DEPLOY.md.
 on:
   push:
     branches: [main]
@@ -18,7 +19,27 @@ env:
   IMAGE: asia-northeast3-docker.pkg.dev/engram-512911/engram/api
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      migrations: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.migrations == 'true' }}
+      backend: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backend == 'true' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4.0.3
+        id: filter
+        with:
+          filters: |
+            migrations:
+              - supabase/migrations/**
+              - .github/workflows/deploy.yml
+            backend:
+              - backend/**
+              - .github/workflows/deploy.yml
+
   migrations:
+    needs: changes
+    if: needs.changes.outputs.migrations == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -37,7 +58,10 @@ jobs:
           supabase db push --db-url "postgresql://postgres.qfdlwgfgeqajstswbtkr:$password@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres"
 
   api:
-    needs: migrations
+    needs: [changes, migrations]
+    if: >-
+      always() && needs.changes.outputs.backend == 'true'
+      && contains(fromJSON('["success", "skipped"]'), needs.migrations.result)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -59,7 +83,10 @@ jobs:
         run: gcloud run deploy engram-api --image $IMAGE:${{ github.sha }} --region $REGION -q
 
   worker:
-    needs: migrations
+    needs: [changes, migrations]
+    if: >-
+      always() && needs.changes.outputs.backend == 'true'
+      && contains(fromJSON('["success", "skipped"]'), needs.migrations.result)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

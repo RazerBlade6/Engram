@@ -340,3 +340,4 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 44  | Each rating logs the scheduler state before and after, and the time since the last review | Enough to evaluate FSRS on real reviews, and later fit its parameters to each user |
 | 45  | A new job wakes the worker through a database trigger; a sweep every 15 minutes catches retries | Every way a job is queued is covered in one place, and the worker costs nothing while idle |
 | 46  | Production deploys from `main` on push: migrations, then API and worker; Vercel deploys the web app itself | The schema is never behind the code, and a deploy is just a fast-forward of `main` |
+| 47  | CI and deploys run only for the parts of the repository a push changed                    | A one-line web fix took about 8 minutes from push to live, almost all of it backend jobs it didn't touch |

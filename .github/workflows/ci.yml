@@ -3,6 +3,9 @@ name: CI
 # Every change is tested once, on its push to dev. A pull request from dev into main merges
 # the commit that push already tested (its checks show on the pull request), so only pull
 # requests from other branches run here. main itself never runs CI.
+#
+# Each job runs only when its part of the repository changed: a web-only change skips the
+# backend job (several minutes, mostly starting Supabase), and documentation runs nothing.
 on:
   push:
     branches: [dev]
@@ -13,8 +16,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend:
+  changes:
     if: github.event_name == 'push' || github.head_ref != 'dev'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4.0.3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - backend/**
+              - supabase/**
+              - .github/workflows/ci.yml
+            web:
+              - web/**
+              - .github/workflows/ci.yml
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -56,7 +83,8 @@ jobs:
         run: uv run pytest
 
   web:
-    if: github.event_name == 'push' || github.head_ref != 'dev'
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
