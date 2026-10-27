@@ -48,6 +48,7 @@ export function MaterialsPanel({
 
   async function remove(material: Material) {
     setConfirming(null);
+    setProblem(null);
     try {
       await apiFetch(`/materials/${material.id}`, { method: "DELETE" });
       show(`${material.title} removed.`);
@@ -86,7 +87,10 @@ export function MaterialsPanel({
                 </div>
               ) : (
                 <button
-                  onClick={() => setConfirming(m.id)}
+                  onClick={() => {
+                    setConfirming(m.id);
+                    setProblem(null);
+                  }}
                   className="mt-1 text-sm text-muted underline hover:text-foreground"
                   aria-label={`Remove ${m.title}`}
                 >
