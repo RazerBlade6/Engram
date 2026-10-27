@@ -1,11 +1,24 @@
 /** Types and helpers for important dates (see backend `api/routes/dates.py`). */
 
+import { splitChapterTitle } from "./courses";
+
 export type DateKind = "exam" | "quiz" | "deadline";
 
-/** `on` is a calendar day, "2026-11-13", with no time or time zone. */
-export type CourseDate = { id: string; course_id: string; course: string; kind: DateKind; title: string; on: string };
+export type DateChapter = { id: string; title: string };
 
-export type NewDate = { kind: DateKind; title: string; on: string };
+/** `on` is a calendar day, "2026-11-13", with no time or time zone. Chapters are in book order. */
+export type CourseDate = {
+  id: string;
+  course_id: string;
+  course: string;
+  kind: DateKind;
+  title: string;
+  on: string;
+  chapters: DateChapter[];
+};
+
+/** `chapters` are the section ids of the chapters it covers. */
+export type NewDate = { kind: DateKind; title: string; on: string; chapters: string[] };
 
 export const KIND_LABEL: Record<DateKind, string> = { exam: "Exam", quiz: "Quiz", deadline: "Deadline" };
 
@@ -91,4 +104,23 @@ export function localFirstDay(): number {
   } catch {
     return 1;
   }
+}
+
+/** "Chapter 3", "Chapters 1–3, 5", or, for chapters without numbers, "2 chapters". */
+export function chaptersLabel(chapters: { title: string }[]): string | null {
+  if (!chapters.length) return null;
+  const numbers = chapters.map((c) => Number(splitChapterTitle(c.title).number));
+  if (numbers.some((n) => !Number.isInteger(n) || n <= 0)) {
+    return chapters.length === 1 ? chapters[0].title : `${chapters.length} chapters`;
+  }
+  if (numbers.length === 1) return `Chapter ${numbers[0]}`;
+  const ranges: string[] = [];
+  const sorted = [...new Set(numbers)].sort((a, b) => a - b);
+  for (let i = 0; i < sorted.length; i++) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
+    ranges.push(j - i >= 2 ? `${sorted[i]}–${sorted[j]}` : sorted.slice(i, j + 1).join(", "));
+    i = j;
+  }
+  return `Chapters ${ranges.join(", ")}`;
 }

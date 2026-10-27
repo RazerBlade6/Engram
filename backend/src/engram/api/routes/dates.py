@@ -1,5 +1,8 @@
 """Important dates per course (exams, quizzes and deadlines) for the calendar and Today.
 
+A date can say which chapters it covers. That's optional, and used by focus mode (Phase 3)
+to prioritize those chapters ahead of an exam.
+
 Dates are calendar days with no time or time zone: "upcoming" is worked out by the browser,
 in the student's own today.
 """
@@ -27,6 +30,13 @@ class NewDate(BaseModel):
     kind: Kind
     title: Title
     on: Day
+    # Section ids of the chapters it covers, from the date's own course.
+    chapters: Annotated[list[UUID], Field(max_length=200)] = []
+
+
+class DateChapter(BaseModel):
+    id: UUID
+    title: str
 
 
 class CourseDate(BaseModel):
@@ -36,13 +46,39 @@ class CourseDate(BaseModel):
     kind: Kind
     title: str
     on: date
+    # In book order.
+    chapters: list[DateChapter]
 
 
 _SELECT = """
-select d.id, d.course_id, c.title as course, d.kind::text as kind, d.title, d.on_date as on
+select d.id, d.course_id, c.title as course, d.kind::text as kind, d.title, d.on_date as on,
+       coalesce((
+         select jsonb_agg(jsonb_build_object('id', s.id, 'title', s.title)
+                          order by m.created_at, s.ordinal)
+           from public.course_date_chapters dc
+           join public.sections s on s.id = dc.section_id
+           join public.materials m on m.id = s.material_id
+          where dc.date_id = d.id
+       ), '[]') as chapters
   from public.course_dates d
   join public.courses c on c.id = d.course_id
 """
+
+
+async def _set_chapters(db: UserDb, date_id: UUID, chapters: list[UUID]) -> None:
+    await db.execute("delete from public.course_date_chapters where date_id = %s", (date_id,))
+    if not chapters:
+        return
+    try:
+        await db.execute(
+            "insert into public.course_date_chapters (date_id, section_id)"
+            " select %s, unnest(%s::uuid[]) on conflict do nothing",
+            (date_id, chapters),
+        )
+    except (psycopg.errors.InsufficientPrivilege, psycopg.errors.ForeignKeyViolation):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "Chapters must be from the date's course"
+        ) from None
 
 
 async def _one(db: UserDb, date_id: UUID) -> CourseDate:
@@ -75,6 +111,7 @@ async def add_date(course_id: UUID, body: NewDate, db: UserDb) -> CourseDate:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found") from None
     row = await cur.fetchone()
     assert row is not None
+    await _set_chapters(db, row[0], body.chapters)
     return await _one(db, row[0])
 
 
@@ -86,6 +123,7 @@ async def change_date(date_id: UUID, body: NewDate, db: UserDb) -> CourseDate:
     )
     if cur.rowcount == 0:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Date not found")
+    await _set_chapters(db, date_id, body.chapters)
     return await _one(db, date_id)
 
 

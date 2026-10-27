@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { courseColors, daysBetween, monthWeeks, untilLabel, upcoming, type CourseDate } from "./calendar";
+import { chaptersLabel, courseColors, daysBetween, monthWeeks, untilLabel, upcoming, type CourseDate } from "./calendar";
 
 const date = (on: string, title = "Midterm"): CourseDate => ({
   id: title + on,
@@ -9,6 +9,7 @@ const date = (on: string, title = "Midterm"): CourseDate => ({
   kind: "exam",
   title,
   on,
+  chapters: [],
 });
 
 describe("monthWeeks", () => {
@@ -65,5 +66,20 @@ describe("courseColors", () => {
     expect(colors.get("c0")).toBe("var(--course-1)");
     expect(colors.get("c5")).toBe("var(--course-6)");
     expect(colors.get("c6")).toBe("var(--course-1)");
+  });
+});
+
+describe("chaptersLabel", () => {
+  const ch = (...titles: string[]) => titles.map((title) => ({ title }));
+
+  it("names the chapters a date covers briefly", () => {
+    expect(chaptersLabel([])).toBeNull();
+    expect(chaptersLabel(ch("Chapter 3 Biopsychology"))).toBe("Chapter 3");
+    expect(chaptersLabel(ch("Chapter 1 Intro", "Chapter 2 Research", "Chapter 3 Bio", "Chapter 5 Senses"))).toBe(
+      "Chapters 1–3, 5",
+    );
+    expect(chaptersLabel(ch("Chapter 3 A", "Chapter 4 B"))).toBe("Chapters 3, 4");
+    expect(chaptersLabel(ch("Cells"))).toBe("Cells");
+    expect(chaptersLabel(ch("Cells", "Genetics"))).toBe("2 chapters");
   });
 });

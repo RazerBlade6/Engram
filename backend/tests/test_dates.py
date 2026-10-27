@@ -106,3 +106,64 @@ def test_blank_titles_unknown_kinds_and_mistyped_years_are_refused(
         f"/courses/{courses['Psychology']}/dates", json=body, headers=auth(token_for(user))
     )
     assert response.status_code == 422
+
+
+def chapter(database_url: str, course_id: str, titles: list[str]) -> list[str]:
+    """A ready textbook in the course with these chapters; returns their section ids."""
+    with psycopg.connect(database_url, autocommit=True) as c:
+        book = c.execute(
+            "insert into public.materials (course_id, kind, title, storage_path, status)"
+            " values (%s, 'textbook', 'Book', %s, 'ready') returning id",
+            (course_id, f"{course_id}/book.pdf"),
+        ).fetchone()[0]  # type: ignore[index]
+        return [
+            str(
+                c.execute(
+                    "insert into public.sections (material_id, ordinal, level, title)"
+                    " values (%s, %s, 1, %s) returning id",
+                    (book, ordinal, title),
+                ).fetchone()[0]  # type: ignore[index]
+            )
+            for ordinal, title in enumerate(titles)
+        ]
+
+
+def test_a_date_lists_the_chapters_it_covers_in_book_order(
+    client: TestClient, owner: tuple[str, dict[str, str]], database_url: str
+) -> None:
+    user, courses = owner
+    headers = auth(token_for(user))
+    one, two, three = chapter(
+        database_url, courses["Psychology"], ["Chapter 1 Intro", "Chapter 2 Research", "Chapter 3"]
+    )
+    new = {"kind": "exam", "title": "Midterm", "on": "2026-11-13", "chapters": [two, one]}
+    midterm = client.post(f"/courses/{courses['Psychology']}/dates", json=new, headers=headers)
+    assert [c["title"] for c in midterm.json()["chapters"]] == [
+        "Chapter 1 Intro",
+        "Chapter 2 Research",
+    ]
+
+    changed = client.put(
+        f"/dates/{midterm.json()['id']}", json={**new, "chapters": [three]}, headers=headers
+    ).json()
+    assert [c["id"] for c in changed["chapters"]] == [three]
+    [listed] = client.get("/dates", headers=headers).json()
+    assert [c["id"] for c in listed["chapters"]] == [three]
+
+    without = client.put(
+        f"/dates/{midterm.json()['id']}", json={**new, "chapters": []}, headers=headers
+    ).json()
+    assert without["chapters"] == []
+
+
+def test_chapters_from_another_course_are_refused(
+    client: TestClient, owner: tuple[str, dict[str, str]], database_url: str
+) -> None:
+    user, courses = owner
+    headers = auth(token_for(user))
+    [biology] = chapter(database_url, courses["Biology"], ["Chapter 1 Cells"])
+    new = {"kind": "quiz", "title": "Quiz", "on": "2026-11-04", "chapters": [biology]}
+    response = client.post(f"/courses/{courses['Psychology']}/dates", json=new, headers=headers)
+    assert response.status_code == 422
+    # Nothing is half-saved.
+    assert client.get("/dates", headers=headers).json() == []

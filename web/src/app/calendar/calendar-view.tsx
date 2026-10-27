@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
 
+import { ChapterPicker } from "@/components/chapter-picker";
 import { DateRow } from "@/components/dates";
 import { FormError } from "@/components/form";
 import { Toast, type ToastMessage } from "@/components/toast";
@@ -85,9 +86,10 @@ function Calendar({ courses, initial }: { courses: CourseSummary[]; initial: Cou
     setEditing(null);
     notify(`Deleted ${date.title}`, async () => {
       const { kind, title, on } = date;
+      const chapters = date.chapters.map((c) => c.id);
       const back = await api<CourseDate>(`/courses/${date.course_id}/dates`, {
         method: "POST",
-        body: JSON.stringify({ kind, title, on } satisfies NewDate),
+        body: JSON.stringify({ kind, title, on, chapters } satisfies NewDate),
       });
       setDates((ds) => [...ds, back].sort(byDay));
     });
@@ -178,7 +180,7 @@ function monthOf(iso: string): Month {
 }
 
 function errorText(error: unknown): string {
-  if (error instanceof ApiError && error.status === 422) return "Please check the name and the date.";
+  if (error instanceof ApiError && error.status === 422) return "Please check the name, the date and the chapters.";
   return "That couldn't be saved. Please try again.";
 }
 
@@ -198,6 +200,7 @@ function QuickAdd({
   const [course, setCourse] = useState(courses[0].id);
   const [kind, setKind] = useState<DateKind>("exam");
   const [title, setTitle] = useState("");
+  const [chapters, setChapters] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -209,9 +212,10 @@ function QuickAdd({
     try {
       const date = await api<CourseDate>(`/courses/${course}/dates`, {
         method: "POST",
-        body: JSON.stringify({ kind, title: title.trim(), on: day } satisfies NewDate),
+        body: JSON.stringify({ kind, title: title.trim(), on: day, chapters } satisfies NewDate),
       });
       setTitle("");
+      setChapters([]);
       onAdded(date);
       what.current?.focus();
     } catch (err) {
@@ -231,7 +235,10 @@ function QuickAdd({
         {courses.length > 1 && (
           <label className="flex flex-col gap-1">
             <span className="font-medium">Course</span>
-            <select value={course} onChange={(e) => setCourse(e.target.value)} className={control}>
+            <select value={course} onChange={(e) => {
+                setCourse(e.target.value);
+                setChapters([]);
+              }} className={control}>
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.title}
@@ -285,6 +292,9 @@ function QuickAdd({
         </button>
       </div>
       {courses.length === 1 && <p className="mt-3 text-muted">For {courses[0].title}.</p>}
+      <div className="mt-4">
+        <ChapterPicker courseId={course} selected={chapters} onChange={setChapters} />
+      </div>
       {error && (
         <div className="mt-4">
           <FormError message={error} />
@@ -455,6 +465,7 @@ function EditDialog({
   const [kind, setKind] = useState(date.kind);
   const [title, setTitle] = useState(date.title);
   const [on, setOn] = useState(date.on);
+  const [chapters, setChapters] = useState(() => date.chapters.map((c) => c.id));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -472,7 +483,7 @@ function EditDialog({
       onSaved(
         await api<CourseDate>(`/dates/${date.id}`, {
           method: "PUT",
-          body: JSON.stringify({ kind, title: title.trim(), on } satisfies NewDate),
+          body: JSON.stringify({ kind, title: title.trim(), on, chapters } satisfies NewDate),
         }),
       );
     } catch (err) {
@@ -501,7 +512,7 @@ function EditDialog({
         aria-labelledby="edit-heading"
         onSubmit={save}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+        className="max-h-full w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
       >
         <h2 id="edit-heading" className="text-xl font-semibold">
           {date.title}
@@ -543,6 +554,7 @@ function EditDialog({
               className={control}
             />
           </label>
+          <ChapterPicker courseId={date.course_id} selected={chapters} onChange={setChapters} />
           <FormError message={error} />
         </div>
         <div className="mt-6 flex flex-wrap items-center gap-3">

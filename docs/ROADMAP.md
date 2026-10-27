@@ -86,7 +86,7 @@ Dates get in two ways:
 
 A subscribable calendar feed is not planned. It sits close to the reminders users turned down, and will only be added if users ask for it.
 
-Exams can optionally be mapped to chapters. Ahead of an exam, a focus mode (Phase 3) prioritizes the chapters it covers, layered on top of normal FSRS scheduling.
+Any date can optionally list the chapters it covers, chosen when it's added (Phase 1). Ahead of an exam, a focus mode (Phase 3) prioritizes the chapters it covers, layered on top of normal FSRS scheduling.
 
 ### Review order
 
@@ -334,3 +334,4 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 38  | Chat conversations aren't stored on the server; they last as long as the browser tab      | Questions can be personal, and nothing needs them later; only token counts are recorded, with no user       |
 | 39  | An answer outside the materials is detected by a marker the model writes, not by missing citations | An off-topic answer can still cite a passing mention, which would hide the "not from your materials" label |
 | 40  | Dates are calendar days with no time; "upcoming" is worked out in the browser            | Students know the time of their exam; a day with no time zone can't shift when the server's today differs from theirs |
+| 41  | A date's chapters are recorded from Phase 1, though nothing uses them until focus mode   | Dates entered from the start already say what they cover, so focus mode works on them without re-entry |
