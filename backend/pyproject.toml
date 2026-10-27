@@ -11,10 +11,12 @@ dependencies = [
     "fastapi>=0.162.0",
     "fastembed>=0.9.1",
     "httpx>=0.28.1",
+    "pillow>=13.0.0",
     "psycopg[binary,pool]>=3.3.6",
     "pydantic-settings>=2.16.1",
     "pydantic[email]>=2.14.1",
     "pyjwt[crypto]>=2.15.1",
+    "pypdfium2>=5.14.0",
     "uvicorn[standard]>=0.54.0",
 ]
 
