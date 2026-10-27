@@ -94,7 +94,7 @@ def build(
                 locations = [loc for _, i in page_items for loc in _locations(i, doc)]
                 add_chunk("slide", text, locations, None)
             for _position, item in page_items:
-                if isinstance(item, PictureItem):
+                if isinstance(item, PictureItem) and not _too_small(item, doc):
                     _add_figure(item, doc, item.caption_text(doc) or None, None, [], figures)
         return ParsedMaterial(page_count, sections, figures, chunks)
 
@@ -116,8 +116,15 @@ def build(
         if isinstance(item, SectionHeaderItem | TitleItem) or position in claimed:
             continue
         if isinstance(item, PictureItem):
+            caption = captions.get(position)
+            if _too_small(item, doc):
+                # An icon, or a fragment Docling split off a diagram. Its caption, unless it
+                # moved to the diagram (see `_captions`), is kept as text rather than lost.
+                if caption:
+                    buffer.append((caption, _locations(item, doc)))
+                continue
             flush()
-            _add_figure(item, doc, captions.get(position), section, path_of(section), figures)
+            _add_figure(item, doc, caption, section, path_of(section), figures)
         elif isinstance(item, TableItem):
             flush()
             table = item.export_to_markdown(doc)
@@ -307,6 +314,21 @@ def _captions(items: list[DocItem], doc: DoclingDocument) -> tuple[dict[int, str
                 captions[position] = candidate.text.strip()
                 claimed.add(near)
                 break
+
+    # Docling sometimes splits a diagram in two and gives the caption to a fragment too small
+    # to keep as a figure (such as the colour scale under a chart). The caption belongs to the
+    # diagram just before it.
+    for position in sorted(captions):
+        item, previous = items[position], items[position - 1] if position else None
+        if (
+            isinstance(item, PictureItem)
+            and isinstance(previous, PictureItem)
+            and position - 1 not in captions
+            and _page(previous) == _page(item)
+            and _too_small(item, doc)
+            and not _too_small(previous, doc)
+        ):
+            captions[position - 1] = captions.pop(position)
     return captions, claimed
 
 
@@ -319,9 +341,6 @@ def _add_figure(
     figures: list[Figure],
 ) -> None:
     location = _locations(item, doc)[0]
-    left, top, right, bottom = location.bbox
-    if right - left < MIN_FIGURE_POINTS or bottom - top < MIN_FIGURE_POINTS:
-        return
     image = item.get_image(doc)
     if image is None:
         return
@@ -337,6 +356,11 @@ def _add_figure(
             context=context,
         )
     )
+
+
+def _too_small(item: PictureItem, doc: DoclingDocument) -> bool:
+    left, top, right, bottom = _locations(item, doc)[0].bbox
+    return right - left < MIN_FIGURE_POINTS or bottom - top < MIN_FIGURE_POINTS
 
 
 def _text_of(item: DocItem, doc: DoclingDocument) -> str:

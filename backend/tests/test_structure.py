@@ -123,3 +123,54 @@ def test_unlinked_caption_is_attached_to_its_figure() -> None:
     body = " ".join(c.text for c in parsed.chunks)
     assert "Figure 1.1" not in body
     assert "Cells are small." in body and "Figures help." in body  # caption-like rule is strict
+
+
+def _doc_with_split_figure(*, diagram: bool) -> DoclingDocument:
+    """A chart that Docling split in two, with the caption linked to the thin strip below it
+    (as with a colour scale), or, without `diagram`, just the strip."""
+    from docling_core.types.doc import (
+        BoundingBox,
+        CoordOrigin,
+        DocItemLabel,
+        ImageRef,
+        ProvenanceItem,
+        Size,
+    )
+    from PIL import Image
+
+    def prov(top: float, bottom: float, left: float = 150, right: float = 450) -> ProvenanceItem:
+        box = BoundingBox(l=left, t=top, r=right, b=bottom, coord_origin=CoordOrigin.TOPLEFT)
+        return ProvenanceItem(page_no=1, bbox=box, charspan=(0, 0))
+
+    doc = DoclingDocument(name="split")
+    doc.add_page(page_no=1, size=Size(width=612, height=792))
+    doc.add_heading("5.3 Vision", prov=prov(72, 90, 72, 540))
+    image = ImageRef.from_pil(Image.new("RGB", (300, 200), "white"), dpi=72)
+    if diagram:
+        doc.add_picture(image=image, prov=prov(100, 300))
+    strip = doc.add_picture(image=image, prov=prov(302, 315))
+    caption = doc.add_text(
+        DocItemLabel.CAPTION, "Figure 5.14 Cone sensitivity.", prov=prov(320, 335)
+    )
+    strip.captions.append(caption.get_ref())
+    return doc
+
+
+def test_caption_of_a_split_off_fragment_goes_to_the_diagram() -> None:
+    from engram.ingest.structure import OutlineEntry, build
+
+    parsed = build(_doc_with_split_figure(diagram=True), outline=[OutlineEntry(1, "5.3 Vision", 1)])
+    [figure] = parsed.figures
+    assert figure.caption == "Figure 5.14 Cone sensitivity."
+    assert figure.location.bbox == (150, 100, 450, 300)
+    assert not any("Figure 5.14" in c.text for c in parsed.chunks)
+
+
+def test_caption_of_a_dropped_picture_is_kept_as_text() -> None:
+    from engram.ingest.structure import OutlineEntry, build
+
+    parsed = build(
+        _doc_with_split_figure(diagram=False), outline=[OutlineEntry(1, "5.3 Vision", 1)]
+    )
+    assert parsed.figures == []
+    assert [c.text for c in parsed.chunks] == ["Figure 5.14 Cone sensitivity."]
