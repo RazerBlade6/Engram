@@ -238,9 +238,9 @@ A moderated walkthrough of the light-theme prototype with a target user. Overall
 | Asked for a calendar of all upcoming tests and dates per course                                             | Calendar (D17–D19)                                                 |
 | Light theme and larger text preferred for reading                                                           | Light theme by default, dark theme later (D23)                     |
 
-### Phase 1: Functional core
+### Phase 1: Functional core ✓
 
-The smallest end-to-end product. Tested by developers, not yet handed to users for daily study.
+The smallest end-to-end product, live at https://engramstudy.app (invite-only). Tested by developers, not yet handed to users for daily study.
 
 - [x] Repo scaffold: FastAPI, worker, Next.js, Docker Compose, CI (lint, types, tests)
 - [x] Supabase project: schema, auth (invite-only), private storage
@@ -255,14 +255,14 @@ The smallest end-to-end product. Tested by developers, not yet handed to users f
 - [x] Calendar: quick-add for exams, quizzes and deadlines; month grid with an upcoming list; next dates on Today
 - [x] Usage event logging
 - [x] Deploy: web on Vercel, API on Cloud Run, worker on Modal (woken by new jobs, with a periodic sweep for retries), deployed from `main` by CI, so users can use Engram on their own devices
-- [ ] **Exit:** a moderated usability session with a target user
+- [x] **Exit:** a moderated usability session with a target user, on the deployed app ([script and observations](UserObservations.md))
 
 ### Phase 2: UI/UX
 
 A dedicated pass on design and friction. Daily use by users starts at the end of this phase.
 
 - [ ] Design system: tokens, components, light theme (tokens structured so a dark theme can be added without a redesign)
-- [ ] Redesign the core flows from the Phase 1 session findings
+- [ ] Redesign the core flows from the Phase 1 session findings ([observations](UserObservations.md))
 - [ ] One-time welcome screen: one sentence on what Engram does, one "Start your first review" button
 - [ ] Empty states, loading states, error states
 - [ ] Mobile pass for review

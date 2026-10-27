@@ -4,7 +4,7 @@ A study system that turns course materials into spaced-repetition practice.
 
 Students bring textbooks, lecture slides, notes and readings. Engram parses them, generates flashcards and practice questions that cite the exact page they came from, schedules reviews with [FSRS](https://github.com/open-spaced-repetition/fsrs4anki/wiki/The-Algorithm), and answers questions about the material when the student gets stuck.
 
-> **Status: Phase 1 (functional core) in progress.** Phase 0 produced the roadmap and a clickable prototype tested with a target user. See [docs/ROADMAP.md](docs/ROADMAP.md).
+> **Status: Phase 1 (functional core) complete; Phase 2 (UI/UX) next.** Engram runs at [engramstudy.app](https://engramstudy.app) (invite-only). Phase 0 produced the roadmap and a clickable prototype tested with a target user. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## What it does
 
@@ -36,7 +36,9 @@ supabase/           Database migrations, row-level security tests and local Supa
 docker-compose.yml  Local stack: API, worker and web app (Supabase runs from its CLI)
 design/prototype/   Clickable prototype of the core screens (single HTML file, open it in a browser)
 docs/ROADMAP.md     Product, architecture, phases and decision log
-docs/usability/     Usability session scripts
+docs/DEPLOY.md      How production is deployed
+docs/UserObservations.md  Phase 1 usability session script and findings
+docs/usability/     Earlier usability session scripts
 ```
 
 ## Development
