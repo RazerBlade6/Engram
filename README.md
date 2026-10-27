@@ -16,14 +16,14 @@ Students bring textbooks, lecture slides, notes and readings. Engram parses them
 
 ## Planned stack
 
-| Layer      | Choice                                                                 |
-| ---------- | ---------------------------------------------------------------------- |
-| Frontend   | Next.js (PWA) on Vercel                                                |
-| Backend    | FastAPI on Cloud Run and a background worker on Modal                  |
-| Data       | Supabase: Postgres with pgvector and full-text search, Auth, Storage   |
+| Layer      | Choice                                                                     |
+| ---------- | -------------------------------------------------------------------------- |
+| Frontend   | Next.js (PWA) on Vercel                                                    |
+| Backend    | FastAPI on Cloud Run and a background worker on Modal                      |
+| Data       | Supabase: Postgres with pgvector and full-text search, Auth, Storage       |
 | Ingestion  | Docling layout parsing, vision-model figure captions, section-aware chunks |
-| LLMs       | Provider-agnostic layer; Claude for reasoning-heavy jobs               |
-| Evaluation | Retrieval, card quality, grading and model-cost suites in CI           |
+| LLMs       | Provider-agnostic layer; Claude for reasoning-heavy jobs                   |
+| Evaluation | Retrieval, card quality, grading and model-cost suites in CI               |
 
 The reasoning behind each choice is in the roadmap's [decision log](docs/ROADMAP.md#decision-log).
 
@@ -88,4 +88,4 @@ CI runs the schema linter, the row-level security tests, and the backend and web
 
 ## History
 
-Engram was originally called ScholarRAG: a single-afternoon "chat with your textbook" prototype. It has been rebuilt from scratch.
+Engram was originally called ScholarRAG: a single-afternoon "chat with your textbook" prototype. It has been rebuilt from scratch. No trace of the original survives.
