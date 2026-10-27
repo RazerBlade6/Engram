@@ -1,6 +1,8 @@
 """Supabase Storage, accessed with the secret key. Buckets are private: browsers only ever
 get short-lived signed URLs created here."""
 
+import re
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -8,6 +10,13 @@ import httpx
 from engram.config import Settings
 
 BUCKET = "materials"
+
+
+def safe_filename(name: str) -> str:
+    """A storage-safe version of an uploaded file's name, keeping its extension."""
+    stem, suffix = Path(name).stem, Path(name).suffix.lower()
+    stem = re.sub(r"[^A-Za-z0-9._-]+", "-", stem).strip("-") or "file"
+    return f"{stem[:80]}{suffix}"
 
 
 class Storage:

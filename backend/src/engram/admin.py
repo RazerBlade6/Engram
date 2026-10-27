@@ -9,7 +9,6 @@ Uses the database URL and Supabase secret key from the environment (see .env.exa
 
 import argparse
 import asyncio
-import re
 import sys
 import uuid
 from pathlib import Path
@@ -19,7 +18,7 @@ from psycopg import AsyncConnection
 
 from engram.config import get_settings
 from engram.ingest.job import KIND as INGEST
-from engram.storage import Storage
+from engram.storage import Storage, safe_filename
 from engram.worker import queue
 
 CONTENT_TYPES = {
@@ -40,12 +39,6 @@ async def create_course(conn: AsyncConnection[Any], owner_email: str, title: str
     created = await cur.fetchone()
     assert created is not None
     return str(created[0])
-
-
-def safe_filename(name: str) -> str:
-    stem, suffix = Path(name).stem, Path(name).suffix.lower()
-    stem = re.sub(r"[^A-Za-z0-9._-]+", "-", stem).strip("-") or "file"
-    return f"{stem[:80]}{suffix}"
 
 
 async def ingest(

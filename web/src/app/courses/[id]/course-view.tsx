@@ -12,11 +12,14 @@ import {
   type Chapter,
   type Coverage,
   type Course,
-  type Material,
 } from "@/lib/courses";
 import { useProfile } from "@/lib/profile";
 
+import { MaterialsPanel } from "./materials-panel";
+
 const dateFormat = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" });
+const POLL_MS = 4000;
+const pending = (status: string) => ["uploading", "queued", "processing"].includes(status);
 
 export function CourseView() {
   const { id } = useParams<{ id: string }>();
@@ -26,12 +29,23 @@ export function CourseView() {
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const toastId = useRef(0);
 
-  useEffect(() => {
-    if (!profile) return;
+  const reload = useCallback(() => {
     api<Course>(`/courses/${id}`)
       .then(setCourse)
       .catch((e: Error) => setError(e.message));
-  }, [id, profile]);
+  }, [id]);
+
+  useEffect(() => {
+    if (profile) reload();
+  }, [profile, reload]);
+
+  // While anything is still being read, check back every few seconds.
+  const reading = course?.materials.some((m) => pending(m.status)) ?? false;
+  useEffect(() => {
+    if (!reading) return;
+    const timer = setInterval(reload, POLL_MS);
+    return () => clearInterval(timer);
+  }, [reading, reload]);
 
   const setCovered = useCallback((chapterId: string, coveredAt: string | null) => {
     setCourse((c) =>
@@ -50,6 +64,17 @@ export function CourseView() {
     setToast({ id: toastId.current, text, undo });
   }, []);
   const hideToast = useCallback(() => setToast(null), []);
+
+  // Say so when an upload finishes being read.
+  const statuses = useRef(new Map<string, string>());
+  useEffect(() => {
+    for (const m of course?.materials ?? []) {
+      const before = statuses.current.get(m.id);
+      if (before && pending(before) && m.status === "ready") show(`${m.title} is ready.`);
+      if (before && pending(before) && m.status === "failed") show(`${m.title} couldn't be read.`);
+      statuses.current.set(m.id, m.status);
+    }
+  }, [course, show]);
 
   async function cover(chapter: Chapter) {
     const name = chapterName(chapter);
@@ -120,19 +145,7 @@ export function CourseView() {
           ))}
         </section>
 
-        <section aria-labelledby="materials-heading">
-          <h2 id="materials-heading" className="text-xl font-semibold">
-            Materials
-          </h2>
-          <ul className="mt-3 space-y-3">
-            {course.materials.map((m) => (
-              <li key={m.id} className="rounded-lg border border-border bg-white px-4 py-3">
-                <div className="font-medium">{m.title}</div>
-                <div className="text-sm text-muted">{materialStatus(m)}</div>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <MaterialsPanel courseId={course.id} materials={course.materials} onChange={reload} show={show} />
       </div>
 
       <Toast key={toast?.id} toast={toast} onDone={hideToast} />
@@ -189,18 +202,6 @@ function ChapterRow({
 function chapterName(chapter: Chapter): string {
   const { number, title } = splitChapterTitle(chapter.title);
   return number ? `Chapter ${number}: ${title}` : title;
-}
-
-function materialStatus(m: Material): string {
-  const kind = m.kind === "textbook" ? "Textbook" : "Slides";
-  switch (m.status) {
-    case "ready":
-      return kind;
-    case "failed":
-      return `${kind} · couldn't be read`;
-    default:
-      return `${kind} · being prepared`;
-  }
 }
 
 function CheckIcon() {
