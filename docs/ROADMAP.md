@@ -254,7 +254,7 @@ The smallest end-to-end product. Tested by developers, not yet handed to users f
 - [x] Cited chat with click-through to the highlighted source page
 - [x] Calendar: quick-add for exams, quizzes and deadlines; month grid with an upcoming list; next dates on Today
 - [x] Usage event logging
-- [ ] Deploy: web on Vercel, API on Cloud Run, worker on Modal (woken by new jobs, with a periodic sweep for retries), deployed from `main` by CI, so users can use Engram on their own devices
+- [x] Deploy: web on Vercel, API on Cloud Run, worker on Modal (woken by new jobs, with a periodic sweep for retries), deployed from `main` by CI, so users can use Engram on their own devices
 - [ ] **Exit:** a moderated usability session with a target user
 
 ### Phase 2: UI/UX
