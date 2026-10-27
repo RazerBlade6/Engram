@@ -245,7 +245,7 @@ The smallest end-to-end product. Tested by developers, not yet handed to users f
 - [x] Supabase project: schema, auth (invite-only), private storage
 - [x] Ingestion: PDF and slides → Docling → figure captions → section-aware chunks → index
 - [x] Minimal ingestion inspector (admin)
-- [ ] Courses, table of contents, "mark chapter covered"
+- [x] Courses, table of contents, "mark chapter covered"
 - [ ] Student upload for slides (PDF, PowerPoint): a large upload button and drop zone, kept visually separate from link entry
 - [ ] Card generation: Q → A, cloze, MCQ, with source citations
 - [ ] FSRS review with four ratings, keyboard controls and an in-review flag button
