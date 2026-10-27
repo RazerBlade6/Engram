@@ -30,6 +30,9 @@ jobs:
       - uses: dorny/paths-filter@v4.0.3
         id: filter
         with:
+          # Compare a push with the branch's previous commit, not with main (the default for
+          # other branches), so a push is judged by its own changes. Pull requests ignore this.
+          base: ${{ github.ref_name }}
           filters: |
             backend:
               - backend/**
