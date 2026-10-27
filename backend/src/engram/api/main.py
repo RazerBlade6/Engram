@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from engram import __version__
 from engram.api.pages import PdfPages
-from engram.api.routes import admin, courses, inspector, materials, me
+from engram.api.routes import admin, courses, inspector, materials, me, review
 from engram.config import get_settings
 from engram.storage import Storage
 
@@ -48,6 +48,7 @@ def create_app() -> FastAPI:
     app.include_router(me.router)
     app.include_router(courses.router)
     app.include_router(materials.router)
+    app.include_router(review.router)
     app.include_router(admin.router)
     app.include_router(inspector.router)
     return app

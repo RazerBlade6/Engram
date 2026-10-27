@@ -22,6 +22,8 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
   const headers = new Headers(init.headers);
   if (data.session) headers.set("Authorization", `Bearer ${data.session.access_token}`);
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  // So "due today" means the student's today.
+  headers.set("X-Timezone", Intl.DateTimeFormat().resolvedOptions().timeZone);
 
   const response = await fetch(apiUrl(path), { ...init, headers });
   if (!response.ok) {

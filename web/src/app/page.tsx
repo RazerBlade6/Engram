@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
 import type { CourseSummary } from "@/lib/courses";
+import type { ReviewSummary } from "@/lib/review";
 import { useProfile } from "@/lib/profile";
 import { supabase } from "@/lib/supabase";
 
@@ -13,9 +14,12 @@ export default function Home() {
   const router = useRouter();
   const profile = useProfile();
   const [courses, setCourses] = useState<CourseSummary[] | null>(null);
+  const [reviews, setReviews] = useState<ReviewSummary | null>(null);
 
   useEffect(() => {
-    if (profile) api<CourseSummary[]>("/courses").then(setCourses);
+    if (!profile) return;
+    api<CourseSummary[]>("/courses").then(setCourses);
+    api<ReviewSummary>("/review/summary").then(setReviews);
   }, [profile]);
 
   async function signOut() {
@@ -35,7 +39,7 @@ export default function Home() {
           Sign out
         </button>
       </div>
-      <p className="mt-4 text-muted">Nothing due yet.</p>
+      {reviews && <ReviewHero summary={reviews} />}
 
       {courses && (
         <section aria-labelledby="courses-heading" className="mt-10">
@@ -73,4 +77,36 @@ export default function Home() {
       )}
     </main>
   );
+}
+
+function ReviewHero({ summary }: { summary: ReviewSummary }) {
+  const count = summary.due + summary.new;
+  if (!count) {
+    return (
+      <section className="mt-8">
+        <h2 className="text-2xl font-semibold">Nothing to review right now</h2>
+        <p className="mt-2 text-muted">When you mark a chapter as covered, its cards show up here.</p>
+      </section>
+    );
+  }
+  return (
+    <section className="mt-8 rounded-2xl border border-border bg-white p-8" aria-labelledby="review-heading">
+      <h2 id="review-heading" className="text-3xl font-semibold">
+        {count} {count === 1 ? "card" : "cards"} to review
+      </h2>
+      <p className="mt-2 text-lg text-muted">
+        About {summary.minutes} {summary.minutes === 1 ? "minute" : "minutes"}, from {listOf(summary.courses)}.
+      </p>
+      <Link
+        href="/review"
+        className="mt-6 inline-block rounded-lg bg-accent px-6 py-3 text-lg font-medium text-white hover:bg-accent-strong"
+      >
+        Start review
+      </Link>
+    </section>
+  );
+}
+
+function listOf(items: string[]): string {
+  return new Intl.ListFormat("en", { type: "conjunction" }).format(items);
 }
