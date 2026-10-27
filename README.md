@@ -19,7 +19,7 @@ Students bring textbooks, lecture slides, notes and readings. Engram parses them
 | Layer      | Choice                                                                 |
 | ---------- | ---------------------------------------------------------------------- |
 | Frontend   | Next.js (PWA) on Vercel                                                |
-| Backend    | FastAPI and a background worker on Fly.io                              |
+| Backend    | FastAPI on Cloud Run and a background worker on Modal                  |
 | Data       | Supabase: Postgres with pgvector and full-text search, Auth, Storage   |
 | Ingestion  | Docling layout parsing, vision-model figure captions, section-aware chunks |
 | LLMs       | Provider-agnostic layer; Claude for reasoning-heavy jobs               |
