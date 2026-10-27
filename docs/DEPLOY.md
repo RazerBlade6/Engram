@@ -4,7 +4,7 @@ Production runs in Seoul, next to the database. Everything scales to zero (D35).
 
 | Part     | Where                                  | Deployed by                                   |
 | -------- | -------------------------------------- | --------------------------------------------- |
-| Web      | Vercel, project `engram`               | Vercel's GitHub integration, on push to `main` |
+| Web      | Vercel, project `engram`               | Vercel's GitHub integration, on push to `main` only (`web/vercel.json`) |
 | API      | Cloud Run `engram-api`, asia-northeast3 | `.github/workflows/deploy.yml`                |
 | Worker   | Modal app `engram-worker`              | `.github/workflows/deploy.yml`                |
 | Database | Supabase, ap-northeast-2               | `.github/workflows/deploy.yml` (`supabase db push`) |
