@@ -11,7 +11,16 @@ from pydantic import BaseModel
 from engram.api.auth import get_verifier
 from engram.api.main import create_app
 from engram.cards import job as cards_job
-from engram.cards.generate import CardSet, GeneratedCard, Passage, Source, accept, batches
+from engram.cards.generate import (
+    Card,
+    CardSet,
+    GeneratedCard,
+    Passage,
+    Source,
+    accept,
+    batches,
+    distinct,
+)
 from engram.config import Settings
 from engram.llm import ProviderError, ProviderUnavailable, Router, Usage
 from engram.worker.queue import Job
@@ -87,10 +96,22 @@ def test_multiple_choice_needs_three_distinct_distractors() -> None:
     assert dropped == {"mcq choices": 2}
 
 
-def test_duplicate_questions_are_dropped() -> None:
-    kept, dropped = accept([card(), card(prompt="What does the nucleus store")], BATCH)
-    assert len(kept) == 1
-    assert dropped == {"duplicate": 1}
+def test_repeated_cards_are_dropped_across_the_chapter() -> None:
+    def kept(kind: str, prompt: str, answer: str) -> Card:
+        return Card(kind, "c", prompt, answer, [], [{"chunk_id": "c1"}])
+
+    first = kept(
+        "cloze", "The two hemispheres are joined by the {{corpus callosum}}.", "corpus callosum"
+    )
+    cards = [
+        first,
+        kept("cloze", "The {{corpus callosum}} joins the two hemispheres.", "Corpus callosum"),
+        # The same sentence as a different kind of card.
+        kept("basic", "The two hemispheres are joined by the corpus callosum.", "True"),
+        # Same answer, a different fact: kept.
+        kept("mcq", "Which structure is cut in split-brain surgery?", "Corpus callosum"),
+    ]
+    assert distinct(cards) == ([first, cards[3]], 2)
 
 
 def test_batches_keep_subsections_together_unless_too_large() -> None:

@@ -24,6 +24,7 @@ from engram.cards.generate import (
     Passage,
     accept,
     batches,
+    distinct,
     prompt_for,
 )
 from engram.config import Settings
@@ -186,7 +187,10 @@ async def make_cards(
     results = [t.result() for t in tasks]
     if work and all(r is None for r in results):
         raise ProviderError(f"no batch of {chapter!r} produced cards")
-    return [card for r in results if r for card in r]
+    cards, repeats = distinct([card for r in results if r for card in r])
+    if repeats:
+        logger.info("%s: dropped %s repeated cards", chapter, repeats)
+    return cards
 
 
 async def _finish(

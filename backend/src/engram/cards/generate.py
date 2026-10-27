@@ -212,13 +212,42 @@ def accept(
 
         cards.append(Card(g.kind, g.concept.strip(), prompt, answer, choices, sources))
 
-    seen: set[str] = set()
-    unique = []
+    return cards, dropped
+
+
+_STOPWORDS = frozenset(
+    {
+        *("a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "in", "is", "it"),
+        *("its", "of", "on", "or", "that", "the", "these", "this", "to", "what", "which", "with"),
+    }
+)
+# Cards with the same answer whose questions share at least this much wording (the answer's
+# own words aside) test the same fact. On generated chapters every same-answer pair was a
+# repeat, overlapping 0.22 to 0.50; a different question with the same answer ("Which
+# structure is cut in split-brain surgery?") shares next to nothing.
+SAME_FACT_OVERLAP = 0.15
+
+
+def _words(text: str) -> set[str]:
+    text = unicodedata.normalize("NFKC", text).lower()
+    return {w for w in re.findall(r"[a-z0-9]+", text) if w not in _STOPWORDS}
+
+
+def _same_fact(a: Card, b: Card) -> bool:
+    if _normal(a.prompt) == _normal(b.prompt):
+        return True
+    if _normal(a.answer) != _normal(b.answer):
+        return False
+    answer = _words(a.answer)
+    x, y = _words(a.prompt) - answer, _words(b.prompt) - answer
+    return bool(x | y) and len(x & y) / len(x | y) >= SAME_FACT_OVERLAP
+
+
+def distinct(cards: list[Card]) -> tuple[list[Card], int]:
+    """A chapter's cards without repeats, keeping the first of each. Batches are written
+    independently, so the same fact can come back from two of them."""
+    kept: list[Card] = []
     for card in cards:
-        key = _normal(card.prompt)
-        if key in seen:
-            drop("duplicate")
-            continue
-        seen.add(key)
-        unique.append(card)
-    return unique, dropped
+        if not any(_same_fact(card, k) for k in kept):
+            kept.append(card)
+    return kept, len(cards) - len(kept)
