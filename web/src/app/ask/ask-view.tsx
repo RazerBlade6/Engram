@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -54,8 +53,7 @@ export function AskView() {
   if (!course) {
     return (
       <main className="mx-auto max-w-3xl px-6 py-12">
-        <BackLink />
-        <h1 className="mt-4 text-3xl font-semibold">Ask a question</h1>
+        <h1 className="text-3xl font-semibold">Ask a question</h1>
         <p className="mt-3 text-muted">Once you have a course with materials, you can ask about it here.</p>
       </main>
     );
@@ -135,9 +133,8 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
   );
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col px-6 pt-12">
-      <BackLink />
-      <h1 className="mt-4 text-3xl font-semibold">Ask a question</h1>
+    <main className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-3xl flex-col px-6 pt-12">
+      <h1 className="text-3xl font-semibold">Ask a question</h1>
       {courses.length > 1 && (
         <div className="mt-4 flex flex-wrap items-center gap-2 text-muted">
           <span>Answering from</span>
@@ -210,14 +207,6 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
 
       {open && <SourceViewer chunkId={open.chunkId} quote={open.quote} origin="chat" onClose={() => setOpen(null)} />}
     </main>
-  );
-}
-
-function BackLink() {
-  return (
-    <Link href="/" className="text-muted underline hover:text-foreground">
-      Back to Today
-    </Link>
   );
 }
 

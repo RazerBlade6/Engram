@@ -54,11 +54,13 @@ docker compose up --build      # API, worker and web app, with hot reload
 
 The web app is on http://localhost:3000, the API on http://localhost:8000 (interactive docs at `/docs`), Supabase Studio on http://localhost:54323, and invite emails are caught at http://localhost:54324.
 
-Accounts are invite-only. To create the first admin locally, add a user in Studio (Authentication → Add user), then run `update profiles set role = 'admin' where id = '<user id>';` in the SQL editor. Admins invite others with `POST /admin/invites`.
+Accounts are invite-only. To create the first admin locally, add a user in Studio (Authentication → Add user), then run `update profiles set role = 'admin' where id = '<user id>';` in the SQL editor. Admins invite others from the admin page.
 
 ### Ingesting a textbook
 
-Admins add textbooks from the command line. The worker parses the file with Docling, describes each figure with a vision model (set `ANTHROPIC_API_KEY` in `.env`), embeds the chunks and builds the table of contents.
+Anyone can add a course from Today. Admins add a textbook to any course from the course's page ("Add textbook"), or create a course for someone from the admin page. Files go from the browser straight to Storage, then the API queues them. The worker parses the file with Docling, describes each figure with a vision model (set `ANTHROPIC_API_KEY` in `.env`), embeds the chunks and builds the table of contents.
+
+Or from the command line (`ingest` needs an existing course id; an unknown one is refused and nothing is written):
 
 ```sh
 cd backend

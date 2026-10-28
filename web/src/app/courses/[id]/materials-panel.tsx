@@ -2,44 +2,47 @@
 
 import { useState, type DragEvent } from "react";
 
-import { ApiError, apiFetch, apiUpload } from "@/lib/api";
+import { ApiError, apiFetch } from "@/lib/api";
 import type { Material } from "@/lib/courses";
-import { ACCEPT, uploadProblem } from "@/lib/uploads";
+import { ACCEPT, addMaterial, uploadProblem, type MaterialKind } from "@/lib/uploads";
 
 type Upload = { name: string; progress: number };
+
+const UPLOAD_FAILED = "Something went wrong. Please try again.";
 
 export function MaterialsPanel({
   courseId,
   materials,
   onChange,
   show,
+  canAddTextbook,
 }: {
   courseId: string;
   materials: Material[];
   onChange: () => void;
   show: (text: string) => void;
+  /** Admins add textbooks; students add slides. */
+  canAddTextbook: boolean;
 }) {
   const [upload, setUpload] = useState<Upload | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
 
-  async function add(files: File[]) {
+  async function add(files: File[], kind: MaterialKind = "slides") {
     setProblem(null);
     for (const file of files) {
-      const issue = uploadProblem(file);
+      const issue = uploadProblem(file, kind);
       if (issue) {
         setProblem(`${file.name}: ${issue}`);
         continue;
       }
       setUpload({ name: file.name, progress: 0 });
       try {
-        await apiUpload<Material>(`/courses/${courseId}/materials`, file, (progress) =>
-          setUpload({ name: file.name, progress }),
-        );
+        await addMaterial(courseId, file, kind, (progress) => setUpload({ name: file.name, progress }));
         onChange();
       } catch (e) {
-        const reason = e instanceof ApiError && e.status !== 500 ? e.message : "Something went wrong. Please try again.";
+        const reason = e instanceof ApiError && e.status !== 500 ? e.message : UPLOAD_FAILED;
         setProblem(`${file.name}: ${reason}`);
       }
     }
@@ -74,10 +77,10 @@ export function MaterialsPanel({
           <li key={m.id} className="rounded-lg border border-border bg-white px-4 py-3">
             <div className="font-medium break-words">{m.title}</div>
             <div className="text-sm text-muted">{materialStatus(m)}</div>
-            {m.kind === "slides" &&
+            {(m.kind === "slides" || canAddTextbook) &&
               (confirming === m.id ? (
                 <div className="mt-2 flex items-center gap-3 text-sm">
-                  <span>Remove these slides?</span>
+                  <span>Remove {m.kind === "slides" ? "these slides" : "this textbook"}?</span>
                   <button onClick={() => remove(m)} className="font-semibold text-danger underline">
                     Remove
                   </button>
@@ -140,6 +143,20 @@ export function MaterialsPanel({
           </label>
         )}
       </div>
+      {canAddTextbook && !upload && (
+        <label className="mt-3 block cursor-pointer rounded-lg border border-border bg-white px-4 py-3 text-center font-medium text-accent hover:border-accent focus-within:ring-2 focus-within:ring-accent/40">
+          Add textbook (admin)
+          <input
+            type="file"
+            accept={ACCEPT}
+            className="sr-only"
+            onChange={(e) => {
+              add(Array.from(e.currentTarget.files ?? []), "textbook");
+              e.currentTarget.value = "";
+            }}
+          />
+        </label>
+      )}
       {problem && (
         <p role="alert" className="mt-3 rounded-lg bg-danger-soft px-4 py-3 text-danger">
           {problem}
@@ -156,6 +173,9 @@ function materialStatus(m: Material): string {
       return kind;
     case "failed":
       return "This file couldn't be read. Remove it and try a PDF version.";
+    case "uploading":
+      // Left behind when a page is closed mid-upload.
+      return "This upload didn't finish. Remove it and add the file again.";
     default:
       return "Reading it now. You can leave this page.";
   }

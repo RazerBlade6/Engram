@@ -155,3 +155,47 @@ def test_other_students_cannot_see_or_mark(
     assert course["id"] not in [c["id"] for c in client.get("/courses", headers=headers).json()]
     assert client.put(f"/sections/{chapter}/covered", headers=headers).status_code == 404
     assert client.put(f"/sections/{uuid.uuid4()}/covered", headers=headers).status_code == 404
+
+
+def test_students_create_their_own_courses(
+    client: TestClient, make_user: Callable[..., str], database_url: str
+) -> None:
+    student = make_user()
+    response = client.post(
+        "/courses", headers=auth(token_for(student)), json={"title": "  Biology 101 "}
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert (body["title"], body["chapters"], body["covered"]) == ("Biology 101", 0, 0)
+    with psycopg.connect(database_url) as c:
+        row = c.execute("select owner_id::text from public.courses where id = %s", (body["id"],))
+        assert row.fetchone() == (student,)
+    listed = client.get("/courses", headers=auth(token_for(student))).json()
+    assert [c["id"] for c in listed] == [body["id"]]
+
+
+def test_only_admins_create_courses_for_someone_else(
+    client: TestClient, make_user: Callable[..., str], database_url: str
+) -> None:
+    student, other, admin = make_user(), make_user(), make_user("admin")
+    request = {"title": "Politics", "owner_id": other}
+    assert (
+        client.post("/courses", headers=auth(token_for(student)), json=request).status_code == 403
+    )
+
+    response = client.post("/courses", headers=auth(token_for(admin)), json=request)
+    assert response.status_code == 201
+    with psycopg.connect(database_url) as c:
+        row = c.execute(
+            "select owner_id::text from public.courses where id = %s", (response.json()["id"],)
+        )
+        assert row.fetchone() == (other,)
+
+    missing = {"title": "Politics", "owner_id": str(uuid.uuid4())}
+    assert client.post("/courses", headers=auth(token_for(admin)), json=missing).status_code == 404
+
+
+def test_a_course_needs_a_name(client: TestClient, make_user: Callable[..., str]) -> None:
+    headers = auth(token_for(make_user()))
+    assert client.post("/courses", headers=headers, json={"title": "   "}).status_code == 422
+    assert client.post("/courses", headers=headers, json={"title": ""}).status_code == 422

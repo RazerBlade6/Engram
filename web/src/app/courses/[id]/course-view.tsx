@@ -20,7 +20,8 @@ import { MaterialsPanel } from "./materials-panel";
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" });
 const POLL_MS = 4000;
-const pending = (status: string) => ["uploading", "queued", "processing"].includes(status);
+// "uploading" isn't here: this page uploads and then reloads, so one left uploading was abandoned.
+const pending = (status: string) => ["queued", "processing"].includes(status);
 
 export function CourseView() {
   const { id } = useParams<{ id: string }>();
@@ -148,7 +149,9 @@ export function CourseView() {
 
           {course.textbooks.length === 0 && (
             <p className="mt-6 rounded-lg border border-border bg-white px-5 py-4">
-              Your textbook is still being prepared. Its chapters will appear here once it&apos;s ready.
+              {course.materials.some((m) => m.kind === "textbook" && pending(m.status))
+                ? "Your textbook is still being prepared. Its chapters will appear here once it's ready."
+                : "Chapters come from the course textbook. They'll appear here once it's added."}
             </p>
           )}
 
@@ -164,7 +167,13 @@ export function CourseView() {
           ))}
         </section>
 
-        <MaterialsPanel courseId={course.id} materials={course.materials} onChange={reload} show={show} />
+        <MaterialsPanel
+          courseId={course.id}
+          materials={course.materials}
+          onChange={reload}
+          show={show}
+          canAddTextbook={profile?.role === "admin"}
+        />
       </div>
 
       <Toast key={toast?.id} toast={toast} onDone={hideToast} />

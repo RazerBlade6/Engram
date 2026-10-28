@@ -20,6 +20,7 @@ Event = Literal[
     "review",
     "flag",
     "unflag",
+    "course_created",
     "chapter_covered",
     "chapter_unmarked",
     "material_uploaded",

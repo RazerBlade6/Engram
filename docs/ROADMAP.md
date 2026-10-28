@@ -248,6 +248,8 @@ The smallest end-to-end product, live at https://engramstudy.app (invite-only). 
 - [x] Minimal ingestion inspector (admin)
 - [x] Courses, table of contents, "mark chapter covered"
 - [x] Student upload for slides (PDF, PowerPoint): a large upload button and drop zone, kept visually separate from link entry
+- [x] Courses created in the app (students for themselves, admins for anyone); admins add textbooks from the course page
+- [x] A navigation bar on every signed-in page, so nothing is reachable only by typing its address
 - [x] Card generation: Q → A, cloze, MCQ, with source citations
 - [x] FSRS review with four ratings, keyboard controls and an in-review flag button
 - [x] Review ordering (mixed, blocked, separate) behind an admin-only switch
@@ -341,3 +343,6 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 45  | A new job wakes the worker through a database trigger; a sweep every 15 minutes catches retries | Every way a job is queued is covered in one place, and the worker costs nothing while idle |
 | 46  | Production deploys from `main` on push: migrations, then API and worker; Vercel deploys the web app itself | The schema is never behind the code, and a deploy is just a fast-forward of `main` |
 | 47  | CI and deploys run only for the parts of the repository a push changed                    | A one-line web fix took about 8 minutes from push to live, almost all of it backend jobs it didn't touch |
+| 48  | Students create their own courses; admins can create one for anyone; textbooks stay admin-only | A fresh account can start on its own; textbook ingestion is the costly step, so it stays with the operator |
+| 49  | Files upload from the browser straight to Storage with a signed token; the API then checks and queues them | Cloud Run caps request bodies at 32 MiB, well under a textbook |
+| 50  | A navigation bar on every signed-in page except review                                    | Pages reachable only by typed address don't exist for users; review keeps the screen to the card |

@@ -47,6 +47,24 @@ class Storage:
         )
         response.raise_for_status()
 
+    async def upload_token(self, path: str) -> str:
+        """A token that lets a browser upload one file to `path`, without the API in between.
+        Cloud Run caps request bodies at 32 MiB, well under a textbook."""
+        response = await self._client.post(f"/object/upload/sign/{BUCKET}/{path}")
+        response.raise_for_status()
+        token: str = response.json()["token"]
+        return token
+
+    async def head(self, path: str, length: int) -> tuple[bytes, int] | None:
+        """The first `length` bytes of an object and its full size, or None if it's missing."""
+        response = await self._client.get(
+            f"/object/{BUCKET}/{path}", headers={"Range": f"bytes=0-{length - 1}"}
+        )
+        if not response.is_success:
+            return None
+        size = response.headers.get("content-range", "").rpartition("/")[2]
+        return response.content[:length], int(size) if size.isdigit() else len(response.content)
+
     async def remove_prefix(self, prefix: str) -> None:
         """Delete every object under `prefix/` (one level deep)."""
         response = await self._client.post(

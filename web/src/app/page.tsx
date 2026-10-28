@@ -2,15 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { DateRow } from "@/components/dates";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { courseColors, isoDay, upcoming, type CourseDate } from "@/lib/calendar";
 import type { CourseSummary } from "@/lib/courses";
 import type { ReviewSummary, SessionSummary } from "@/lib/review";
 import { useProfile } from "@/lib/profile";
-import { supabase } from "@/lib/supabase";
 
 export default function Home() {
   const router = useRouter();
@@ -26,23 +25,13 @@ export default function Home() {
     api<CourseDate[]>("/dates").then(setDates);
   }, [profile]);
 
-  async function signOut() {
-    await supabase().auth.signOut();
-    router.replace("/sign-in");
-  }
-
   if (!profile) return null;
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
-      <div className="flex items-baseline justify-between">
-        <h1 className="text-3xl font-semibold">
-          {profile.display_name ? `Hi, ${profile.display_name}` : "Engram"}
-        </h1>
-        <button onClick={signOut} className="text-muted underline hover:text-foreground">
-          Sign out
-        </button>
-      </div>
+      <h1 className="text-3xl font-semibold">
+        {profile.display_name ? `Hi, ${profile.display_name}` : "Engram"}
+      </h1>
       {reviews && <ReviewHero summary={reviews} />}
       {courses && courses.length > 0 && dates && <ComingUp courses={courses} dates={dates} />}
       {courses && courses.length > 0 && (
@@ -59,7 +48,7 @@ export default function Home() {
             Your courses
           </h2>
           {courses.length === 0 ? (
-            <p className="mt-3 text-muted">No courses yet.</p>
+            <p className="mt-3 text-muted">No courses yet. Add one for each subject you&apos;re studying.</p>
           ) : (
             <ul className="mt-3 space-y-3">
               {courses.map((c) => (
@@ -77,17 +66,78 @@ export default function Home() {
               ))}
             </ul>
           )}
+          <NewCourse onCreated={(course) => router.push(`/courses/${course.id}`)} />
         </section>
       )}
+    </main>
+  );
+}
 
-      {profile.role === "admin" && (
-        <p className="mt-10">
-          <Link href="/admin" className="text-accent underline">
-            Admin: materials and review order
-          </Link>
+/** A course needs only a name; its materials are added on the course page. */
+function NewCourse({ onCreated }: { onCreated: (course: CourseSummary) => void }) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  async function create(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setProblem(null);
+    try {
+      onCreated(await api<CourseSummary>("/courses", { method: "POST", body: JSON.stringify({ title: title.trim() }) }));
+    } catch (error) {
+      setProblem(
+        error instanceof ApiError && error.status === 422
+          ? "Give the course a name."
+          : "The course couldn't be added. Please try again.",
+      );
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mt-4 rounded-lg border border-accent px-4 py-2 font-medium text-accent hover:bg-accent hover:text-white"
+      >
+        Add a course
+      </button>
+    );
+  }
+  return (
+    <form onSubmit={create} className="mt-4 rounded-lg border border-border bg-white px-5 py-4">
+      <label className="block">
+        <span className="block font-medium">Course name</span>
+        <input
+          autoFocus
+          required
+          maxLength={200}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="e.g. Introduction to Psychology"
+          className="mt-2 w-full rounded-lg border border-border bg-white px-4 py-3 outline-none focus:border-accent focus:ring-2 focus:ring-accent/30"
+        />
+      </label>
+      <div className="mt-3 flex items-center gap-4">
+        <button
+          type="submit"
+          disabled={busy}
+          className="rounded-lg bg-accent px-6 py-2 font-medium text-white hover:bg-accent-strong disabled:opacity-60"
+        >
+          {busy ? "Adding…" : "Add course"}
+        </button>
+        <button type="button" onClick={() => setOpen(false)} className="text-muted underline hover:text-foreground">
+          Cancel
+        </button>
+      </div>
+      {problem && (
+        <p role="alert" className="mt-3 rounded-lg bg-danger-soft px-4 py-3 text-danger">
+          {problem}
         </p>
       )}
-    </main>
+    </form>
   );
 }
 

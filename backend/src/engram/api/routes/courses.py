@@ -13,7 +13,7 @@ from uuid import UUID
 import psycopg
 from fastapi import APIRouter, HTTPException, Response, status
 from psycopg.rows import class_row
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from engram.api import usage
 from engram.api.db import UserDb
@@ -59,6 +59,12 @@ class CourseSummary(BaseModel):
     title: str
     chapters: int
     covered: int
+
+
+class NewCourse(BaseModel):
+    title: str = Field(min_length=1, max_length=200)
+    # Admins create courses for someone else; students only for themselves (row-level security).
+    owner_id: UUID | None = None
 
 
 class Coverage(BaseModel):
@@ -165,6 +171,27 @@ async def list_courses(db: UserDb) -> list[CourseSummary]:
             CourseSummary(id=course_id, title=title, chapters=len(found), covered=covered)
         )
     return summaries
+
+
+@router.post("/courses", status_code=status.HTTP_201_CREATED)
+async def create_course(body: NewCourse, db: UserDb, visit: Visit) -> CourseSummary:
+    title = body.title.strip()
+    if not title:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "A course needs a name")
+    try:
+        cur = await db.execute(
+            "insert into public.courses (owner_id, title)"
+            " values (coalesce(%s, (select auth.uid())), %s) returning id",
+            (body.owner_id, title),
+        )
+    except psycopg.errors.InsufficientPrivilege:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admins only") from None
+    except psycopg.errors.ForeignKeyViolation:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such person") from None
+    row = await cur.fetchone()
+    assert row is not None
+    await usage.log(db, visit, "course_created", course_id=row[0])
+    return CourseSummary(id=row[0], title=title, chapters=0, covered=0)
 
 
 @router.get("/courses/{course_id}")

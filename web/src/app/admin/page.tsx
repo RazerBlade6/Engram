@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { AdminOnly } from "@/components/admin-only";
@@ -13,9 +14,6 @@ export default function AdminPage() {
   return (
     <AdminOnly>
       <main className="mx-auto max-w-5xl px-6 py-12">
-        <Link href="/" className="text-muted underline hover:text-foreground">
-          Home
-        </Link>
         <Materials />
         <People />
       </main>
@@ -32,14 +30,12 @@ function Materials() {
 
   return (
     <section>
-      <h1 className="mt-4 text-3xl font-semibold">Ingested materials</h1>
+      <h1 className="text-3xl font-semibold">Ingested materials</h1>
       <p className="mt-2 text-muted">
         Open a material to check what was extracted from each page before students use it.
       </p>
       {materials && materials.length === 0 && (
-        <p className="mt-8">
-          Nothing ingested yet. Upload with <code>engram-admin ingest FILE --course ID</code>.
-        </p>
+        <p className="mt-8">Nothing ingested yet. Add a textbook from a course&apos;s page.</p>
       )}
       {materials && materials.length > 0 && (
         <table className="mt-8 w-full border-collapse text-left">
@@ -144,6 +140,7 @@ function People() {
         their words). Turn it on only after they&apos;ve agreed. Turning it off stops logging.
       </p>
       <InviteForm onInvited={load} />
+      <CourseForm people={people} />
       <table className="mt-6 w-full border-collapse text-left">
         <thead className="border-b border-border text-muted">
           <tr>
@@ -269,6 +266,74 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
       {result && (
         <p role="status" className={`w-full ${result.ok ? "text-muted" : "text-danger"}`}>
           {result.text}
+        </p>
+      )}
+    </form>
+  );
+}
+
+/** A course for someone else, ready for its textbook: it opens once made. */
+function CourseForm({ people }: { people: Person[] }) {
+  const router = useRouter();
+  const [owner, setOwner] = useState(people.find((p) => p.role === "student")?.id ?? people[0]?.id ?? "");
+  const [title, setTitle] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+
+  async function create(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setProblem(null);
+    try {
+      const course = await api<{ id: string }>("/courses", {
+        method: "POST",
+        body: JSON.stringify({ title: title.trim(), owner_id: owner }),
+      });
+      router.push(`/courses/${course.id}`);
+    } catch {
+      setProblem("The course couldn't be created. Please try again.");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={create} className="mt-6 flex flex-wrap items-end gap-3">
+      <label className="flex flex-col gap-1">
+        <span className="font-medium">New course for</span>
+        <select
+          value={owner}
+          onChange={(e) => setOwner(e.target.value)}
+          className="rounded-lg border border-border bg-white px-3 py-2"
+        >
+          {people.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.display_name ?? "No name"}
+              {p.role === "admin" ? " (admin)" : ""}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1">
+        <span className="font-medium">Course name</span>
+        <input
+          required
+          maxLength={200}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          autoComplete="off"
+          className="w-72 rounded-lg border border-border bg-white px-3 py-2"
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={busy || !owner}
+        className="rounded-lg bg-accent px-6 py-2 font-medium text-white hover:bg-accent-strong disabled:opacity-50"
+      >
+        {busy ? "Creating…" : "Create course"}
+      </button>
+      {problem && (
+        <p role="alert" className="w-full text-danger">
+          {problem}
         </p>
       )}
     </form>

@@ -42,27 +42,27 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-/** Uploads a file to the Engram API as the signed-in user, reporting progress from 0 to 1. */
-export async function apiUpload<T>(path: string, file: File, onProgress: (fraction: number) => void): Promise<T> {
-  const { data } = await supabase().auth.getSession();
+/**
+ * Uploads a file straight to Storage with a token from the API (Cloud Run caps request bodies
+ * at 32 MiB, well under a textbook), reporting progress from 0 to 1.
+ */
+export async function storageUpload(path: string, token: string, file: File, onProgress: (fraction: number) => void) {
+  const base = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321").replace(/\/+$/, "");
   const form = new FormData();
-  form.append("file", file);
+  form.append("cacheControl", "3600");
+  form.append("", file);
 
   // fetch() can't report upload progress; XMLHttpRequest can.
-  return new Promise((resolve, reject) => {
+  return new Promise<void>((resolve, reject) => {
     const request = new XMLHttpRequest();
-    request.open("POST", apiUrl(path));
-    if (data.session) request.setRequestHeader("Authorization", `Bearer ${data.session.access_token}`);
+    request.open("PUT", `${base}/storage/v1/object/upload/sign/materials/${path}?token=${encodeURIComponent(token)}`);
+    request.setRequestHeader("apikey", process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "");
     request.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress(event.loaded / event.total);
     };
     request.onload = () => {
-      let body: { detail?: string } | null = null;
-      try {
-        body = JSON.parse(request.responseText);
-      } catch {}
-      if (request.status >= 200 && request.status < 300) resolve(body as T);
-      else reject(new ApiError(request.status, body?.detail ?? request.statusText));
+      if (request.status >= 200 && request.status < 300) resolve();
+      else reject(new ApiError(request.status, "The upload didn't go through. Please try again."));
     };
     request.onerror = () =>
       reject(new ApiError(0, "The upload was interrupted. Check your internet connection and try again."));

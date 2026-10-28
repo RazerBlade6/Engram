@@ -26,11 +26,23 @@ def pptx_bytes(*, presentation: bool = True) -> bytes:
 
 
 class FakeStorage:
-    def __init__(self) -> None:
-        self.objects: dict[str, tuple[bytes, str]] = {}
+    """Storage where `put` stands in for the browser's upload with a token."""
 
-    async def upload(self, path: str, data: bytes, content_type: str) -> None:
-        self.objects[path] = (data, content_type)
+    def __init__(self) -> None:
+        self.objects: dict[str, bytes] = {}
+        self.tokens: dict[str, str] = {}
+
+    async def upload_token(self, path: str) -> str:
+        self.tokens[path] = f"token-{len(self.tokens)}"
+        return self.tokens[path]
+
+    def put(self, path: str, token: str, data: bytes) -> None:
+        assert self.tokens[path] == token
+        self.objects[path] = data
+
+    async def head(self, path: str, length: int) -> tuple[bytes, int] | None:
+        data = self.objects.get(path)
+        return None if data is None else (data[:length], len(data))
 
     async def remove_prefix(self, prefix: str) -> None:
         for key in [k for k in self.objects if k.rsplit("/", 1)[0] == prefix]:
@@ -82,63 +94,102 @@ def rows(database_url: str, sql: str, *params: Any) -> list[tuple[Any, ...]]:
         return c.execute(sql, params).fetchall()
 
 
-def upload(
-    client: TestClient, course: dict[str, str], name: str, data: bytes, user: str = ""
+def add(
+    client: TestClient,
+    course: dict[str, str],
+    name: str,
+    size: int = 100,
+    kind: str = "slides",
+    user: str = "",
 ) -> Any:
     return client.post(
         f"/courses/{course['id']}/materials",
         headers=auth(token_for(user or course["owner"])),
-        files={"file": (name, data, "application/octet-stream")},
+        json={"filename": name, "size": size, "kind": kind},
     )
+
+
+def upload(
+    client: TestClient,
+    storage: FakeStorage,
+    course: dict[str, str],
+    name: str,
+    data: bytes,
+    kind: str = "slides",
+    user: str = "",
+) -> Any:
+    """All three steps: add the material, upload the file, queue it."""
+    user = user or course["owner"]
+    added = add(client, course, name, len(data), kind, user)
+    if added.status_code != 201:
+        return added
+    body = added.json()
+    storage.put(body["upload"]["path"], body["upload"]["token"], data)
+    return client.post(f"/materials/{body['material']['id']}/queue", headers=auth(token_for(user)))
 
 
 def test_upload_stores_and_queues_slides(
     client: TestClient, course: dict[str, str], storage: FakeStorage, database_url: str
 ) -> None:
-    response = upload(client, course, "Week_3 Biopsychology.pdf", PDF_BYTES)
-    assert response.status_code == 201
-    body = response.json()
-    assert (body["title"], body["kind"], body["status"]) == (
+    added = add(client, course, "Week_3 Biopsychology.pdf", len(PDF_BYTES))
+    assert added.status_code == 201
+    body = added.json()
+    material = body["material"]
+    assert (material["title"], material["kind"], material["status"]) == (
         "Week 3 Biopsychology",
         "slides",
-        "queued",
+        "uploading",
     )
+    path = body["upload"]["path"]
+    assert path == f"{course['id']}/{material['id']}/Week_3-Biopsychology.pdf"
 
-    [(path, added_by, status)] = rows(
+    headers = auth(token_for(course["owner"]))
+    # Queuing before the file arrives is refused, and the material waits.
+    assert client.post(f"/materials/{material['id']}/queue", headers=headers).status_code == 409
+
+    storage.put(path, body["upload"]["token"], PDF_BYTES)
+    queued = client.post(f"/materials/{material['id']}/queue", headers=headers)
+    assert queued.status_code == 200
+    assert queued.json()["status"] == "queued"
+
+    [(added_by, status)] = rows(
         database_url,
-        "select storage_path, added_by::text, status::text from public.materials where id = %s",
-        body["id"],
+        "select added_by::text, status::text from public.materials where id = %s",
+        material["id"],
     )
     assert (added_by, status) == (course["owner"], "queued")
-    assert storage.objects[path] == (PDF_BYTES, "application/pdf")
-    assert path == f"{course['id']}/{body['id']}/Week_3-Biopsychology.pdf"
     assert rows(
         database_url,
         "select kind from public.jobs where payload->>'material_id' = %s",
-        body["id"],
+        material["id"],
     ) == [("ingest_material",)]
+    # Only once.
+    assert client.post(f"/materials/{material['id']}/queue", headers=headers).status_code == 404
 
 
-def test_powerpoint_is_recognised_by_content(
+def test_powerpoint_is_accepted(
     client: TestClient, course: dict[str, str], storage: FakeStorage
 ) -> None:
-    # The name says PDF; the content is a PowerPoint file, and it is stored as one.
-    response = upload(client, course, "lecture.pdf", pptx_bytes())
-    assert response.status_code == 201
-    [(path, (_, content_type))] = storage.objects.items()
+    response = upload(client, storage, course, "lecture.pptx", pptx_bytes())
+    assert response.status_code == 200
+    [path] = storage.objects
     assert path.endswith("/lecture.pptx")
-    assert content_type.endswith("presentationml.presentation")
+
+
+@pytest.mark.parametrize("name", ["notes.txt", "essay.docx", "old.ppt"])
+def test_other_file_types_are_refused_before_upload(
+    client: TestClient, course: dict[str, str], storage: FakeStorage, name: str
+) -> None:
+    response = add(client, course, name)
+    assert response.status_code == 415
+    assert "PDF and PowerPoint" in response.json()["detail"]
+    assert storage.tokens == {}
 
 
 @pytest.mark.parametrize(
-    ("name", "data"),
-    [
-        ("notes.txt", b"just text"),
-        ("essay.docx", pptx_bytes(presentation=False)),
-        ("old.ppt", b"\xd0\xcf\x11\xe0"),
-    ],
+    ("name", "data"), [("notes.pdf", b"just text"), ("essay.pptx", b"\xd0\xcf\x11\xe0")]
 )
-def test_other_files_are_refused(
+def test_a_file_that_isnt_what_it_says_is_removed(
     client: TestClient,
     course: dict[str, str],
     storage: FakeStorage,
@@ -146,7 +197,7 @@ def test_other_files_are_refused(
     name: str,
     data: bytes,
 ) -> None:
-    response = upload(client, course, name, data)
+    response = upload(client, storage, course, name, data)
     assert response.status_code == 415
     assert "PDF and PowerPoint" in response.json()["detail"]
     assert storage.objects == {}
@@ -158,9 +209,30 @@ def test_other_files_are_refused(
 def test_large_files_are_refused(
     client: TestClient, course: dict[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(materials, "MAX_UPLOAD_BYTES", 10)
-    response = upload(client, course, "big.pdf", PDF_BYTES)
-    assert response.status_code == 413
+    monkeypatch.setitem(materials.MAX_UPLOAD_BYTES, "slides", 10)
+    assert add(client, course, "big.pdf", size=11).status_code == 413
+
+
+def test_only_admins_add_textbooks(
+    client: TestClient,
+    course: dict[str, str],
+    storage: FakeStorage,
+    make_user: Callable[..., str],
+    database_url: str,
+) -> None:
+    response = add(client, course, "Biology 2e.pdf", kind="textbook")
+    assert response.status_code == 403
+    assert storage.tokens == {}
+
+    admin = make_user("admin")
+    response = upload(client, storage, course, "Biology 2e.pdf", PDF_BYTES, "textbook", admin)
+    assert response.status_code == 200
+    assert (response.json()["kind"], response.json()["status"]) == ("textbook", "queued")
+    assert rows(
+        database_url,
+        "select added_by::text from public.materials where id = %s",
+        response.json()["id"],
+    ) == [(admin,)]
 
 
 def test_other_students_cannot_upload_or_remove(
@@ -170,12 +242,15 @@ def test_other_students_cannot_upload_or_remove(
     make_user: Callable[..., str],
 ) -> None:
     other = make_user()
-    assert upload(client, course, "x.pdf", PDF_BYTES, user=other).status_code == 404
-    assert storage.objects == {}
+    assert add(client, course, "x.pdf", user=other).status_code == 404
+    assert storage.tokens == {}
 
-    mine = upload(client, course, "Week 1.pdf", PDF_BYTES).json()
+    mine = add(client, course, "Week 1.pdf").json()
     headers = auth(token_for(other))
-    assert client.delete(f"/materials/{mine['id']}", headers=headers).status_code == 404
+    storage.put(mine["upload"]["path"], mine["upload"]["token"], PDF_BYTES)
+    material = mine["material"]["id"]
+    assert client.post(f"/materials/{material}/queue", headers=headers).status_code == 404
+    assert client.delete(f"/materials/{material}", headers=headers).status_code == 404
     assert len(storage.objects) == 1
 
 
@@ -183,7 +258,7 @@ def test_students_remove_their_slides_but_not_the_textbook(
     client: TestClient, course: dict[str, str], storage: FakeStorage, database_url: str
 ) -> None:
     headers = auth(token_for(course["owner"]))
-    mine = upload(client, course, "Week 1.pdf", PDF_BYTES).json()
+    mine = upload(client, storage, course, "Week 1.pdf", PDF_BYTES).json()
     assert client.delete(f"/materials/{mine['id']}", headers=headers).status_code == 204
     assert storage.objects == {}
     assert rows(database_url, "select 1 from public.materials where id = %s", mine["id"]) == []
@@ -197,4 +272,4 @@ def test_students_remove_their_slides_but_not_the_textbook(
 
 def test_unknown_course(client: TestClient, course: dict[str, str]) -> None:
     missing = {**course, "id": str(uuid.uuid4())}
-    assert upload(client, missing, "x.pdf", PDF_BYTES).status_code == 404
+    assert add(client, missing, "x.pdf").status_code == 404

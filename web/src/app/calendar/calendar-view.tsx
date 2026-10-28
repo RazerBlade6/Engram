@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
 
 import { ChapterPicker } from "@/components/chapter-picker";
@@ -102,10 +101,7 @@ function Calendar({ courses, initial }: { courses: CourseSummary[]; initial: Cou
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-12">
-      <Link href="/" className="text-muted underline hover:text-foreground">
-        Back to Today
-      </Link>
-      <h1 className="mt-4 text-3xl font-semibold">Calendar</h1>
+      <h1 className="text-3xl font-semibold">Calendar</h1>
 
       {courses.length === 0 ? (
         <p className="mt-3 text-lg text-muted">Once you have a course, you can add its exams and deadlines here.</p>

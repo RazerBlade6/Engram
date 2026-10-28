@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { SiteNav } from "@/components/site-nav";
 import { UsageTracker } from "@/components/usage-tracker";
 
 import "./globals.css";
@@ -14,8 +15,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en">
       <body>
+        {/* These read the URL, which some routes know only at request time. */}
+        <Suspense>
+          <SiteNav />
+        </Suspense>
         {children}
-        {/* It reads the URL, which some routes know only at request time. */}
         <Suspense>
           <UsageTracker />
         </Suspense>

@@ -14,6 +14,12 @@ describe("uploadProblem", () => {
 
   it("refuses other files and files that are too large", () => {
     expect(uploadProblem({ name: "notes.docx", size: 1000 })).toMatch(/PDF and PowerPoint/);
-    expect(uploadProblem({ name: "big.pdf", size: (MAX_UPLOAD_MB + 1) * 1024 * 1024 })).toMatch(/over/);
+    expect(uploadProblem({ name: "big.pdf", size: (MAX_UPLOAD_MB.slides + 1) * 1024 * 1024 })).toMatch(/over/);
+  });
+
+  it("allows textbooks to be larger than slides", () => {
+    const big = { name: "Biology 2e.pdf", size: (MAX_UPLOAD_MB.slides + 1) * 1024 * 1024 };
+    expect(uploadProblem(big, "textbook")).toBeNull();
+    expect(uploadProblem({ ...big, size: (MAX_UPLOAD_MB.textbook + 1) * 1024 * 1024 }, "textbook")).toMatch(/over/);
   });
 });
