@@ -1,8 +1,9 @@
 """Postgres-backed job queue.
 
 Jobs live in `public.jobs`. A worker claims one with `FOR UPDATE SKIP LOCKED`, so several
-workers can poll the same table without handing out a job twice. A job left `running` by a
-worker that died is reclaimed once its lock is older than `STALE_LOCK`.
+workers can poll the same table without handing out a job twice. While a job runs, its
+worker renews the lock every `HEARTBEAT`; a job left `running` by a worker that died (or was
+preempted, as Modal containers can be) is reclaimed once its lock is older than `STALE_LOCK`.
 """
 
 from collections.abc import Awaitable, Callable
@@ -14,7 +15,9 @@ from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
-STALE_LOCK = timedelta(hours=1)
+HEARTBEAT = timedelta(minutes=1)
+# Several missed heartbeats, so a slow database round trip never looks like a dead worker.
+STALE_LOCK = timedelta(minutes=5)
 RETRY_BASE_DELAY = timedelta(seconds=30)
 
 
@@ -76,6 +79,16 @@ async def claim(conn: AsyncConnection[Any], worker_id: str) -> Job | None:
         )
         row = await cur.fetchone()
     return Job(**row) if row else None
+
+
+async def heartbeat(conn: AsyncConnection[Any], job: Job, worker_id: str) -> bool:
+    """Renew the lock on a running job. False if the job is no longer this worker's."""
+    cur = await conn.execute(
+        "update public.jobs set locked_at = now()"
+        " where id = %s and status = 'running' and locked_by = %s",
+        (job.id, worker_id),
+    )
+    return cur.rowcount == 1
 
 
 async def complete(conn: AsyncConnection[Any], job: Job) -> None:

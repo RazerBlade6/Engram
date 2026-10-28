@@ -11,6 +11,7 @@ import logging
 import os
 import signal
 import socket
+from collections.abc import AsyncIterator
 from typing import Any
 
 from psycopg import AsyncConnection
@@ -30,6 +31,32 @@ def build_handlers(settings: Settings) -> dict[str, Handler]:
     return {ingest.KIND: ingest.make_handler(settings), cards.KIND: cards.make_handler(settings)}
 
 
+@contextlib.asynccontextmanager
+async def _keep_alive(conn: AsyncConnection[Any], job: Job, worker_id: str) -> AsyncIterator[None]:
+    """Renew the job's lock while the block runs, so only a dead worker's job looks stale.
+    Stopped with an event rather than cancelled, so a renewal in flight on the shared
+    connection always finishes."""
+    done = asyncio.Event()
+    task = asyncio.create_task(_renew(conn, job, worker_id, done))
+    try:
+        yield
+    finally:
+        done.set()
+        await task
+
+
+async def _renew(conn: AsyncConnection[Any], job: Job, worker_id: str, done: asyncio.Event) -> None:
+    while not done.is_set():
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(done.wait(), timeout=queue.HEARTBEAT.total_seconds())
+            return
+        try:
+            if not await queue.heartbeat(conn, job, worker_id):
+                logger.warning("job %s is no longer locked by %s", job.id, worker_id)
+        except Exception:
+            logger.exception("heartbeat for job %s failed", job.id)
+
+
 async def run_once(
     conn: AsyncConnection[Any], worker_id: str, handlers: dict[str, Handler]
 ) -> bool:
@@ -41,7 +68,8 @@ async def run_once(
     try:
         if handler is None:
             raise LookupError(f"no handler for job kind {job.kind!r}")
-        await handler(job)
+        async with _keep_alive(conn, job, worker_id):
+            await handler(job)
     except Exception as exc:
         permanent = isinstance(exc, PermanentError | LookupError)
         logger.exception(

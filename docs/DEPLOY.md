@@ -26,7 +26,10 @@ Vercel skips its build when nothing under `web/` changed (`ignoreCommand` in
 The worker isn't running between jobs. When a job is queued, a trigger on `public.jobs`
 posts to the worker's `wake` endpoint, which starts `drain`: it runs jobs until none is
 ready, then stops. A sweep every 15 minutes picks up retries whose backoff has passed and
-jobs left behind by a worker that died. Only one `drain` runs at a time.
+jobs left behind by a worker that died. Modal can preempt a container mid-job, so the
+worker renews a running job's lock every minute, and a lock five minutes old marks the job
+as abandoned: a preempted job runs again within about 20 minutes. Only one `drain` runs at
+a time.
 
 The wake URL and its token live in the database's Vault (`worker_wake_url`,
 `worker_wake_token`). Without them, as in local development, the trigger does nothing.

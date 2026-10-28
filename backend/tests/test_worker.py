@@ -1,6 +1,8 @@
 import asyncio
+from datetime import timedelta
 from typing import Any
 
+import pytest
 from psycopg import AsyncConnection
 
 from engram.worker import queue
@@ -68,3 +70,32 @@ async def test_permanent_errors_skip_retries(conn: AsyncConnection[Any]) -> None
         "select status::text, attempts from public.jobs where id = %s", (job_id,)
     )
     assert await cur.fetchone() == ("failed", 1)
+
+
+async def test_a_running_job_keeps_its_lock(
+    conn: AsyncConnection[Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(queue, "HEARTBEAT", timedelta(milliseconds=20))
+    renewed: list[Any] = []
+
+    async def slow(job: Job) -> None:
+        # Age the lock, then give the heartbeat a few beats to renew it.
+        await conn.execute(
+            "update public.jobs set locked_at = now() - interval '1 hour' where id = %s",
+            (job.id,),
+        )
+        await asyncio.sleep(0.1)
+        cur = await conn.execute(
+            "select locked_at > now() - interval '1 minute' from public.jobs where id = %s",
+            (job.id,),
+        )
+        renewed.append(await cur.fetchone())
+
+    await conn.execute("delete from public.jobs")
+    job_id = await queue.enqueue(conn, "slow")
+    assert await run_once(conn, "w", {"slow": slow})
+    assert renewed == [(True,)]
+    cur = await conn.execute(
+        "select status::text, locked_at from public.jobs where id = %s", (job_id,)
+    )
+    assert await cur.fetchone() == ("succeeded", None)

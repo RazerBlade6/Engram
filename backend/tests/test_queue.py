@@ -89,3 +89,21 @@ async def test_concurrent_workers_never_share_a_job(database_url: str) -> None:
             await a.rollback()
             await b.rollback()
             await setup.execute("delete from public.jobs where id = any(%s)", (list(ids),))
+
+
+async def test_heartbeat_renews_only_the_holders_lock(conn: AsyncConnection[Any]) -> None:
+    job_id = await queue.enqueue(conn, "test")
+    job = await queue.claim(conn, "w1")
+    assert job is not None and job.id == job_id
+    await conn.execute(
+        "update public.jobs set locked_at = now() - %s where id = %s",
+        (queue.STALE_LOCK - timedelta(minutes=1), job_id),
+    )
+    assert not await queue.heartbeat(conn, job, "someone-else")
+    assert await queue.heartbeat(conn, job, "w1")
+    # Renewed, so a sweep a minute later doesn't take it.
+    await conn.execute(
+        "update public.jobs set locked_at = locked_at - interval '1 minute' where id = %s",
+        (job_id,),
+    )
+    assert await queue.claim(conn, "w2") is None

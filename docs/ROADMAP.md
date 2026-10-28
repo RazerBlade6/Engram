@@ -346,3 +346,4 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 48  | Students create their own courses; admins can create one for anyone; textbooks stay admin-only | A fresh account can start on its own; textbook ingestion is the costly step, so it stays with the operator |
 | 49  | Files upload from the browser straight to Storage with a signed token; the API then checks and queues them | Cloud Run caps request bodies at 32 MiB, well under a textbook |
 | 50  | A navigation bar on every signed-in page except review                                    | Pages reachable only by typed address don't exist for users; review keeps the screen to the card |
+| 51  | A running job renews its lock every minute; a lock five minutes old means the worker is gone | Modal preempted a worker mid-ingestion, and the one-hour stale lock left the upload stuck as "processing" |

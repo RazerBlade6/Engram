@@ -2,8 +2,8 @@
 
 A new job wakes it: the database posts to `wake` (migration `wake_worker`), which starts
 `drain`. A sweep every 15 minutes catches retries whose backoff has passed and jobs left by a
-worker that died. Only one `drain` runs at a time, so a job running longer than the queue's
-stale-lock time is never claimed twice.
+worker that died or was preempted: a running job's lock is renewed every minute, so one
+unrenewed for five is abandoned. Only one `drain` runs at a time.
 
 Deploy from backend/ with `uv run --with modal modal deploy modal_app.py`. Settings come
 from the Modal secret `engram`; see docs/DEPLOY.md.
