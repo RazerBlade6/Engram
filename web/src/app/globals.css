@@ -31,6 +31,11 @@
   --card-line: #dbe5f2;
   --highlight: #fff0a3;
 
+  /* A wrong multiple-choice pick: a soft highlighter pink, never a harsh red */
+  --wrong: #861d47;
+  --wrong-soft: #fde0ea;
+  --wrong-line: #f2b6ca;
+
   /* Status */
   --danger: #9b2c2c;
   --danger-soft: #fbeaea;
@@ -79,6 +84,7 @@
   --duration-base: 200ms;
   --duration-slow: 360ms;
   --duration-flip: 640ms;
+  --duration-leave: 420ms;
   --ease-quiet: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ease-flip: cubic-bezier(0.34, 1.36, 0.5, 1);
 }
@@ -125,6 +131,8 @@ html {
 }
 
 body {
+  /* A card sliding off the pile must not make the page scroll sideways. */
+  overflow-x: clip;
   background: var(--desk);
   color: var(--foreground);
   font-family: var(--font-sans);
@@ -200,6 +208,22 @@ body {
   .rise-in {
     animation: rise-in var(--duration-base) var(--ease-quiet);
   }
+  /* Appears once a card has (nearly) turned over, so the eye lands on the answer first. */
+  .after-flip {
+    animation: rise-in var(--duration-base) var(--ease-quiet) calc(var(--duration-flip) * 0.75) both;
+  }
+
+  /* An answered card sliding off the pile, revealing the next one underneath. */
+  @keyframes card-leave {
+    to {
+      opacity: 0;
+      transform: translate(-55%, 0.75rem) rotate(-7deg);
+    }
+  }
+  .card-leave {
+    pointer-events: none;
+    animation: card-leave var(--duration-leave) cubic-bezier(0.5, 0, 0.75, 0.3) forwards;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -207,6 +231,7 @@ body {
   *::before,
   *::after {
     animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 1ms !important;
   }

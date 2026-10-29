@@ -50,6 +50,9 @@ export function ReviewView() {
   const [revealed, setRevealed] = useState(false);
   const [picked, setPicked] = useState<string | null>(null);
   const [flagOpen, setFlagOpen] = useState(false);
+  // The card just answered, sliding off the pile while the next one shows underneath.
+  const [leaving, setLeaving] = useState<Leaving | null>(null);
+  const leavingId = useRef(0);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const toastId = useRef(0);
   // When the current card appeared, for how long it took to rate (usage log).
@@ -83,10 +86,14 @@ export function ReviewView() {
   }, [card?.id, answers]);
 
   const next = useCallback(() => {
+    if (card) {
+      leavingId.current += 1;
+      setLeaving({ id: leavingId.current, card, revealed, picked });
+    }
     setRevealed(false);
     setPicked(null);
     setFlagOpen(false);
-  }, []);
+  }, [card, revealed, picked]);
 
   const rate = useCallback(
     async (rating: Rating) => {
@@ -190,7 +197,7 @@ export function ReviewView() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-6 sm:py-8">
       <div className="flex items-center gap-4">
-        <ButtonLink href="/" variant="quiet" className="-ml-4 shrink-0">
+        <ButtonLink href="/" variant="secondary" className="shrink-0">
           {card ? "Stop for now" : "Back to Today"}
         </ButtonLink>
         {card && (
@@ -205,23 +212,40 @@ export function ReviewView() {
 
       {card ? (
         <div className="mt-8 grid items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
-          {/* A new key per answer, so each card arrives face up instead of turning back. */}
-          <div key={`${card.id}-${answers}`} className="rise-in flex flex-col gap-6">
-            <Card
-              card={card}
-              color={colors.get(card.course_id)}
-              revealed={revealed}
-              picked={picked}
-              onPick={setPicked}
-              report={
-                <ReportMenu
-                  open={flagOpen}
-                  onToggle={() => setFlagOpen((o) => !o)}
-                  onClose={() => setFlagOpen(false)}
-                  onFlag={flag}
-                />
-              }
-            />
+          <div className="flex flex-col gap-6">
+            {/* The pile. The next card is already underneath, so only the answered one moves. */}
+            <div className="relative isolate">
+              <div aria-hidden className="index-card-under -z-10" />
+              {/* A new key per answer, so each card arrives face up instead of turning back. */}
+              <Card
+                key={`${card.id}-${answers}`}
+                card={card}
+                color={colors.get(card.course_id)}
+                revealed={revealed}
+                picked={picked}
+                onPick={setPicked}
+                report={<ReportButton open={flagOpen} onToggle={() => setFlagOpen((o) => !o)} />}
+              />
+              {leaving && (
+                <div
+                  key={leaving.id}
+                  aria-hidden
+                  inert
+                  className="card-leave absolute inset-x-0 top-0 z-10"
+                  onAnimationEnd={(event) => event.target === event.currentTarget && setLeaving(null)}
+                >
+                  <Card
+                    card={leaving.card}
+                    color={colors.get(leaving.card.course_id)}
+                    revealed={leaving.revealed}
+                    picked={leaving.picked}
+                    onPick={() => {}}
+                    report={<ReportButton open={false} onToggle={() => {}} />}
+                  />
+                </div>
+              )}
+            </div>
+            {flagOpen && <ReportPanel onFlag={flag} onCancel={() => setFlagOpen(false)} />}
             <CardActions
               card={card}
               answered={answered}
@@ -262,7 +286,12 @@ function ReviewLoading() {
   );
 }
 
-/** The card on the desk. Flashcards turn over to show the answer; multiple choice doesn't. */
+type Leaving = { id: number; card: ReviewCard; revealed: boolean; picked: string | null };
+
+/**
+ * One card, without the pile beneath it. Flashcards turn over to show the answer; multiple
+ * choice doesn't.
+ */
 function Card({
   card,
   color,
@@ -278,24 +307,14 @@ function Card({
   onPick: (choice: string) => void;
   report: ReactNode;
 }) {
-  const face = (children: ReactNode, pile = true) => (
-    <IndexCard label={card.course} labelColor={color} corner={report} pile={pile}>
+  const face = (children: ReactNode) => (
+    <IndexCard label={card.course} labelColor={color} corner={report} pile={false}>
       <CardMeta card={card} />
       <div className="mt-3 min-h-44">{children}</div>
     </IndexCard>
   );
   if (card.kind === "mcq") return face(<Choices card={card} picked={picked} onPick={onPick} />);
-  // The pile underneath stays put while the top card turns over.
-  return (
-    <div className="relative isolate">
-      <div aria-hidden className="index-card-under -z-10" />
-      <FlipCard
-        flipped={revealed}
-        front={face(<Front card={card} />, false)}
-        back={face(<Back card={card} />, false)}
-      />
-    </div>
-  );
+  return <FlipCard flipped={revealed} front={face(<Front card={card} />)} back={face(<Back card={card} />)} />;
 }
 
 function CardMeta({ card }: { card: ReviewCard }) {
@@ -347,9 +366,15 @@ function Cloze({ prompt, filled }: { prompt: string; filled: boolean }) {
   );
 }
 
+/** How a multiple-choice answer is marked: the right answer in "Got it" teal, a wrong pick in pink. */
+const CHOICE_INK = {
+  right: { color: "var(--rate-3)", background: "var(--rate-3-soft)", borderColor: "var(--rate-3-line)" },
+  wrong: { color: "var(--wrong)", background: "var(--wrong-soft)", borderColor: "var(--wrong-line)" },
+};
+
 /**
- * Multiple choice grades itself in the rating inks: the right answer in "Got it" teal, a
- * wrong pick in "Forgot" plum. Never red, so a wrong answer doesn't read as failing.
+ * Multiple choice grades itself. Unlike "Forgot", a wrong pick really is wrong, so it's
+ * marked in a soft pink rather than a rating ink, and still never a harsh red.
  */
 function Choices({
   card,
@@ -366,22 +391,14 @@ function Choices({
       <p className={PROMPT}>{card.prompt}</p>
       <div className="mt-6 flex flex-col gap-2.5">
         {card.choices.map((choice, i) => {
-          const ink = answered && choice === card.answer ? 3 : answered && choice === picked ? 1 : null;
+          const ink = answered && choice === card.answer ? "right" : answered && choice === picked ? "wrong" : null;
           return (
             <button
               key={choice}
               type="button"
               disabled={answered}
               onClick={() => onPick(choice)}
-              style={
-                ink
-                  ? {
-                      color: `var(--rate-${ink})`,
-                      background: `var(--rate-${ink}-soft)`,
-                      borderColor: `var(--rate-${ink}-line)`,
-                    }
-                  : undefined
-              }
+              style={ink ? CHOICE_INK[ink] : undefined}
               className={cx(
                 "flex min-h-13 items-center gap-3.5 rounded-control border px-4 py-3 text-left text-lg transition-colors duration-150",
                 ink ? "font-semibold" : "border-border-strong bg-surface",
@@ -419,7 +436,11 @@ function CardActions({
     const when = whenLabel(card.next[rating], now);
     return (
       <div className="flex flex-col items-center gap-4">
-        <p role="status" className="text-center text-lg font-semibold" style={{ color: `var(--rate-${rating})` }}>
+        <p
+          role="status"
+          className="text-center text-lg font-semibold"
+          style={{ color: rating === 3 ? "var(--rate-3)" : "var(--wrong)" }}
+        >
           {rating === 3 ? "Correct." : `Not quite. It's ${card.answer}.`}{" "}
           <span className="font-normal text-muted">
             {when === "see it again soon" ? "You'll see this one again soon." : `You'll see it again ${when}.`}
@@ -459,64 +480,53 @@ function CardActions({
 }
 
 /** A small control in the card's corner: rarely needed, so it stays out of the way (D52). */
-function ReportMenu({
-  open,
-  onToggle,
-  onClose,
-  onFlag,
-}: {
-  open: boolean;
-  onToggle: () => void;
-  onClose: () => void;
-  onFlag: (reason: string) => void;
-}) {
-  const root = useRef<HTMLDivElement>(null);
-
-  // A click anywhere else closes the menu.
-  useEffect(() => {
-    if (!open) return;
-    function onPointer(event: PointerEvent) {
-      if (!root.current?.contains(event.target as Node)) onClose();
-    }
-    document.addEventListener("pointerdown", onPointer);
-    return () => document.removeEventListener("pointerdown", onPointer);
-  }, [open, onClose]);
-
+function ReportButton({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   return (
-    <div ref={root} className="relative">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted transition-colors duration-150 hover:bg-foreground/5 hover:text-foreground"
-      >
-        Report <Kbd>F</Kbd>
-      </button>
-      {open && (
-        <div
-          role="menu"
-          aria-label="Report a problem with this card"
-          className="rise-in absolute top-full right-0 z-20 mt-2 w-80 max-w-[calc(100vw-3rem)] rounded-control border border-border bg-surface p-2 shadow-lifted"
-        >
-          <p className="px-3 pt-1 pb-2 text-sm text-muted">
-            What&apos;s wrong with this card? It won&apos;t come up again.
-          </p>
-          {FLAG_REASONS.map(({ reason, label, detail }) => (
-            <button
-              key={reason}
-              type="button"
-              role="menuitem"
-              onClick={() => onFlag(reason)}
-              className="block w-full rounded-md px-3 py-2 text-left hover:bg-accent-soft/60"
-            >
-              <span className="block font-semibold">{label}</span>
-              <span className="block text-sm text-muted">{detail}</span>
-            </button>
-          ))}
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-controls="report-panel"
+      className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted transition-colors duration-150 hover:bg-foreground/5 hover:text-foreground"
+    >
+      Report <Kbd>F</Kbd>
+    </button>
+  );
+}
+
+/** The reasons, opened below the card so they never cover what's on it. */
+function ReportPanel({ onFlag, onCancel }: { onFlag: (reason: string) => void; onCancel: () => void }) {
+  return (
+    <section
+      id="report-panel"
+      aria-labelledby="report-heading"
+      className="rise-in rounded-control border border-border bg-surface p-4 shadow-card"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 id="report-heading" className="font-semibold">
+            What&apos;s wrong with this card?
+          </h2>
+          <p className="text-sm text-muted">It won&apos;t come up again.</p>
         </div>
-      )}
-    </div>
+        <Button variant="quiet" hint="Esc" onClick={onCancel} className="-mt-1 -mr-2">
+          Cancel
+        </Button>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+        {FLAG_REASONS.map(({ reason, label, detail }) => (
+          <button
+            key={reason}
+            type="button"
+            onClick={() => onFlag(reason)}
+            className="rounded-control border border-border-strong px-3 py-2.5 text-left transition-colors duration-150 hover:border-accent hover:bg-accent-soft/40"
+          >
+            <span className="block font-semibold">{label}</span>
+            <span className="block text-sm text-muted">{detail}</span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -550,7 +560,7 @@ function Passage({ source }: { source: NonNullable<ReviewCard["source"]> }) {
   }, [source]);
 
   return (
-    <SourceBox title={`From ${source.book}`} where={where} className="rise-in">
+    <SourceBox title={`From ${source.book}`} where={where} className="after-flip">
       <div ref={box} className="relative max-h-[28rem] overflow-y-auto whitespace-pre-line">
         {before}
         {marked && <Highlight ref={mark}>{marked}</Highlight>}
