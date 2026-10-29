@@ -272,7 +272,7 @@ Designed directly in the app and reviewed on the local dev server, without a sep
   - [x] Report control moved to the card's corner (D52)
   - [ ] Card generation shows its progress (D53)
   - [ ] Blocked review order as the default (D55)
-- [ ] One-time welcome screen: one sentence on what Engram does, one "Start your first review" button
+- [x] Welcome tour on the first visit: a few cards walking through Today, courses, review, Calendar and Ask, with back, next and skip, ending on "Start your first review" (D60)
 - [ ] Empty states, loading states, error states, including a stalled or failed upload
 - [ ] Mobile pass for review
 - [ ] **Exit:** a second moderated session where a user on a fresh account takes their first meaningful action within 5 seconds, then users begin daily study
@@ -363,3 +363,4 @@ Designed directly in the app and reviewed on the local dev server, without a sep
 | 57  | The "Desk" look: what a student studies is drawn as a ruled index card on a grey desk, and the interface around it stays plain; Figtree for the interface, Literata only for text a student reads, and a handwritten face for the short note naming a card's course | Chosen from four directions. The index card explains the product at a glance; a serif interface felt too formal, but the serif reads well on cards and sources |
 | 58  | The four ratings are colored in four inks (plum, ochre, teal, blue), none of them red | Color makes the choice faster, but a red "Forgot" reads as failing, against the no-guilt principle (D6) |
 | 59  | No illustration; motion stays subtle except the card flip, which can be generous | The card is what a student watches; anywhere else, motion would only distract |
+| 60  | The welcome is a short tour of index cards, one per page, with back, next and skip; seen once per browser until accounts record it | A single welcome line explained Engram but not where things are; skip on every card and arrow keys keep it from standing between a student and their first review |

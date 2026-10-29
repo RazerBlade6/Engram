@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { DateRow } from "@/components/dates";
+import { WelcomeTour, tourSeen } from "@/components/welcome-tour";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { IndexCard } from "@/components/ui/index-card";
@@ -25,6 +26,9 @@ export default function Home() {
   const profile = useProfile();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState(false);
+  // The first visit opens with a short tour. The page renders nothing on the server until the
+  // profile has loaded, so reading browser storage here can't mismatch the server's HTML.
+  const [touring, setTouring] = useState(() => typeof window !== "undefined" && !tourSeen());
 
   useEffect(() => {
     if (!profile) return;
@@ -65,6 +69,9 @@ export default function Home() {
             </p>
           )}
           <Courses courses={loaded.courses} onCreated={(course) => router.push(`/courses/${course.id}`)} />
+          {touring && (
+            <WelcomeTour hasDue={loaded.reviews.sessions.some((s) => s.cards > 0)} onDone={() => setTouring(false)} />
+          )}
         </>
       )}
     </main>

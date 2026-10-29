@@ -284,6 +284,23 @@ body {
   }
 }
 
+/*
+ * The welcome tour lifts the top bar above its dimmed page and rings the link a step is about.
+ * The bar can't be clicked meanwhile, so the tour stays in charge.
+ */
+html[data-tour] header {
+  position: relative;
+  z-index: 45;
+  pointer-events: none;
+}
+html[data-tour="/"] header li a[href="/"],
+html[data-tour="/calendar"] header a[href="/calendar"],
+html[data-tour="/ask"] header a[href="/ask"] {
+  background: var(--surface);
+  box-shadow: 0 0 0 3px var(--accent);
+  animation: rise-in var(--duration-base) var(--ease-quiet);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
