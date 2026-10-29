@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
+import { cx } from "@/lib/cx";
 import { useProfile } from "@/lib/profile";
 import { supabase } from "@/lib/supabase";
 
@@ -36,9 +38,9 @@ function Nav({ pathname }: { pathname: string }) {
   }
 
   return (
-    <header className="border-b border-border bg-white">
+    <header className="border-b border-border bg-bar">
       <nav aria-label="Main" className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-6 py-3">
-        <Link href="/" className="mr-2 text-lg font-semibold text-accent">
+        <Link href="/" className="mr-2 text-xl font-bold text-accent">
           Engram
         </Link>
         <ul className="flex flex-1 flex-wrap items-center gap-x-1">
@@ -47,18 +49,21 @@ function Nav({ pathname }: { pathname: string }) {
               <Link
                 href={link.href}
                 aria-current={link.current ? "page" : undefined}
-                className={`block rounded-lg px-3 py-2 text-lg hover:bg-accent/10 ${
-                  link.current ? "font-semibold text-foreground" : "text-muted"
-                }`}
+                className={cx(
+                  "block rounded-control px-3 py-1.5 text-lg transition-colors duration-150",
+                  link.current
+                    ? "bg-accent-soft font-semibold text-foreground"
+                    : "text-muted hover:bg-foreground/5 hover:text-foreground",
+                )}
               >
                 {link.label}
               </Link>
             </li>
           ))}
         </ul>
-        <button onClick={signOut} className="text-muted underline hover:text-foreground">
+        <Button variant="quiet" onClick={signOut}>
           Sign out
-        </button>
+        </Button>
       </nav>
     </header>
   );

@@ -265,7 +265,7 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 
 Designed directly in the app and reviewed on the local dev server, without a separate prototype (D56).
 
-- [ ] Visual direction: palette, type, and the overall look
+- [x] Visual direction: palette, type, and the overall look (D57–D59)
 - [ ] Design system: tokens, components, light theme (tokens structured so a dark theme can be added without a redesign)
 - [ ] Redesign the core flows from the Phase 1 session findings ([observations](UserObservations.md#findings)):
   - [ ] Dates written out and entered day/month/year (D54)
@@ -360,3 +360,6 @@ Designed directly in the app and reviewed on the local dev server, without a sep
 | 54  | Dates are written out ("12 Nov 2026") and entered day/month/year in Engram's own date field | The browser's date input takes the order from the operating system, and mm/dd/yyyy confused a tester |
 | 55  | Blocked is the default review order; blocked and separate are compared in the first weeks of daily use (refines D20) | A tester liked having the multiple choice at the end; the experiment needs daily use, which starts after Phase 2 |
 | 56  | Phase 2 is designed in the app on the local dev server, with sketches only where a design isn't working out (refines D14) | The flows already tested well, so this is polish; the exit session validates the result with a user |
+| 57  | The "Desk" look: what a student studies is drawn as a ruled index card on a grey desk, and the interface around it stays plain; Figtree for the interface, Literata only for text a student reads | Chosen from four directions. The index card explains the product at a glance; a serif interface felt too formal, but the serif reads well on cards and sources |
+| 58  | The four ratings are colored in four inks (plum, ochre, teal, blue), none of them red | Color makes the choice faster, but a red "Forgot" reads as failing, against the no-guilt principle (D6) |
+| 59  | No illustration; motion stays subtle except the card flip, which can be generous | The card is what a student watches; anywhere else, motion would only distract |

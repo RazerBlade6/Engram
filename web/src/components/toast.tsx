@@ -17,7 +17,7 @@ export function Toast({ toast, onDone }: { toast: ToastMessage | null; onDone: (
   return (
     <div role="status" aria-live="polite" className="fixed inset-x-0 bottom-6 flex justify-center px-4">
       {toast && (
-        <div className="flex items-center gap-6 rounded-lg bg-foreground px-5 py-3 text-background shadow-lg">
+        <div className="rise-in flex items-center gap-6 rounded-control bg-foreground px-5 py-3 text-paper shadow-lifted">
           <span>{toast.text}</span>
           {toast.undo && (
             <button

@@ -1,47 +1,223 @@
 @import "tailwindcss";
 
-/* Light theme is the default. A dark theme comes later by overriding these tokens. */
+/*
+ * Design tokens. The look is "Desk": the things a student studies are ruled index cards
+ * resting on a cool grey desk, and everything around them stays plain. Tokens are named by
+ * role, never by color, so a dark theme later only redefines this block.
+ */
 :root {
-  --background: #fbfaf7;
-  --foreground: #1c1b19;
-  --muted: #55524c;
-  --border: #d6d2c8;
-  --accent: #2f5d8a;
-  --accent-strong: #244a6f;
+  /* Surfaces, from back to front */
+  --desk: #e8eaec;
+  --bar: #f5f6f7;
+  --surface: #ffffff;
+  --paper: #fffef9;
+  --paper-under: #f3f0e4;
+
+  /* Text and lines */
+  --foreground: #22252a;
+  --muted: #505965;
+  --border: #cfd4da;
+  --border-strong: #a9b1bb;
+
+  /* The one accent: ballpoint blue */
+  --accent: #2b59c3;
+  --accent-strong: #1f45a0;
+  --accent-deep: #183781;
+  --accent-soft: #dde6f8;
+  --on-accent: #ffffff;
+
+  /* Index card printing */
+  --card-rule: #d64a40;
+  --card-line: #dbe5f2;
+  --highlight: #fff0a3;
+
+  /* Status */
   --danger: #9b2c2c;
   --danger-soft: #fbeaea;
   --success: #2e6b3a;
+  --success-soft: #e3f1e6;
+
+  /*
+   * Ratings: four inks with no right-or-wrong reading. The color says how soon a card comes
+   * back, not whether you failed.
+   */
+  --rate-1: #5a2c79;
+  --rate-1-soft: #efe4f6;
+  --rate-1-line: #d2bce5;
+  --rate-2: #74470b;
+  --rate-2-soft: #fbecd9;
+  --rate-2-line: #eac797;
+  --rate-3: #135c56;
+  --rate-3-soft: #dcefee;
+  --rate-3-line: #a7d4d0;
+  --rate-4: #1f43a6;
+  --rate-4-soft: #dfe7fa;
+  --rate-4-line: #b1c3ef;
+
   /* Ingestion inspector overlays */
   --box-text: #2f5d8a;
   --box-table: #2e7d4f;
   --box-figure: #b5541c;
-  /* Course colors on the calendar: distinct, and dark enough to read on white. */
-  --course-1: #2f5d8a;
+  /* Course colors: distinct, and dark enough for white text on a card's tab. */
+  --course-1: #2b59c3;
   --course-2: #b5541c;
   --course-3: #2e7d4f;
   --course-4: #7a4f9a;
   --course-5: #a8325e;
   --course-6: #6b6416;
+
+  /* Depth */
+  --shadow-card: 0 1px 1px rgb(30 40 60 / 0.08), 0 4px 10px rgb(30 40 60 / 0.08);
+  --shadow-lifted: 0 2px 4px rgb(30 40 60 / 0.08), 0 14px 32px rgb(30 40 60 / 0.16);
+  --shadow-press: 0 2px 0 var(--accent-deep);
+
+  /*
+   * Motion: quiet everywhere except the card flip, the one thing a student watches.
+   * prefers-reduced-motion turns all of it off (below).
+   */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 360ms;
+  --duration-flip: 640ms;
+  --ease-quiet: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-flip: cubic-bezier(0.34, 1.36, 0.5, 1);
 }
 
 @theme inline {
-  --color-background: var(--background);
+  --color-background: var(--desk);
+  --color-desk: var(--desk);
+  --color-bar: var(--bar);
+  --color-surface: var(--surface);
+  --color-paper: var(--paper);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-accent: var(--accent);
   --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-highlight: var(--highlight);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+
+  /* Figtree for the interface; Literata only for what a student reads (cards, sources). */
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-read: var(--font-literata), Georgia, serif;
+
+  --radius-card: 3px;
+  --radius-control: 8px;
+
+  --shadow-card: var(--shadow-card);
+  --shadow-lifted: var(--shadow-lifted);
+  --shadow-press: var(--shadow-press);
+
+  --ease-quiet: var(--ease-quiet);
 }
 
 html {
-  /* Slightly larger base text for long reading sessions. */
+  /* Slightly larger base text for long reading sessions; everything is sized in rem from it. */
   font-size: 112.5%;
 }
 
 body {
-  background: var(--background);
+  background: var(--desk);
   color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@layer components {
+  /* A ruled index card: a red line under the header band, faint blue lines below it. */
+  .index-card {
+    --rule-top: 2.75rem;
+    --rule-gap: 1.75rem;
+    position: relative;
+    border-radius: var(--radius-card);
+    background-color: var(--paper);
+    box-shadow: var(--shadow-card);
+  }
+  .index-card[data-ruled] {
+    background-image:
+      linear-gradient(var(--card-rule), var(--card-rule)),
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0 calc(var(--rule-gap) - 1px),
+        var(--card-line) calc(var(--rule-gap) - 1px) var(--rule-gap)
+      );
+    background-size:
+      100% 1.5px,
+      100% calc(100% - var(--rule-top) - 2px);
+    background-position:
+      0 var(--rule-top),
+      0 calc(var(--rule-top) + 2px);
+    background-repeat: no-repeat;
+  }
+  /* The next card in the pile, peeking out from underneath. */
+  .index-card-under {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-card);
+    background: var(--paper-under);
+    box-shadow: var(--shadow-card);
+    transform: rotate(-1.4deg) translate(0.25rem, 0.3rem);
+  }
+
+  /* The flip: two faces in one grid cell, so the card is as tall as its taller face. */
+  .flip {
+    perspective: 1600px;
+  }
+  .flip-inner {
+    display: grid;
+    transform-style: preserve-3d;
+    transition: transform var(--duration-flip) var(--ease-flip);
+  }
+  .flip[data-flipped] .flip-inner {
+    transform: rotateY(180deg);
+  }
+  .flip-face {
+    grid-area: 1 / 1;
+    backface-visibility: hidden;
+  }
+  .flip-back {
+    transform: rotateY(180deg);
+  }
+
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(0.5rem);
+    }
+  }
+  .rise-in {
+    animation: rise-in var(--duration-base) var(--ease-quiet);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+  /* No turning: the faces swap in place. */
+  .flip[data-flipped] .flip-inner,
+  .flip-back {
+    transform: none;
+  }
+  .flip-face {
+    backface-visibility: visible;
+  }
+  .flip:not([data-flipped]) .flip-back,
+  .flip[data-flipped] .flip-front {
+    visibility: hidden;
+  }
 }
