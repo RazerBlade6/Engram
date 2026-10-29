@@ -5,6 +5,7 @@ import { cx } from "@/lib/cx";
 const TONE = {
   info: "border-accent/30 bg-accent-soft text-foreground",
   success: "border-success/30 bg-success-soft text-success",
+  caution: "border-caution-line bg-caution-soft text-caution",
   error: "border-danger/30 bg-danger-soft text-danger",
 };
 

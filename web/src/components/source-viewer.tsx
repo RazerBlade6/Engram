@@ -2,6 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/notice";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Highlight } from "@/components/ui/source-box";
 import { apiFetch, api } from "@/lib/api";
 import { findQuote } from "@/lib/chat";
 import { boxStyle } from "@/lib/inspector";
@@ -69,16 +73,17 @@ export function SourceViewer({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const where = source && [source.heading_path.at(-1), source.page !== null && `page ${source.page}`].filter(Boolean).join(" · ");
+  const where =
+    source && [source.heading_path.at(-1), source.page !== null && `page ${source.page}`].filter(Boolean).join(" · ");
   const boxes = source?.boxes.filter((b) => b.page === source.page) ?? [];
 
   return (
-    <div className="fixed inset-0 z-40 flex justify-center bg-black/40 p-4 sm:p-8" onClick={onClose}>
+    <div className="fade-in fixed inset-0 z-40 flex justify-center bg-foreground/40 p-4 sm:p-8" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="source-title"
-        className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+        className="rise-in flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-control bg-paper shadow-lifted"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
@@ -88,12 +93,17 @@ export function SourceViewer({
             </p>
             {where && <p className="text-sm text-muted">{where}</p>}
           </div>
-          <button ref={close} type="button" onClick={onClose} className="rounded-lg px-3 py-2 text-muted underline hover:text-foreground">
+          <Button ref={close} variant="secondary" hint="Esc" onClick={onClose}>
             Close
-          </button>
+          </Button>
         </div>
         <div className="overflow-y-auto">
-          {failed && <p className="p-6">This page couldn&apos;t be opened. Please try again.</p>}
+          {failed && (
+            <div className="p-6">
+              <Notice tone="error">This page couldn&apos;t be opened. Close it and try again.</Notice>
+            </div>
+          )}
+          {!source && !failed && <Skeleton className="m-6 h-96" />}
           {source && image && source.width && source.height ? (
             <div className="relative" style={{ aspectRatio: `${source.width} / ${source.height}` }}>
               {/* A blob URL from an authenticated fetch: next/image has nothing to optimize. */}
@@ -108,7 +118,7 @@ export function SourceViewer({
                 <div
                   key={i}
                   ref={i === 0 ? box : undefined}
-                  className="absolute rounded bg-accent/15 ring-2 ring-accent"
+                  className="absolute rounded-sm bg-highlight/45 mix-blend-multiply ring-2 ring-highlight-edge"
                   style={boxStyle(b.bbox, source.width!, source.height!)}
                 />
               ))}
@@ -124,12 +134,13 @@ export function SourceViewer({
 
 function Passage({ passage, quote }: { passage: string; quote: string | null }) {
   const span = quote ? findQuote(passage, quote) : null;
-  if (!span) return <p className="p-6 text-lg leading-relaxed whitespace-pre-line">{passage}</p>;
+  const text = "p-6 font-read text-lg leading-relaxed whitespace-pre-line sm:px-8";
+  if (!span) return <p className={text}>{passage}</p>;
   const [start, end] = span;
   return (
-    <p className="p-6 text-lg leading-relaxed whitespace-pre-line">
+    <p className={text}>
       {passage.slice(0, start)}
-      <mark className="rounded bg-accent/15 px-0.5 text-foreground">{passage.slice(start, end)}</mark>
+      <Highlight>{passage.slice(start, end)}</Highlight>
       {passage.slice(end)}
     </p>
   );

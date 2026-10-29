@@ -30,11 +30,17 @@
   --card-rule: #d64a40;
   --card-line: #dbe5f2;
   --highlight: #fff0a3;
+  --highlight-edge: #e2c24a;
 
   /* A wrong multiple-choice pick: a soft highlighter pink, never a harsh red */
   --wrong: #861d47;
   --wrong-soft: #fde0ea;
   --wrong-line: #f2b6ca;
+
+  /* An answer that isn't from the course materials: a note of caution, not an alarm */
+  --caution: #74470b;
+  --caution-soft: #fbecd9;
+  --caution-line: #eac797;
 
   /* Status */
   --danger: #9b2c2c;
@@ -84,7 +90,7 @@
   --duration-base: 200ms;
   --duration-slow: 360ms;
   --duration-flip: 640ms;
-  --duration-leave: 420ms;
+  --duration-leave: 300ms;
   --ease-quiet: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ease-flip: cubic-bezier(0.34, 1.36, 0.5, 1);
 }
@@ -104,10 +110,14 @@
   --color-accent-soft: var(--accent-soft);
   --color-on-accent: var(--on-accent);
   --color-highlight: var(--highlight);
+  --color-highlight-edge: var(--highlight-edge);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
+  --color-caution: var(--caution);
+  --color-caution-soft: var(--caution-soft);
+  --color-caution-line: var(--caution-line);
 
   /* Figtree for the interface; Literata only for what a student reads (cards, sources). */
   --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
@@ -207,6 +217,14 @@ body {
   }
   .rise-in {
     animation: rise-in var(--duration-base) var(--ease-quiet);
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  .fade-in {
+    animation: fade-in var(--duration-base) var(--ease-quiet);
   }
   /* Appears once a card has (nearly) turned over, so the eye lands on the answer first. */
   .after-flip {

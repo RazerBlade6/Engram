@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ButtonHTMLAttributes, ComponentProps, ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 import { cx } from "@/lib/cx";
 
@@ -50,7 +50,7 @@ export function Button({
   children,
   type = "button",
   ...props
-}: Style & ButtonHTMLAttributes<HTMLButtonElement>) {
+}: Style & ComponentProps<"button">) {
   return (
     <button type={type} className={cx(buttonClass({ variant, size }), className)} {...props}>
       <Content hint={hint} variant={variant}>
