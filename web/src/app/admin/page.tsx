@@ -45,6 +45,9 @@ function Admin() {
   const [people, setPeople] = useState<Person[] | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const toastId = useRef(0);
+  // Each section loads its own list; changing these keys reloads it after a delete elsewhere.
+  const [materialsKey, setMaterialsKey] = useState(0);
+  const [coursesKey, setCoursesKey] = useState(0);
 
   const loadPeople = useCallback(() => api<Person[]>("/admin/people").then(setPeople), []);
   useEffect(() => {
@@ -59,9 +62,18 @@ function Admin() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
       <h1 className="text-3xl font-bold">Admin</h1>
-      <Materials show={show} />
-      <People people={people} setPeople={setPeople} reload={loadPeople} show={show} />
-      <Courses people={people} show={show} />
+      <Materials key={materialsKey} show={show} />
+      <People
+        people={people}
+        setPeople={setPeople}
+        reload={loadPeople}
+        onRemoved={() => {
+          setMaterialsKey((k) => k + 1);
+          setCoursesKey((k) => k + 1);
+        }}
+        show={show}
+      />
+      <Courses key={coursesKey} people={people} onDeleted={() => setMaterialsKey((k) => k + 1)} show={show} />
       <Toast key={toast?.id} toast={toast} onDone={() => setToast(null)} />
     </main>
   );
@@ -236,15 +248,18 @@ function People({
   people,
   setPeople,
   reload,
+  onRemoved,
   show,
 }: {
   people: Person[] | null;
   setPeople: (change: (people: Person[] | null) => Person[] | null) => void;
   reload: () => void;
+  onRemoved: () => void;
   show: Show;
 }) {
   const me = useProfile();
   const [inviting, setInviting] = useState(false);
+  const [confirming, setConfirming] = useState<string | null>(null);
 
   /** Shows the change at once and puts it back if it can't be saved. */
   async function change(person: Person, changed: Partial<Person>, save: () => Promise<unknown>) {
@@ -269,9 +284,16 @@ function People({
       apiFetch(`/admin/people/${person.id}/usage-consent`, { method: "PUT", body: JSON.stringify({ consented }) }),
     );
 
-  // Not built yet: wire this to the API when removing people exists.
-  function removePerson(person: Person) {
-    show(`Removing ${nameOf(person)} isn't built yet.`);
+  async function removePerson(person: Person) {
+    setConfirming(null);
+    try {
+      await apiFetch(`/admin/people/${person.id}`, { method: "DELETE" });
+      setPeople((ps) => ps && ps.filter((p) => p.id !== person.id));
+      onRemoved();
+      show(`${nameOf(person)} removed.`);
+    } catch {
+      show(`Couldn't remove ${nameOf(person)}. Please try again.`);
+    }
   }
 
   return (
@@ -350,11 +372,26 @@ function People({
                     </td>
                     <td className={cx(TD, "text-right")}>
                       {/* You can't remove yourself from here. */}
-                      {p.id !== me?.id && (
-                        <Button variant="danger" onClick={() => removePerson(p)} aria-label={`Remove ${name}`}>
-                          Remove
-                        </Button>
-                      )}
+                      {p.id !== me?.id &&
+                        (confirming === p.id ? (
+                          <div className="rise-in flex flex-col items-end gap-2 text-sm">
+                            <span className="w-56">
+                              Remove their account, courses, review history and usage data? This can&apos;t be undone.
+                            </span>
+                            <div className="flex gap-2">
+                              <Button variant="danger" onClick={() => removePerson(p)} className="min-h-9 px-3 py-1">
+                                Remove
+                              </Button>
+                              <Button variant="quiet" onClick={() => setConfirming(null)} className="min-h-9 px-3 py-1">
+                                Keep
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <Button variant="danger" onClick={() => setConfirming(p.id)} aria-label={`Remove ${name}`}>
+                            Remove
+                          </Button>
+                        ))}
                     </td>
                   </tr>
                 );
@@ -427,7 +464,7 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
 }
 
 /** One person's courses: open, create or delete them. */
-function Courses({ people, show }: { people: Person[] | null; show: Show }) {
+function Courses({ people, onDeleted, show }: { people: Person[] | null; onDeleted: () => void; show: Show }) {
   const [courses, setCourses] = useState<CourseSummary[] | null>(null);
   const [owner, setOwner] = useState("");
   const [creating, setCreating] = useState(false);
@@ -447,6 +484,7 @@ function Courses({ people, show }: { people: Person[] | null; show: Show }) {
     try {
       await apiFetch(`/courses/${course.id}`, { method: "DELETE" });
       setCourses((cs) => cs && cs.filter((c) => c.id !== course.id));
+      onDeleted();
       show(`${course.title} deleted.`);
     } catch {
       show(`Couldn't delete ${course.title}. Please try again.`);

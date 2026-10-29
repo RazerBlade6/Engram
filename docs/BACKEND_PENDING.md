@@ -5,7 +5,6 @@ API and database changes the Phase 2 UI pass needs but doesn't make. The UI pass
 | #   | Change                                                              | Needs                      | Frontend ready?                                        |
 | --- | ------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------ |
 | 1   | [Card generation shows its progress](#1-card-generation-progress-d53) (D53) | Migration, worker, API | No: needs a few lines once the field exists           |
-| 7   | [Remove a person](#7-remove-a-person)                               | API, Auth, Storage         | Stub: `removePerson` in `web/src/app/admin/page.tsx`   |
 | 9   | [Forgot password](#9-forgot-password) | Auth config, frontend | No: needs a "Forgot your password?" link and a reset page |
 
 Already made during Phase 2, recorded here for completeness: review cards carry `course_id` (`backend/src/engram/api/routes/review.py`), so the review screen can color a card's course. No migration.
@@ -63,16 +62,6 @@ Already made during Phase 2, recorded here for completeness: review cards carry 
    - the course page already polls every 4 s while a chapter is pending, so the count updates without further work. The small animated pile next to it is already built.
 
 **Open question:** the count is taken before repeats are dropped, so "23 so far" can end as "21 cards are ready". Counting batches done out of total ("3 of 5 parts") is exact but means less to a student. The draft used the card count, worded "so far".
-
-## 7. Remove a person
-
-Needs an admin endpoint, e.g. `DELETE /admin/people/{id}`:
-
-- delete the Auth user with the Supabase admin API (service key); `profiles` and their courses go by cascade;
-- remove their stored files;
-- their usage events: decide whether removal also deletes them (D42 deletes past events on request).
-
-The admin page hides Remove on your own row, so an admin can't remove themselves by accident.
 
 ## 9. Forgot password
 

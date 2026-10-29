@@ -1,5 +1,6 @@
 """Admin-only operations. Accounts are invite-only: public sign-up is disabled in Supabase."""
 
+import logging
 from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
@@ -10,10 +11,37 @@ from psycopg.rows import class_row
 from pydantic import BaseModel, EmailStr
 
 from engram.api.db import UserDb
+from engram.api.files import Files
 from engram.config import Settings, get_settings
 from engram.review import Order
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/admin")
+
+
+class Accounts:
+    """Supabase Auth's admin API, with the secret key."""
+
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+
+    async def delete(self, user_id: UUID) -> bool:
+        """Deletes the account; False if there was none. Their profile goes with it."""
+        secret = self._settings.supabase_secret_key.get_secret_value()
+        async with httpx.AsyncClient(base_url=self._settings.supabase_url, timeout=10) as client:
+            response = await client.delete(
+                f"/auth/v1/admin/users/{user_id}",
+                headers={"apikey": secret, "Authorization": f"Bearer {secret}"},
+            )
+        if response.status_code == status.HTTP_404_NOT_FOUND:
+            return False
+        response.raise_for_status()
+        return True
+
+
+def get_accounts(settings: Annotated[Settings, Depends(get_settings)]) -> Accounts:
+    return Accounts(settings)
 
 
 async def require_admin(db: UserDb) -> None:
@@ -115,4 +143,43 @@ async def set_usage_consent(person_id: UUID, body: UsageConsent, db: UserDb) -> 
     )
     if cur.rowcount == 0:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No such person")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete(
+    "/people/{person_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+async def remove_person(
+    person_id: UUID,
+    db: UserDb,
+    storage: Files,
+    accounts: Annotated[Accounts, Depends(get_accounts)],
+) -> Response:
+    """Delete someone's account and everything that's theirs: their courses (with materials,
+    cards and stored files), reviews and usage events (D42). Materials they added to other
+    people's courses stay, with no uploader recorded."""
+    cur = await db.execute(
+        "select id = (select auth.uid()) from public.profiles where id = %s", (person_id,)
+    )
+    row = await cur.fetchone()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such person")
+    if row[0]:
+        raise HTTPException(status.HTTP_409_CONFLICT, "You can't remove yourself")
+    cur = await db.execute(
+        "select m.storage_path from public.materials m"
+        " join public.courses c on c.id = m.course_id where c.owner_id = %s",
+        (person_id,),
+    )
+    paths = [r[0] for r in await cur.fetchall()]
+    if not await accounts.delete(person_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such person")
+    for path in paths:
+        try:
+            await storage.remove_material(path)
+        except Exception:
+            # The person is gone; leftover files are only a storage cost.
+            logger.exception("could not remove the stored files at %s", path)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

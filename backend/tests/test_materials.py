@@ -12,6 +12,7 @@ from engram.api.auth import get_verifier
 from engram.api.files import get_storage
 from engram.api.main import create_app
 from engram.api.routes import materials
+from engram.api.routes.admin import get_accounts
 from engram.storage import Storage
 from tests.test_api import FakeVerifier, auth, token_for
 
@@ -312,6 +313,45 @@ def test_only_admins_delete_courses_with_their_files(
     assert storage.objects == {}
     gone = rows(database_url, "select 1 from public.materials where course_id = %s", course["id"])
     assert gone == []
+    assert client.delete(url, headers=admin).status_code == 404
+
+
+class FakeAccounts:
+    """Deletes the auth user directly, the way Supabase Auth's admin API would."""
+
+    def __init__(self, database_url: str) -> None:
+        self.database_url = database_url
+
+    async def delete(self, user_id: uuid.UUID) -> bool:
+        with psycopg.connect(self.database_url, autocommit=True) as c:
+            return c.execute("delete from auth.users where id = %s", (user_id,)).rowcount > 0
+
+
+def test_removing_a_person_takes_their_courses_files_and_events(
+    client: TestClient,
+    course: dict[str, str],
+    storage: FakeStorage,
+    database_url: str,
+    make_user: Callable[..., str],
+) -> None:
+    client.app.dependency_overrides[get_accounts] = lambda: FakeAccounts(database_url)  # type: ignore[attr-defined]
+    owner = course["owner"]
+    upload(client, storage, course, "Week 1.pdf", PDF_BYTES)
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute(
+            "insert into public.usage_events (user_id, name) values (%s, 'page_view')", (owner,)
+        )
+    url = f"/admin/people/{owner}"
+
+    admin_id = make_user("admin")
+    admin = auth(token_for(admin_id))
+    assert client.delete(url, headers=auth(token_for(make_user()))).status_code == 403
+    assert client.delete(f"/admin/people/{admin_id}", headers=admin).status_code == 409
+
+    assert client.delete(url, headers=admin).status_code == 204
+    assert storage.objects == {}
+    for table, column in [("profiles", "id"), ("courses", "owner_id"), ("usage_events", "user_id")]:
+        assert rows(database_url, f"select 1 from public.{table} where {column} = %s", owner) == []
     assert client.delete(url, headers=admin).status_code == 404
 
 
