@@ -171,14 +171,7 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
 
   return (
     <main className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-3xl flex-col px-6 pt-10">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold">Ask a question</h1>
-        {messages.length > 0 && (
-          <Button variant="secondary" disabled={busy} onClick={clear}>
-            Clear chat
-          </Button>
-        )}
-      </div>
+      <h1 className="text-3xl font-bold">Ask a question</h1>
       {courses.length > 1 && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-muted">Answering from</span>
@@ -253,6 +246,12 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
         <Button type="submit" size="lg" disabled={busy || !question.trim()}>
           Ask
         </Button>
+        {/* Rides along with the question box, smaller than Ask so it never competes with it. */}
+        {messages.length > 0 && (
+          <Button variant="secondary" disabled={busy} onClick={clear} className="self-center">
+            Clear<span className="max-sm:hidden">&nbsp;chat</span>
+          </Button>
+        )}
       </form>
 
       {open && <SourceViewer chunkId={open.chunkId} quote={open.quote} origin="chat" onClose={() => setOpen(null)} />}
