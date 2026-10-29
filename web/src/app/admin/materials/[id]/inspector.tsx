@@ -1,10 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { Button, ButtonLink } from "@/components/ui/button";
+import { CONTROL } from "@/components/ui/field";
 import { api, apiFetch } from "@/lib/api";
+import { cx } from "@/lib/cx";
 import {
   boxStyle,
   emptyPages,
@@ -84,13 +86,13 @@ export function Inspector() {
 
   return (
     <main className="px-6 py-8">
-      <Link href="/admin" className="text-muted underline hover:text-foreground">
-        All materials
-      </Link>
-      <h1 className="mt-3 text-2xl font-semibold">{material.title}</h1>
+      <ButtonLink href="/admin" variant="secondary">
+        ← All materials
+      </ButtonLink>
+      <h1 className="mt-5 text-2xl font-bold">{material.title}</h1>
       <p className="mt-1 text-muted">
-        {material.course} · {material.status} · {pageCount} pages · {material.sections} sections ·{" "}
-        {material.figures} figures · {material.chunks} chunks
+        {material.course} · {material.status} · {pageCount} pages · {material.sections} sections · {material.figures}{" "}
+        figures · {material.chunks} chunks
       </p>
       {empty.length > 0 && (
         <p className="mt-2 text-sm text-muted">
@@ -98,7 +100,10 @@ export function Inspector() {
           {empty.map((r, i) => (
             <span key={r.start}>
               {i > 0 && ", "}
-              <button onClick={() => goTo(r.start)} className="underline hover:text-foreground">
+              <button
+                onClick={() => goTo(r.start)}
+                className="font-semibold text-accent underline-offset-4 hover:underline"
+              >
                 {r.start === r.end ? r.start : `${r.start}–${r.end}`}
               </button>
             </span>
@@ -107,7 +112,11 @@ export function Inspector() {
       )}
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[13rem_minmax(0,1fr)_18rem]">
-        <nav ref={contents} aria-label="Table of contents" className="lg:sticky lg:top-4 lg:max-h-[90vh] lg:overflow-y-auto">
+        <nav
+          ref={contents}
+          aria-label="Table of contents"
+          className="lg:sticky lg:top-4 lg:max-h-[90vh] lg:overflow-y-auto"
+        >
           <h2 className="font-semibold">Contents</h2>
           {sections.length === 0 && <p className="mt-2 text-sm text-muted">No sections detected.</p>}
           <ol className="mt-2 space-y-1 text-sm">
@@ -116,9 +125,10 @@ export function Inspector() {
                 <button
                   onClick={() => s.page_start && goTo(s.page_start)}
                   aria-current={current.includes(s.ordinal)}
-                  className={`w-full rounded px-1 text-left hover:bg-border/40 ${
-                    current.includes(s.ordinal) ? "bg-accent/10 font-medium text-accent" : ""
-                  }`}
+                  className={cx(
+                    "w-full rounded-md px-1.5 py-0.5 text-left hover:bg-foreground/5",
+                    current.includes(s.ordinal) && "bg-accent-soft font-semibold text-accent",
+                  )}
                 >
                   {s.title}
                   <span className="ml-1 text-muted tabular-nums">
@@ -202,13 +212,9 @@ function PageView({
     <>
       <section aria-label={`Page ${pageNumber}`}>
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => goTo(pageNumber - 1)}
-            disabled={pageNumber <= 1}
-            className="rounded-lg border border-border bg-white px-3 py-1 disabled:opacity-40"
-          >
+          <Button variant="secondary" onClick={() => goTo(pageNumber - 1)} disabled={pageNumber <= 1}>
             ← Previous
-          </button>
+          </Button>
           <label className="flex items-center gap-2">
             Page
             <input
@@ -217,21 +223,22 @@ function PageView({
               max={pageCount}
               defaultValue={pageNumber}
               onKeyDown={(e) => e.key === "Enter" && goTo(Number(e.currentTarget.value))}
-              className="w-20 rounded-lg border border-border bg-white px-2 py-1 tabular-nums"
+              className={cx(CONTROL, "w-20 px-2 py-1.5 tabular-nums")}
             />
             of {pageCount}
           </label>
-          <button
-            onClick={() => goTo(pageNumber + 1)}
-            disabled={pageNumber >= pageCount}
-            className="rounded-lg border border-border bg-white px-3 py-1 disabled:opacity-40"
-          >
+          <Button variant="secondary" onClick={() => goTo(pageNumber + 1)} disabled={pageNumber >= pageCount}>
             Next →
-          </button>
+          </Button>
           <div className="ml-auto flex gap-3 text-sm">
             {LAYERS.map(({ layer, label, color }) => (
               <label key={layer} className="flex items-center gap-1">
-                <input type="checkbox" checked={!hidden.has(layer)} onChange={() => toggle(layer)} />
+                <input
+                  type="checkbox"
+                  checked={!hidden.has(layer)}
+                  onChange={() => toggle(layer)}
+                  className="size-4 accent-accent"
+                />
                 <span className="inline-block size-3 rounded-sm border-2" style={{ borderColor: color }} />
                 {label}
               </label>
@@ -241,7 +248,7 @@ function PageView({
 
         {preview && page?.width && page.height ? (
           <div
-            className="relative mt-4 border border-border bg-white"
+            className="relative mt-4 rounded-card bg-paper shadow-card"
             style={{ aspectRatio: `${page.width} / ${page.height}` }}
           >
             {image && (
@@ -275,7 +282,10 @@ function PageView({
         )}
       </section>
 
-      <aside aria-label="Details" className="lg:sticky lg:top-4 lg:max-h-[90vh] lg:overflow-y-auto">
+      <aside
+        aria-label="Details"
+        className="rounded-card bg-paper p-4 shadow-card lg:sticky lg:top-4 lg:max-h-[90vh] lg:overflow-y-auto"
+      >
         {selected ? (
           <Details selection={selected} onClose={() => setSelected(null)} />
         ) : (
@@ -316,13 +326,7 @@ function Box({
   );
 }
 
-function PageSummary({
-  page,
-  onSelect,
-}: {
-  page: Page | null;
-  onSelect: (selection: Selection) => void;
-}) {
+function PageSummary({ page, onSelect }: { page: Page | null; onSelect: (selection: Selection) => void }) {
   if (!page) return null;
   // A chunk can have several boxes on one page (two columns); list it once.
   const parts = page.chunks.filter((c, i) => page.chunks.findIndex((o) => o.chunk_id === c.chunk_id) === i);
@@ -364,24 +368,20 @@ function Details({ selection, onClose }: { selection: Selection; onClose: () => 
             ? `Chunk #${selection.box.ordinal} · ${selection.box.kind}`
             : `Figure ${selection.box.ordinal}`}
         </h2>
-        <button onClick={onClose} className="text-muted underline hover:text-foreground">
+        <Button variant="quiet" onClick={onClose} className="-mr-2 min-h-9 px-2 py-1">
           Close
-        </button>
+        </Button>
       </div>
       {selection.type === "chunk" ? (
         <>
           <p className="mt-2 text-sm text-muted">{selection.box.heading_path.join(" › ") || "No section"}</p>
-          {selection.box.parts > 1 && (
-            <p className="mt-1 text-sm text-muted">Spans {selection.box.parts} regions.</p>
-          )}
+          {selection.box.parts > 1 && <p className="mt-1 text-sm text-muted">Spans {selection.box.parts} regions.</p>}
           <pre className="mt-4 font-sans whitespace-pre-wrap">{stripHeading(selection.box)}</pre>
         </>
       ) : (
         <dl className="mt-4 space-y-4">
           <Field term="Caption">{selection.box.caption ?? <em className="text-muted">None found</em>}</Field>
-          <Field term="Description">
-            {selection.box.description ?? <em className="text-muted">Not described</em>}
-          </Field>
+          <Field term="Description">{selection.box.description ?? <em className="text-muted">Not described</em>}</Field>
           <Field term="Labels">
             {selection.box.labels.length ? selection.box.labels.join(", ") : <em className="text-muted">None</em>}
           </Field>
@@ -404,7 +404,5 @@ function Field({ term, children }: { term: string; children: React.ReactNode }) 
 /** Chunk content starts with its heading path (it is embedded that way); the panel shows it separately. */
 function stripHeading(chunk: ChunkBox): string {
   const prefix = chunk.heading_path.join(" > ");
-  return prefix && chunk.content.startsWith(prefix)
-    ? chunk.content.slice(prefix.length).trimStart()
-    : chunk.content;
+  return prefix && chunk.content.startsWith(prefix) ? chunk.content.slice(prefix.length).trimStart() : chunk.content;
 }

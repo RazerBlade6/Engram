@@ -26,9 +26,10 @@ export function AuthCard({ title, children }: { title: string; children: ReactNo
       <p className="text-2xl font-bold text-accent">Engram</p>
       <p className="mt-1 text-muted">Your course materials, turned into practice.</p>
       <div className="rise-in mt-8">
-        <IndexCard>
-          <h1 className="text-2xl font-bold">{title}</h1>
-          <div className="mt-5">{children}</div>
+        {/* The title is written by hand above the red line; the heading is for screen readers. */}
+        <IndexCard label={<span aria-hidden>{title}</span>}>
+          <h1 className="sr-only">{title}</h1>
+          {children}
         </IndexCard>
       </div>
     </main>

@@ -5,6 +5,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { AdminOnly } from "@/components/admin-only";
 import { Toast, type ToastMessage } from "@/components/toast";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { DateField } from "@/components/ui/date-field";
+import { Drawer } from "@/components/ui/drawer";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Field, Select } from "@/components/ui/field";
 import { FlipCard } from "@/components/ui/flip-card";
@@ -36,16 +38,23 @@ const INK = [
   "accent",
   "accent-soft",
   "highlight",
+  "highlight-edge",
   "card-rule",
   "card-line",
 ];
-const STATUS = ["danger", "danger-soft", "success", "success-soft"];
+const STATUS = ["danger", "danger-soft", "success", "success-soft", "caution", "caution-soft", "caution-line"];
+// The four rating inks; none is red, so "Forgot" never reads as failing.
+const RATING_INKS = [1, 2, 3, 4].flatMap((n) => [`rate-${n}`, `rate-${n}-soft`]);
+// A wrong multiple-choice pick, which really is wrong: soft pink, still not a harsh red.
+const WRONG = ["wrong", "wrong-soft", "wrong-line"];
 const COURSES = [1, 2, 3, 4, 5, 6].map((n) => `course-${n}`);
 const WHEN = ["see it again soon", "tomorrow", "in 3 days", "in 8 days"];
 
 function Styleguide() {
   const [flipped, setFlipped] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [day, setDay] = useState("2026-11-13");
+  const [drawer, setDrawer] = useState(false);
 
   // Space turns the sample card over, as it will in review.
   useEffect(() => {
@@ -71,6 +80,8 @@ function Styleguide() {
         <Swatches label="Surfaces, back to front" names={SURFACES} />
         <Swatches label="Text, lines and accent" names={INK} />
         <Swatches label="Status" names={STATUS} />
+        <Swatches label="Rating inks" names={RATING_INKS} />
+        <Swatches label="A wrong multiple-choice answer" names={WRONG} />
         <Swatches label="Courses" names={COURSES} />
       </Section>
 
@@ -100,9 +111,11 @@ function Styleguide() {
           <Button variant="secondary">Add a course</Button>
           <Button variant="quiet">Cancel</Button>
           <Button disabled>Adding…</Button>
+          <Button variant="danger">Delete</Button>
         </div>
         <p className="mt-3 text-sm text-muted">
-          One primary button per screen. Shortcuts show as keys: <Kbd>Space</Kbd> <Kbd>1</Kbd> <Kbd>F</Kbd>
+          One primary button per screen. Danger is only for deleting, never the main action. Shortcuts show as keys:{" "}
+          <Kbd>Space</Kbd> <Kbd>1</Kbd> <Kbd>F</Kbd>
         </p>
       </Section>
 
@@ -114,6 +127,12 @@ function Styleguide() {
             <option value="quiz">Quiz</option>
             <option value="deadline">Deadline</option>
           </Select>
+          <div className="max-w-60">
+            <DateField label="Date" value={day} onChange={setDay} />
+          </div>
+          <p className="text-sm text-muted">
+            Dates are typed day/month/year and written out underneath (D54); the calendar button picks one by clicking.
+          </p>
         </div>
       </Section>
 
@@ -219,6 +238,19 @@ function Styleguide() {
         <div className="grid max-w-xl gap-4">
           <Notice>Reading your textbook… you can leave, it&apos;ll be ready when you&apos;re back.</Notice>
           <Notice tone="success">Chapter 8 is covered. Its cards are in your reviews.</Notice>
+          <Notice tone="caution">
+            <span className="font-semibold">Not from your Introduction to Psychology materials.</span> This answer comes
+            from general knowledge, so check it against your course.
+          </Notice>
+          <p className="flex items-center gap-2 text-sm text-muted">
+            {/* The pile a chapter shows while its cards are made (course page). */}
+            <span aria-hidden className="making-cards relative inline-block h-3.5 w-5">
+              <i />
+              <i />
+              <i />
+            </span>
+            Covered on 27 October · Making cards…
+          </p>
           <Notice tone="error" action={<Button variant="secondary">Try again</Button>}>
             That upload stopped partway. Your file is safe.
           </Notice>
@@ -246,6 +278,21 @@ function Styleguide() {
             Add one for each subject you&apos;re studying.
           </EmptyState>
         </div>
+      </Section>
+
+      <Section title="Drawer">
+        <p className="mb-4 text-muted">
+          A panel from the right, for a form beside a list (the admin page&apos;s invites). Esc or a click outside
+          closes it.
+        </p>
+        <Button variant="secondary" onClick={() => setDrawer(true)}>
+          Open a drawer
+        </Button>
+        {drawer && (
+          <Drawer title="Invite people" onClose={() => setDrawer(false)}>
+            <Field label="Email" type="email" placeholder="name@example.com" />
+          </Drawer>
+        )}
       </Section>
 
       <Toast key={toast?.id} toast={toast} onDone={() => setToast(null)} />
