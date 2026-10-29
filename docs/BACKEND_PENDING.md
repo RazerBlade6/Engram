@@ -2,62 +2,6 @@
 
 API and database changes the Phase 2 UI pass needs but doesn't make. The UI pass is frontend-only, so each of these waits here until it's picked up. Tick items off, or delete them, as they land.
 
-| #   | Change                                                              | Needs                      | Frontend ready?                                        |
-| --- | ------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------ |
-| 1   | [Card generation shows its progress](#1-card-generation-progress-d53) (D53) | Migration, worker, API | No: needs a few lines once the field exists           |
+Nothing is pending right now.
 
 Already made during Phase 2, recorded here for completeness: review cards carry `course_id` (`backend/src/engram/api/routes/review.py`), so the review screen can color a card's course. No migration.
-
-## 1. Card generation progress (D53)
-
-**Goal:** while a chapter's cards are made, the course page says how many exist so far ("14 cards so far…"), not just "Making cards…".
-
-**Why it needs the backend:** `backend/src/engram/cards/job.py` stores a chapter's cards in one transaction once every batch is done (after dropping repeats across batches). Until then nothing in the database says how far along it is.
-
-**The approach that was started and reverted** (it went in without being agreed first; nothing was committed):
-
-1. **Migration**, e.g. `supabase/migrations/<timestamp>_cards_progress.sql`:
-
-   ```sql
-   -- How many cards a chapter's generation has drafted so far, so the course page can show
-   -- progress while a student waits (D53). The worker adds to it as each batch comes back.
-   -- It counts cards before repeats across batches are dropped, so the final number can be
-   -- a little lower.
-   alter table public.covered_sections
-     add column cards_drafted integer not null default 0;
-   ```
-
-   Marking a chapter inserts a fresh `covered_sections` row, so the count starts at 0 each time; unmarking deletes the row. RLS is unchanged: students can't update the table, and the worker's connection can.
-
-2. **Worker**, `backend/src/engram/cards/job.py`:
-   - a helper that adds to the count:
-
-     ```python
-     async def _drafted(conn: AsyncConnection[Any], section_id: str, count: int) -> None:
-         """Counts cards as batches come back, so the course page can show progress (D53)."""
-         await conn.execute(
-             "update public.covered_sections set cards_drafted = cards_drafted + %s"
-             " where section_id = %s",
-             (count, section_id),
-         )
-     ```
-
-   - `make_cards` takes `drafted: Callable[[int], Awaitable[None]] | None = None`, and in each batch's task, after `accept(...)`, calls `await drafted(len(cards))` when there are cards;
-   - `generate` passes `drafted=lambda n: _drafted(conn, section_id, n)`.
-
-   The worker's connection is autocommit, so each update is visible at once. Batches run concurrently on one connection, the same as the existing `still_covered` check.
-
-3. **API**, `backend/src/engram/api/routes/courses.py`:
-   - `cards_drafted: int` on `Chapter` and `_SectionRow`;
-   - `_SECTIONS` selects `coalesce(c.cards_drafted, 0) as cards_drafted`.
-
-4. **Tests:**
-   - `backend/tests/test_courses.py`: the `section()` helper passes `cards_drafted=0`;
-   - `backend/tests/test_cards.py`, `test_chapters_show_their_cards`: `cards_drafted` is 0 while pending, 2 after the run (the fake provider's two cards), and 0 again after unmarking.
-
-5. **Frontend**, still to do once the field exists:
-   - `cards_drafted: number` on `Chapter` in `web/src/lib/courses.ts`;
-   - `chapterNote` shows "N cards so far…" instead of "Making cards…" when it's above 0, with a test in `web/src/lib/courses.test.ts`;
-   - the course page already polls every 4 s while a chapter is pending, so the count updates without further work. The small animated pile next to it is already built.
-
-**Open question:** the count is taken before repeats are dropped, so "23 so far" can end as "21 cards are ready". Counting batches done out of total ("3 of 5 parts") is exact but means less to a student. The draft used the card count, worded "so far".

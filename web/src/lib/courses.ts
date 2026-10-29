@@ -19,6 +19,8 @@ export type Chapter = {
   cards: number;
   /** Only while covered: "pending" until its cards are made. */
   cards_status: "pending" | "ready" | "failed" | null;
+  /** While pending: cards drafted so far. Repeats are dropped at the end, so it can end a little lower. */
+  cards_drafted: number;
 };
 
 export type Textbook = { material_id: string; title: string; chapters: Chapter[] };
@@ -63,6 +65,8 @@ export function chapterNote(chapter: Chapter, coveredOn: (iso: string) => string
     case "failed":
       return `${covered} · Its cards couldn't be made. Unmark it and mark it again to retry.`;
     default:
-      return `${covered} · Making cards…`;
+      return chapter.cards_drafted > 0
+        ? `${covered} · ${chapter.cards_drafted} ${chapter.cards_drafted === 1 ? "card" : "cards"} so far…`
+        : `${covered} · Making cards…`;
   }
 }

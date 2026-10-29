@@ -92,6 +92,15 @@ async def _covered(conn: AsyncConnection[Any], section_id: str) -> bool:
     return await cur.fetchone() is not None
 
 
+async def _drafted(conn: AsyncConnection[Any], section_id: str, count: int) -> None:
+    """Counts cards as batches come back, so the course page can show progress (D53)."""
+    await conn.execute(
+        "update public.covered_sections set cards_drafted = cards_drafted + %s"
+        " where section_id = %s",
+        (count, section_id),
+    )
+
+
 async def generate(conn: AsyncConnection[Any], section_id: str, *, router: Router) -> None:
     cur = await conn.execute(
         "select s.material_id::text, s.title,"
@@ -111,6 +120,11 @@ async def generate(conn: AsyncConnection[Any], section_id: str, *, router: Route
 
     provider, model = router.provider_for(LLMJob.CARD_GENERATION)
     usage = Usage()
+    # A retried run starts counting again.
+    await conn.execute(
+        "update public.covered_sections set cards_drafted = 0 where section_id = %s",
+        (section_id,),
+    )
     try:
         cards = await make_cards(
             chapter,
@@ -119,6 +133,7 @@ async def generate(conn: AsyncConnection[Any], section_id: str, *, router: Route
             model,
             usage=usage,
             still_covered=lambda: _covered(conn, section_id),
+            drafted=lambda n: _drafted(conn, section_id, n),
         )
     except Unmarked:
         logger.info("section %s was unmarked; stopped generating", section_id)
@@ -150,9 +165,11 @@ async def make_cards(
     *,
     usage: Usage,
     still_covered: Callable[[], Awaitable[bool]],
+    drafted: Callable[[int], Awaitable[None]] | None = None,
 ) -> list[Card]:
     """Cards for a chapter's passages, one request per batch, several at a time. Raises
-    `Unmarked` as soon as `still_covered` says no, cancelling requests in flight."""
+    `Unmarked` as soon as `still_covered` says no, cancelling requests in flight. `drafted`
+    hears how many cards each batch produced."""
     gate = asyncio.Semaphore(CONCURRENCY)
     work = batches(passages)
 
@@ -175,6 +192,8 @@ async def make_cards(
         cards, dropped = accept(result.cards, batch)
         if dropped:
             logger.info("%s: dropped %s", chapter, dropped)
+        if drafted and cards:
+            await drafted(len(cards))
         return cards
 
     try:

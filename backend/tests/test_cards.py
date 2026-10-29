@@ -368,11 +368,17 @@ async def test_chapters_show_their_cards(
     def listed() -> dict[str, Any]:
         body = client.get(f"/courses/{chapter['course']}", headers=headers).json()
         [row] = body["textbooks"][0]["chapters"]
-        return {k: row[k] for k in ("cards", "cards_status")}
+        return {k: row[k] for k in ("cards", "cards_status", "cards_drafted")}
 
-    assert listed() == {"cards": 0, "cards_status": "pending"}
+    assert listed() == {"cards": 0, "cards_status": "pending", "cards_drafted": 0}
+    # As if an earlier run was cut off partway: a new run counts from zero.
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute(
+            "update public.covered_sections set cards_drafted = 5 where section_id = %s",
+            (chapter["id"],),
+        )
     await run(database_url, chapter, FakeProvider())
-    assert listed() == {"cards": 2, "cards_status": "ready"}
+    assert listed() == {"cards": 2, "cards_status": "ready", "cards_drafted": 2}
 
     cards = client.get(f"/sections/{chapter['id']}/cards", headers=headers).json()
     assert [(c["kind"], c["answer"]) for c in cards] == [
@@ -384,7 +390,7 @@ async def test_chapters_show_their_cards(
     ]
 
     assert client.delete(f"/sections/{chapter['id']}/covered", headers=headers).status_code == 204
-    assert listed() == {"cards": 2, "cards_status": None}
+    assert listed() == {"cards": 2, "cards_status": None, "cards_drafted": 0}
 
     other = auth(token_for(make_user()))
     assert client.get(f"/sections/{chapter['id']}/cards", headers=other).status_code == 404

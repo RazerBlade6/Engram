@@ -60,7 +60,13 @@ export function CourseView() {
             ...t,
             chapters: t.chapters.map((ch) =>
               ch.id === chapterId
-                ? { ...ch, covered_at: coveredAt, cards_status: coveredAt ? (ch.cards_status ?? "pending") : null }
+                ? {
+                    ...ch,
+                    covered_at: coveredAt,
+                    cards_status: coveredAt ? (ch.cards_status ?? "pending") : null,
+                    // Marking and unmarking both start the count afresh.
+                    cards_drafted: 0,
+                  }
                 : ch,
             ),
           })),

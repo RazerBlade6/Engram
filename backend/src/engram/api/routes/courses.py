@@ -36,6 +36,8 @@ class Chapter(BaseModel):
     cards: int
     # While covered: 'pending' until its cards are made, then 'ready' or 'failed'.
     cards_status: str | None
+    # While pending: cards drafted so far, before repeats are dropped (D53).
+    cards_drafted: int
 
 
 class Textbook(BaseModel):
@@ -87,6 +89,7 @@ class _SectionRow(BaseModel):
     covered_at: datetime | None
     cards: int
     cards_status: str | None
+    cards_drafted: int
 
 
 class Source(BaseModel):
@@ -135,7 +138,8 @@ def chapters[S: _SectionRow](sections: list[S]) -> list[S]:
 _SECTIONS = """
 select s.id, s.material_id, s.level, s.title, s.page_start, s.page_end, c.covered_at,
        (select count(*) from public.cards k where k.section_id = s.id)::int as cards,
-       c.cards_status::text as cards_status
+       c.cards_status::text as cards_status,
+       coalesce(c.cards_drafted, 0) as cards_drafted
   from public.sections s
   join public.materials m on m.id = s.material_id
   left join public.covered_sections c on c.section_id = s.id

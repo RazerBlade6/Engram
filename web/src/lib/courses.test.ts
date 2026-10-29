@@ -23,6 +23,7 @@ describe("pageRange", () => {
     covered_at: null,
     cards: 0,
     cards_status: null,
+    cards_drafted: 0,
   });
 
   it("describes single pages and ranges", () => {
@@ -41,6 +42,7 @@ describe("chapterNote", () => {
     covered_at: null,
     cards: 0,
     cards_status: null,
+    cards_drafted: 0,
   };
   const on = () => "27 October";
 
@@ -52,6 +54,12 @@ describe("chapterNote", () => {
   it("follows a covered chapter's cards being made", () => {
     const covered = { ...base, covered_at: "2026-10-27T10:00:00Z" };
     expect(chapterNote({ ...covered, cards_status: "pending" }, on)).toBe("Covered on 27 October · Making cards…");
+    expect(chapterNote({ ...covered, cards_status: "pending", cards_drafted: 1 }, on)).toBe(
+      "Covered on 27 October · 1 card so far…",
+    );
+    expect(chapterNote({ ...covered, cards_status: "pending", cards_drafted: 14 }, on)).toBe(
+      "Covered on 27 October · 14 cards so far…",
+    );
     expect(chapterNote({ ...covered, cards_status: "ready", cards: 24 }, on)).toBe("Covered on 27 October · 24 cards");
     expect(chapterNote({ ...covered, cards_status: "failed" }, on)).toMatch(/couldn't be made/);
   });

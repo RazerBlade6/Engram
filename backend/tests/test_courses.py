@@ -23,6 +23,7 @@ def section(level: int, title: str) -> _SectionRow:
         covered_at=None,
         cards=0,
         cards_status=None,
+        cards_drafted=0,
     )
 
 
