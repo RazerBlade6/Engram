@@ -257,7 +257,7 @@ function ChapterRow({
         </div>
         <ChapterAction chapter={chapter} onCover={onCover} onUncover={onUncover} />
       </div>
-      {open && <CardList sectionId={chapter.id} />}
+      {open && <CardList sectionId={chapter.id} chapter={chapterName(chapter)} />}
     </li>
   );
 }
