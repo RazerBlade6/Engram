@@ -14,7 +14,7 @@ from engram.api.main import create_app
 from engram.api.routes import materials
 from engram.api.routes.admin import get_accounts
 from engram.storage import Storage
-from tests.test_api import FakeVerifier, auth, token_for
+from tests.test_api import FakeAccounts, FakeVerifier, auth, token_for
 
 PDF_BYTES = b"%PDF-1.4\n% a lecture\n%%EOF\n"
 
@@ -314,17 +314,6 @@ def test_only_admins_delete_courses_with_their_files(
     gone = rows(database_url, "select 1 from public.materials where course_id = %s", course["id"])
     assert gone == []
     assert client.delete(url, headers=admin).status_code == 404
-
-
-class FakeAccounts:
-    """Deletes the auth user directly, the way Supabase Auth's admin API would."""
-
-    def __init__(self, database_url: str) -> None:
-        self.database_url = database_url
-
-    async def delete(self, user_id: uuid.UUID) -> bool:
-        with psycopg.connect(self.database_url, autocommit=True) as c:
-            return c.execute("delete from auth.users where id = %s", (user_id,)).rowcount > 0
 
 
 def test_removing_a_person_takes_their_courses_files_and_events(

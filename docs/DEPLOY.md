@@ -50,6 +50,10 @@ Nothing secret is in the repository.
   workload identity federation, trusted only for `main` of this repository.
 - Both the API and the worker connect through Supabase's session pooler (port 5432), which
   works over IPv4 and keeps prepared statements working.
+- **Supabase Auth** settings are set in the dashboard, not by deploys (`supabase/config.toml`
+  is local only). Its redirect URLs must include `https://engramstudy.app/auth/set-password`
+  (invites) and `https://engramstudy.app/auth/reset-password` (password resets), and its
+  emails go out through custom SMTP.
 
 ## Deploying by hand
 

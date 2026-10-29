@@ -26,16 +26,39 @@ class Accounts:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
+    def _client(self) -> httpx.AsyncClient:
+        secret = self._settings.supabase_secret_key.get_secret_value()
+        return httpx.AsyncClient(
+            base_url=self._settings.supabase_url,
+            headers={"apikey": secret, "Authorization": f"Bearer {secret}"},
+            timeout=10,
+        )
+
     async def delete(self, user_id: UUID) -> bool:
         """Deletes the account; False if there was none. Their profile goes with it."""
-        secret = self._settings.supabase_secret_key.get_secret_value()
-        async with httpx.AsyncClient(base_url=self._settings.supabase_url, timeout=10) as client:
-            response = await client.delete(
-                f"/auth/v1/admin/users/{user_id}",
-                headers={"apikey": secret, "Authorization": f"Bearer {secret}"},
-            )
+        async with self._client() as client:
+            response = await client.delete(f"/auth/v1/admin/users/{user_id}")
         if response.status_code == status.HTTP_404_NOT_FOUND:
             return False
+        response.raise_for_status()
+        return True
+
+    async def send_password_reset(self, user_id: UUID) -> bool:
+        """Emails them a link for choosing a new password; False if there's no such account."""
+        async with self._client() as client:
+            response = await client.get(f"/auth/v1/admin/users/{user_id}")
+            if response.status_code == status.HTTP_404_NOT_FOUND:
+                return False
+            response.raise_for_status()
+            response = await client.post(
+                "/auth/v1/recover",
+                params={"redirect_to": f"{self._settings.web_url.rstrip('/')}/auth/reset-password"},
+                json={"email": response.json()["email"]},
+            )
+        if response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS, "A link was just sent. Wait a minute."
+            )
         response.raise_for_status()
         return True
 
@@ -182,4 +205,18 @@ async def remove_person(
         except Exception:
             # The person is gone; leftover files are only a storage cost.
             logger.exception("could not remove the stored files at %s", path)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/people/{person_id}/password-reset",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_admin)],
+)
+async def send_password_reset(
+    person_id: UUID, accounts: Annotated[Accounts, Depends(get_accounts)]
+) -> Response:
+    """For someone who can't get the reset email themselves: the same email, sent from here."""
+    if not await accounts.send_password_reset(person_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such person")
     return Response(status_code=status.HTTP_204_NO_CONTENT)

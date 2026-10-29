@@ -5,7 +5,6 @@ API and database changes the Phase 2 UI pass needs but doesn't make. The UI pass
 | #   | Change                                                              | Needs                      | Frontend ready?                                        |
 | --- | ------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------ |
 | 1   | [Card generation shows its progress](#1-card-generation-progress-d53) (D53) | Migration, worker, API | No: needs a few lines once the field exists           |
-| 9   | [Forgot password](#9-forgot-password) | Auth config, frontend | No: needs a "Forgot your password?" link and a reset page |
 
 Already made during Phase 2, recorded here for completeness: review cards carry `course_id` (`backend/src/engram/api/routes/review.py`), so the review screen can color a card's course. No migration.
 
@@ -62,15 +61,3 @@ Already made during Phase 2, recorded here for completeness: review cards carry 
    - the course page already polls every 4 s while a chapter is pending, so the count updates without further work. The small animated pile next to it is already built.
 
 **Open question:** the count is taken before repeats are dropped, so "23 so far" can end as "21 cards are ready". Counting batches done out of total ("3 of 5 parts") is exact but means less to a student. The draft used the card count, worded "so far".
-
-## 9. Forgot password
-
-There's no way to recover a forgotten password: an admin would have to send a new invite to a new address, or reset it by hand. Someone signed out without their password saved has no way back in.
-
-Supabase Auth covers most of it:
-
-- **Request:** a "Forgot your password?" link on the sign-in page opens a form for the email address and calls `supabase.auth.resetPasswordForEmail(email, { redirectTo: <web url>/auth/reset-password })`. The page always says "If that address has an account, a link is on its way", so it doesn't reveal who has one.
-- **Reset:** the link signs them in for a moment and lands on a page that sets the new password with `supabase.auth.updateUser({ password })`. `web/src/app/auth/set-password/page.tsx`, which invite links already use, does exactly this and can likely be reused.
-- **Configuration:** add the reset page to the allowed redirect URLs (`supabase/config.toml` locally, and the hosted project's Auth settings), and word the reset email template plainly. Production needs working email sending (custom SMTP) for these to arrive reliably.
-- **Admin fallback:** a "Send a password reset" button per person on the admin page, calling the same thing from the API with the service key, for anyone who can't get the email.
-- **Locally:** emails are caught at http://localhost:54324, so the flow can be tested end to end.

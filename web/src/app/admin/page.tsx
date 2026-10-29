@@ -284,6 +284,15 @@ function People({
       apiFetch(`/admin/people/${person.id}/usage-consent`, { method: "PUT", body: JSON.stringify({ consented }) }),
     );
 
+  async function sendReset(person: Person) {
+    try {
+      await apiFetch(`/admin/people/${person.id}/password-reset`, { method: "POST" });
+      show(`A link to choose a new password is on its way to ${nameOf(person)}.`);
+    } catch (e) {
+      show(e instanceof ApiError && e.status === 429 ? e.message : "The link couldn't be sent. Please try again.");
+    }
+  }
+
   async function removePerson(person: Person) {
     setConfirming(null);
     try {
@@ -371,6 +380,16 @@ function People({
                       </label>
                     </td>
                     <td className={cx(TD, "text-right")}>
+                      {confirming !== p.id && (
+                        <Button
+                          variant="quiet"
+                          onClick={() => sendReset(p)}
+                          aria-label={`Send ${name} a password reset`}
+                          className="mr-2"
+                        >
+                          Send password reset
+                        </Button>
+                      )}
                       {/* You can't remove yourself from here. */}
                       {p.id !== me?.id &&
                         (confirming === p.id ? (

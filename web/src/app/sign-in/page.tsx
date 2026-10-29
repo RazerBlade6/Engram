@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 
@@ -36,6 +37,11 @@ export default function SignIn() {
         <FormError message={error} />
         <PrimaryButton busy={busy}>{busy ? "Signing in…" : "Sign in"}</PrimaryButton>
       </form>
+      <p className="mt-5">
+        <Link href="/sign-in/forgot" className="font-semibold text-accent underline-offset-4 hover:underline">
+          Forgot your password?
+        </Link>
+      </p>
     </AuthCard>
   );
 }
