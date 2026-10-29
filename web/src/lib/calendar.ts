@@ -68,15 +68,56 @@ export function untilLabel(on: string, today: string): string {
   return `in ${Math.round(days / 7)} weeks`;
 }
 
+/**
+ * Dates are always written day first (D54), whatever the browser's locale: a student on a US
+ * locale was confused by month-first dates.
+ */
+const DAY_FIRST = "en-GB";
+
+/** The parts of a day joined by spaces, without the commas some formats add: "Fri 8 Jan 2027". */
+function written(on: string, options: Intl.DateTimeFormatOptions): string {
+  return new Intl.DateTimeFormat(DAY_FIRST, options)
+    .formatToParts(parseDay(on))
+    .filter((part) => part.type !== "literal")
+    .map((part) => part.value)
+    .join(" ");
+}
+
 /** "Fri 13 Nov", with the year only when it isn't this year's. */
 export function dayLabel(on: string, today: string): string {
   const sameYear = on.slice(0, 4) === today.slice(0, 4);
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: sameYear ? undefined : "numeric",
-  }).format(parseDay(on));
+  return written(on, { weekday: "short", day: "numeric", month: "short", year: sameYear ? undefined : "numeric" });
+}
+
+/** "Friday 13 November 2026": confirms in words which day a typed date means. */
+export function longDayLabel(on: string): string {
+  return written(on, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+
+// Matches the API's range: wide enough for any course, narrow enough to catch a mistyped year.
+export const FIRST_DAY = "2000-01-01";
+export const LAST_DAY = "2100-12-31";
+
+/**
+ * A typed date, day/month/year, as an ISO day: "13/11/2026", "13-11-26" and "13.11.2026" all
+ * give "2026-11-13". Null if it isn't a real day in range.
+ */
+export function parseTypedDay(text: string): string | null {
+  const match = /^\s*(\d{1,2})\s*[/.\- ]\s*(\d{1,2})\s*[/.\- ]\s*(\d{2}|\d{4})\s*$/.exec(text);
+  if (!match) return null;
+  const [day, month] = [Number(match[1]), Number(match[2])];
+  const year = match[3].length === 2 ? 2000 + Number(match[3]) : Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  // new Date rolls 31/02 over into March; a real day comes back unchanged.
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  const iso = isoDay(date);
+  return iso >= FIRST_DAY && iso <= LAST_DAY ? iso : null;
+}
+
+/** "2026-11-13" as "13/11/2026", for the date field. */
+export function typedDay(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
 }
 
 /**

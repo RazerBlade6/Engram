@@ -5,7 +5,7 @@ import { cx } from "@/lib/cx";
 
 import { Kbd } from "./kbd";
 
-type Variant = "primary" | "secondary" | "quiet";
+type Variant = "primary" | "secondary" | "quiet" | "danger";
 type Size = "md" | "lg";
 
 const BASE =
@@ -16,6 +16,8 @@ const VARIANT: Record<Variant, string> = {
   primary: "bg-accent text-on-accent shadow-press hover:bg-accent-strong active:translate-y-0.5 active:shadow-none",
   secondary: "border border-border-strong bg-surface text-foreground hover:border-accent hover:text-accent",
   quiet: "text-muted hover:bg-foreground/5 hover:text-foreground",
+  // Deleting: plain, but in red so it is never mistaken for the main action.
+  danger: "text-danger hover:bg-danger-soft",
 };
 
 const SIZE: Record<Size, string> = {

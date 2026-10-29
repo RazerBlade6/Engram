@@ -268,8 +268,8 @@ Designed directly in the app and reviewed on the local dev server, without a sep
 - [x] Visual direction: palette, type, and the overall look (D57–D59)
 - [ ] Design system: tokens, components, light theme (tokens structured so a dark theme can be added without a redesign)
 - [ ] Redesign the core flows from the Phase 1 session findings ([observations](UserObservations.md#findings)):
-  - [ ] Dates written out and entered day/month/year (D54)
-  - [ ] Report control moved to the card's corner (D52)
+  - [x] Dates written out and entered day/month/year (D54)
+  - [x] Report control moved to the card's corner (D52)
   - [ ] Card generation shows its progress (D53)
   - [ ] Blocked review order as the default (D55)
 - [ ] One-time welcome screen: one sentence on what Engram does, one "Start your first review" button

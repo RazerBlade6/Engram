@@ -6,6 +6,12 @@ import { ChapterPicker } from "@/components/chapter-picker";
 import { DateRow } from "@/components/dates";
 import { FormError } from "@/components/form";
 import { Toast, type ToastMessage } from "@/components/toast";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { DateField } from "@/components/ui/date-field";
+import { EmptyState } from "@/components/ui/empty-state";
+import { CONTROL } from "@/components/ui/field";
+import { RowList } from "@/components/ui/row-list";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ApiError, api, apiFetch } from "@/lib/api";
 import {
   KIND_EXAMPLE,
@@ -22,16 +28,18 @@ import {
   type NewDate,
 } from "@/lib/calendar";
 import type { CourseSummary } from "@/lib/courses";
+import { cx } from "@/lib/cx";
 import { useProfile } from "@/lib/profile";
 
 const KINDS = Object.keys(KIND_LABEL) as DateKind[];
-// Matches the API's range: wide enough for any course, narrow enough to catch a mistyped year.
-const MIN_DAY = "2000-01-01";
-const MAX_DAY = "2100-12-31";
 
 type Month = { year: number; month: number };
 
 const byDay = (a: CourseDate, b: CourseDate) => a.on.localeCompare(b.on) || a.course.localeCompare(b.course);
+
+/** An entry tinted in its course's color, readable on the paper. */
+const tint = (color: string | undefined) =>
+  color ? `color-mix(in srgb, ${color} 13%, var(--paper))` : "var(--accent-soft)";
 
 export function CalendarView() {
   const profile = useProfile();
@@ -44,8 +52,22 @@ export function CalendarView() {
     api<CourseDate[]>("/dates").then(setDates);
   }, [profile]);
 
-  if (!profile || !courses || !dates) return null;
+  if (!profile) return null;
+  if (!courses || !dates) return <CalendarLoading />;
   return <Calendar courses={courses} initial={dates} />;
+}
+
+function CalendarLoading() {
+  return (
+    <main className="mx-auto max-w-6xl px-6 py-10" role="status" aria-label="Loading your calendar">
+      <Skeleton className="h-9 w-48" />
+      <Skeleton className="mt-6 h-36" />
+      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <Skeleton className="h-[34rem]" />
+        <Skeleton className="h-48" />
+      </div>
+    </main>
+  );
 }
 
 /** Rendered only in the browser, once loaded, so "today" is the student's today. */
@@ -99,26 +121,42 @@ function Calendar({ courses, initial }: { courses: CourseSummary[]; initial: Cou
     what.current?.focus();
   }
 
+  if (courses.length === 0) {
+    return (
+      <main className="mx-auto max-w-3xl px-6 py-10">
+        <h1 className="text-3xl font-bold">Calendar</h1>
+        <div className="mt-8">
+          <EmptyState
+            title="No courses yet"
+            action={
+              <ButtonLink href="/" variant="secondary">
+                Go to Today
+              </ButtonLink>
+            }
+          >
+            Add a course on Today, then put its exams, quizzes and deadlines here.
+          </EmptyState>
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <main className="mx-auto max-w-6xl px-6 py-12">
-      <h1 className="text-3xl font-semibold">Calendar</h1>
+    <main className="mx-auto max-w-6xl px-6 py-10">
+      <h1 className="text-3xl font-bold">Calendar</h1>
 
-      {courses.length === 0 ? (
-        <p className="mt-3 text-lg text-muted">Once you have a course, you can add its exams and deadlines here.</p>
-      ) : (
-        <QuickAdd
-          courses={courses}
-          day={day}
-          onDay={setDay}
-          what={what}
-          onAdded={(date) => {
-            added(date);
-            notify(`Added ${date.title}, ${dayLabel(date.on, today)}`);
-          }}
-        />
-      )}
+      <QuickAdd
+        courses={courses}
+        day={day}
+        onDay={setDay}
+        what={what}
+        onAdded={(date) => {
+          added(date);
+          notify(`Added ${date.title}, ${dayLabel(date.on, today)}`);
+        }}
+      />
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div className="mt-10 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <MonthGrid
           month={month}
           onMonth={setMonth}
@@ -127,7 +165,7 @@ function Calendar({ courses, initial }: { courses: CourseSummary[]; initial: Cou
           dates={dates}
           colors={colors}
           today={today}
-          onPickDay={courses.length ? pickDay : undefined}
+          onPickDay={pickDay}
           onOpen={setEditing}
         />
 
@@ -138,20 +176,20 @@ function Calendar({ courses, initial }: { courses: CourseSummary[]; initial: Cou
           {next.length === 0 ? (
             <p className="mt-3 text-muted">Nothing coming up. Exams, quizzes and deadlines you add show up here.</p>
           ) : (
-            <ul className="mt-3 space-y-2">
+            <RowList className="mt-3">
               {next.map((d) => (
                 <li key={d.id}>
                   <button
                     type="button"
                     onClick={() => setEditing(d)}
                     aria-label={`Change ${d.title}, ${d.course}`}
-                    className="w-full rounded-lg border border-border bg-white px-4 py-3 text-left hover:border-accent"
+                    className="w-full rounded-control px-2 py-3 text-left transition-colors duration-150 hover:bg-foreground/5"
                   >
                     <DateRow date={d} color={colors.get(d.course_id)} today={today} />
                   </button>
                 </li>
               ))}
-            </ul>
+            </RowList>
           )}
         </section>
       </div>
@@ -221,20 +259,29 @@ function QuickAdd({
     }
   }
 
-  const control = "rounded-lg border border-border bg-white px-3 py-3 text-lg";
   return (
-    <form onSubmit={submit} className="mt-6 rounded-2xl border border-border bg-white p-6" aria-labelledby="add-heading">
+    <form
+      onSubmit={submit}
+      className="mt-6 rounded-control border border-border bg-surface p-5 shadow-card sm:p-6"
+      aria-labelledby="add-heading"
+    >
       <h2 id="add-heading" className="text-xl font-semibold">
         Add an exam, quiz or deadline
       </h2>
-      <div className="mt-4 flex flex-wrap items-end gap-3">
+      {courses.length === 1 && <p className="text-muted">For {courses[0].title}. Or click a day on the calendar.</p>}
+      {courses.length > 1 && <p className="text-muted">Or click a day on the calendar to fill in the date.</p>}
+      <div className="mt-4 flex flex-wrap items-start gap-4">
         {courses.length > 1 && (
-          <label className="flex flex-col gap-1">
-            <span className="font-medium">Course</span>
-            <select value={course} onChange={(e) => {
+          <label className="flex flex-col">
+            <span className="font-semibold">Course</span>
+            <select
+              value={course}
+              onChange={(e) => {
                 setCourse(e.target.value);
                 setChapters([]);
-              }} className={control}>
+              }}
+              className={cx(CONTROL, "mt-2 w-auto")}
+            >
               {courses.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.title}
@@ -243,9 +290,13 @@ function QuickAdd({
             </select>
           </label>
         )}
-        <label className="flex flex-col gap-1">
-          <span className="font-medium">Type</span>
-          <select value={kind} onChange={(e) => setKind(e.target.value as DateKind)} className={control}>
+        <label className="flex flex-col">
+          <span className="font-semibold">Type</span>
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as DateKind)}
+            className={cx(CONTROL, "mt-2 w-auto")}
+          >
             {KINDS.map((k) => (
               <option key={k} value={k}>
                 {KIND_LABEL[k]}
@@ -253,8 +304,8 @@ function QuickAdd({
             ))}
           </select>
         </label>
-        <label className="flex min-w-48 flex-1 flex-col gap-1">
-          <span className="font-medium">What</span>
+        <label className="flex min-w-48 flex-1 flex-col">
+          <span className="font-semibold">What</span>
           <input
             ref={what}
             type="text"
@@ -264,31 +315,18 @@ function QuickAdd({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={`For example, ${KIND_EXAMPLE[kind]}`}
-            className={control}
+            className={cx(CONTROL, "mt-2")}
           />
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="font-medium">Date</span>
-          <input
-            type="date"
-            required
-            min={MIN_DAY}
-            max={MAX_DAY}
-            value={day}
-            onChange={(e) => onDay(e.target.value)}
-            className={control}
-          />
-        </label>
-        <button
-          type="submit"
-          disabled={busy || !title.trim() || !day}
-          className="rounded-lg bg-accent px-6 py-3 text-lg font-medium text-white hover:bg-accent-strong disabled:opacity-50"
-        >
+        <div className="w-60">
+          <DateField label="Date" required value={day} onChange={onDay} />
+        </div>
+        {/* Level with the fields, not their hints. */}
+        <Button type="submit" size="lg" disabled={busy || !title.trim() || !day} className="mt-8">
           Add
-        </button>
+        </Button>
       </div>
-      {courses.length === 1 && <p className="mt-3 text-muted">For {courses[0].title}.</p>}
-      <div className="mt-4">
+      <div className="mt-3">
         <ChapterPicker courseId={course} selected={chapters} onChange={setChapters} />
       </div>
       {error && (
@@ -300,6 +338,7 @@ function QuickAdd({
   );
 }
 
+/** The month as a sheet of paper on the desk: a planner page, with each date in its course's color. */
 function MonthGrid({
   month,
   onMonth,
@@ -318,7 +357,7 @@ function MonthGrid({
   dates: CourseDate[];
   colors: Map<string, string>;
   today: string;
-  onPickDay?: (day: string) => void;
+  onPickDay: (day: string) => void;
   onOpen: (date: CourseDate) => void;
 }) {
   const weeks = monthWeeks(month.year, month.month, firstDay);
@@ -329,79 +368,86 @@ function MonthGrid({
     const d = new Date(month.year, month.month + by, 1);
     onMonth({ year: d.getFullYear(), month: d.getMonth() });
   };
-  const title = new Intl.DateTimeFormat(undefined, { month: "long", year: "numeric" }).format(
+  const title = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(
     new Date(month.year, month.month, 1),
   );
-  const weekday = new Intl.DateTimeFormat(undefined, { weekday: "short" });
+  const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "short" });
   const isThisMonth = month.year === thisMonth.year && month.month === thisMonth.month;
-  const button = "rounded-lg border border-border bg-white px-3 py-2 hover:border-accent";
 
   return (
-    <section aria-labelledby="month-heading">
+    <section aria-labelledby="month-heading" className="min-w-0">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="month-heading" className="text-xl font-semibold" aria-live="polite">
           {title}
         </h2>
         <div className="flex gap-2">
           {!isThisMonth && (
-            <button type="button" className={button} onClick={() => onMonth(thisMonth)}>
+            <Button variant="secondary" onClick={() => onMonth(thisMonth)}>
               This month
-            </button>
+            </Button>
           )}
-          <button type="button" className={button} onClick={() => shift(-1)} aria-label="Previous month">
+          <Button variant="secondary" onClick={() => shift(-1)} aria-label="Previous month">
             ←
-          </button>
-          <button type="button" className={button} onClick={() => shift(1)} aria-label="Next month">
+          </Button>
+          <Button variant="secondary" onClick={() => shift(1)} aria-label="Next month">
             →
-          </button>
+          </Button>
         </div>
       </div>
 
-      <table className="mt-4 w-full table-fixed border-collapse">
-        <thead>
-          <tr>
-            {weeks[0].map((d) => (
-              <th key={d} scope="col" className="pb-2 text-left text-sm font-semibold text-muted">
-                {weekday.format(parseDay(d))}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {weeks.map((week) => (
-            <tr key={week[0]}>
-              {week.map((d) => {
-                const inMonth = parseDay(d).getMonth() === month.month;
-                const items = onDay.get(d) ?? [];
-                return (
-                  <td
-                    key={d}
-                    className={`h-28 border border-border p-1 align-top ${inMonth ? "bg-white" : "bg-background"}`}
-                  >
-                    <DayNumber day={d} today={today} inMonth={inMonth} onPick={onPickDay} />
-                    <ul className="mt-1 space-y-1">
-                      {items.map((item) => (
-                        <li key={item.id}>
-                          <button
-                            type="button"
-                            onClick={() => onOpen(item)}
-                            title={`${item.title} · ${item.course}`}
-                            aria-label={`${item.title}, ${item.course}, ${dayLabel(d, today)}`}
-                            className="block w-full truncate rounded border-l-4 bg-background px-1.5 py-0.5 text-left text-sm font-medium hover:underline"
-                            style={{ borderColor: colors.get(item.course_id) }}
-                          >
-                            {item.title}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </td>
-                );
-              })}
+      <div className="mt-4 overflow-x-auto rounded-card bg-paper shadow-card">
+        <table className="w-full min-w-[36rem] table-fixed border-collapse">
+          <thead>
+            <tr className="border-b-[1.5px] border-card-rule">
+              {weeks[0].map((d) => (
+                <th key={d} scope="col" className="px-2 pt-3 pb-2 text-left text-sm font-semibold text-muted">
+                  {weekday.format(parseDay(d))}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {weeks.map((week) => (
+              <tr key={week[0]} className="border-b border-border/70 last:border-b-0">
+                {week.map((d) => {
+                  const inMonth = parseDay(d).getMonth() === month.month;
+                  const items = onDay.get(d) ?? [];
+                  return (
+                    <td
+                      key={d}
+                      className={cx(
+                        "h-28 border-r border-border/70 p-1.5 align-top last:border-r-0",
+                        !inMonth && "bg-desk/45",
+                      )}
+                    >
+                      <DayNumber day={d} today={today} inMonth={inMonth} onPick={onPickDay} />
+                      <ul className="mt-1 space-y-1">
+                        {items.map((item) => (
+                          <li key={item.id}>
+                            <button
+                              type="button"
+                              onClick={() => onOpen(item)}
+                              title={`${item.title} · ${item.course}`}
+                              aria-label={`${item.title}, ${item.course}, ${dayLabel(d, today)}`}
+                              className="block w-full truncate rounded-sm border-l-[3px] px-1.5 py-0.5 text-left text-sm font-semibold transition-[filter] duration-150 hover:brightness-95"
+                              style={{
+                                borderColor: colors.get(item.course_id),
+                                background: tint(colors.get(item.course_id)),
+                              }}
+                            >
+                              {item.title}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {legend.length > 1 && (
         <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-muted" aria-label="Course colors">
@@ -426,23 +472,22 @@ function DayNumber({
   day: string;
   today: string;
   inMonth: boolean;
-  onPick?: (day: string) => void;
+  onPick: (day: string) => void;
 }) {
   const isToday = day === today;
-  const number = parseDay(day).getDate();
-  const style = `grid size-8 place-items-center rounded-full text-sm ${
-    isToday ? "bg-accent font-bold text-white" : inMonth ? "" : "text-muted"
-  }`;
-  if (!onPick) return <span className={style}>{number}</span>;
   return (
     <button
       type="button"
       onClick={() => onPick(day)}
       aria-label={`Add a date on ${dayLabel(day, today)}`}
       aria-current={isToday ? "date" : undefined}
-      className={`${style} ${isToday ? "" : "hover:bg-accent/10"}`}
+      className={cx(
+        "grid size-8 place-items-center rounded-full text-sm tabular-nums transition-colors duration-150",
+        isToday ? "bg-accent font-bold text-on-accent" : "hover:bg-accent-soft",
+        !inMonth && !isToday && "text-muted",
+      )}
     >
-      {number}
+      {parseDay(day).getDate()}
     </button>
   );
 }
@@ -499,25 +544,24 @@ function EditDialog({
     }
   }
 
-  const control = "mt-1 w-full rounded-lg border border-border bg-white px-3 py-3 text-lg";
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div className="fade-in fixed inset-0 z-40 flex items-center justify-center bg-foreground/40 p-4" onClick={onClose}>
       <form
         role="dialog"
         aria-modal="true"
         aria-labelledby="edit-heading"
         onSubmit={save}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-full w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl"
+        className="rise-in max-h-full w-full max-w-lg overflow-y-auto rounded-control bg-paper p-6 shadow-lifted"
       >
         <h2 id="edit-heading" className="text-xl font-semibold">
           {date.title}
         </h2>
         <p className="text-muted">{date.course}</p>
-        <div className="mt-4 space-y-4">
+        <div className="mt-5 space-y-5">
           <label className="block">
-            <span className="font-medium">Type</span>
-            <select value={kind} onChange={(e) => setKind(e.target.value as DateKind)} className={control}>
+            <span className="font-semibold">Type</span>
+            <select value={kind} onChange={(e) => setKind(e.target.value as DateKind)} className={cx(CONTROL, "mt-2")}>
               {KINDS.map((k) => (
                 <option key={k} value={k}>
                   {KIND_LABEL[k]}
@@ -526,7 +570,7 @@ function EditDialog({
             </select>
           </label>
           <label className="block">
-            <span className="font-medium">What</span>
+            <span className="font-semibold">What</span>
             <input
               type="text"
               required
@@ -535,43 +579,23 @@ function EditDialog({
               autoComplete="off"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className={control}
+              className={cx(CONTROL, "mt-2")}
             />
           </label>
-          <label className="block">
-            <span className="font-medium">Date</span>
-            <input
-              type="date"
-              required
-              min={MIN_DAY}
-              max={MAX_DAY}
-              value={on}
-              onChange={(e) => setOn(e.target.value)}
-              className={control}
-            />
-          </label>
+          <DateField label="Date" required value={on} onChange={setOn} />
           <ChapterPicker courseId={date.course_id} selected={chapters} onChange={setChapters} />
           <FormError message={error} />
         </div>
         <div className="mt-6 flex flex-wrap items-center gap-3">
-          <button
-            type="submit"
-            disabled={busy || !title.trim() || !on}
-            className="rounded-lg bg-accent px-6 py-3 text-lg font-medium text-white hover:bg-accent-strong disabled:opacity-50"
-          >
+          <Button type="submit" size="lg" disabled={busy || !title.trim() || !on}>
             Save
-          </button>
-          <button type="button" onClick={onClose} className="rounded-lg px-4 py-3 text-muted underline hover:text-foreground">
+          </Button>
+          <Button variant="quiet" hint="Esc" onClick={onClose}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={remove}
-            disabled={busy}
-            className="ml-auto rounded-lg px-4 py-3 text-danger underline disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="danger" onClick={remove} disabled={busy} className="ml-auto">
             Delete
-          </button>
+          </Button>
         </div>
       </form>
     </div>

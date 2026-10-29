@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 
-import { chaptersLabel, courseColors, daysBetween, monthWeeks, untilLabel, upcoming, type CourseDate } from "./calendar";
+import {
+  chaptersLabel,
+  courseColors,
+  dayLabel,
+  daysBetween,
+  longDayLabel,
+  monthWeeks,
+  parseTypedDay,
+  typedDay,
+  untilLabel,
+  upcoming,
+  type CourseDate,
+} from "./calendar";
 
 const date = (on: string, title = "Midterm"): CourseDate => ({
   id: title + on,
@@ -81,5 +93,33 @@ describe("chaptersLabel", () => {
     expect(chaptersLabel(ch("Chapter 3 A", "Chapter 4 B"))).toBe("Chapters 3, 4");
     expect(chaptersLabel(ch("Cells"))).toBe("Cells");
     expect(chaptersLabel(ch("Cells", "Genetics"))).toBe("2 chapters");
+  });
+});
+
+describe("dates are written day first", () => {
+  it("labels days the same whatever the locale", () => {
+    expect(dayLabel("2026-11-13", "2026-10-27")).toBe("Fri 13 Nov");
+    expect(dayLabel("2027-01-08", "2026-10-27")).toBe("Fri 8 Jan 2027");
+    expect(longDayLabel("2026-11-13")).toBe("Friday 13 November 2026");
+  });
+
+  it("reads typed dates as day/month/year", () => {
+    expect(parseTypedDay("13/11/2026")).toBe("2026-11-13");
+    expect(parseTypedDay(" 3-1-27 ")).toBe("2027-01-03");
+    expect(parseTypedDay("13.11.2026")).toBe("2026-11-13");
+    expect(parseTypedDay("05 11 2026")).toBe("2026-11-05");
+  });
+
+  it("refuses dates that don't exist or are out of range", () => {
+    expect(parseTypedDay("11/13/2026")).toBeNull();
+    expect(parseTypedDay("31/02/2026")).toBeNull();
+    expect(parseTypedDay("13/11")).toBeNull();
+    expect(parseTypedDay("13/11/1999")).toBeNull();
+    expect(parseTypedDay("next friday")).toBeNull();
+  });
+
+  it("writes a day back the way it's typed", () => {
+    expect(typedDay("2026-11-05")).toBe("05/11/2026");
+    expect(parseTypedDay(typedDay("2026-11-05"))).toBe("2026-11-05");
   });
 });

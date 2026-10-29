@@ -110,6 +110,7 @@
   --color-accent-soft: var(--accent-soft);
   --color-on-accent: var(--on-accent);
   --color-highlight: var(--highlight);
+  --color-card-rule: var(--card-rule);
   --color-highlight-edge: var(--highlight-edge);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);

@@ -30,12 +30,11 @@ export function ChapterPicker({
 
   const textbooks = course?.id === courseId ? course.textbooks.filter((t) => t.chapters.length) : [];
   if (!textbooks.length) return null;
-  const toggle = (id: string, on: boolean) =>
-    onChange(on ? [...selected, id] : selected.filter((s) => s !== id));
+  const toggle = (id: string, on: boolean) => onChange(on ? [...selected, id] : selected.filter((s) => s !== id));
 
   return (
-    <details className="rounded-lg border border-border bg-white" open={selected.length > 0 || undefined}>
-      <summary className="cursor-pointer px-4 py-3 font-medium">
+    <details className="rounded-control border border-border-strong bg-surface" open={selected.length > 0 || undefined}>
+      <summary className="cursor-pointer rounded-control px-4 py-3 font-semibold hover:bg-foreground/5">
         Chapters it covers <span className="font-normal text-muted">(optional)</span>
         {selected.length > 0 && <span className="font-normal text-muted"> · {selected.length} chosen</span>}
       </summary>
