@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Figtree, Literata } from "next/font/google";
+import { Caveat, Figtree, Literata } from "next/font/google";
 import { Suspense } from "react";
 
 import { SiteNav } from "@/components/site-nav";
@@ -10,6 +10,8 @@ import "./globals.css";
 const figtree = Figtree({ subsets: ["latin"], variable: "--font-figtree", display: "swap" });
 // Built for long reading; used only for card text and source passages.
 const literata = Literata({ subsets: ["latin"], variable: "--font-literata", axes: ["opsz"], display: "swap" });
+// Handwriting, for the short notes on an index card (its course), never for anything longer.
+const caveat = Caveat({ subsets: ["latin"], variable: "--font-caveat", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Engram",
@@ -18,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${figtree.variable} ${literata.variable}`}>
+    <html lang="en" className={`${figtree.variable} ${literata.variable} ${caveat.variable}`}>
       <body>
         {/* These read the URL, which some routes know only at request time. */}
         <Suspense>

@@ -84,6 +84,8 @@ function Styleguide() {
             Which brain structure is most involved in turning new experiences into lasting memories?
           </p>
           <p className="text-sm text-muted">Card and source text · Literata, used only for what a student reads</p>
+          <p className="mt-4 font-hand text-2xl font-medium text-muted">Introduction to Psychology</p>
+          <p className="text-sm text-muted">Notes on a card, like its course · Caveat, a light handwritten touch</p>
         </div>
       </Section>
 
@@ -117,7 +119,7 @@ function Styleguide() {
 
       <Section title="Index card">
         <div className="grid gap-10 md:grid-cols-2">
-          <IndexCard tab="Due today">
+          <IndexCard label="Due today">
             <p className="text-3xl font-bold">
               <span className="font-read text-5xl font-semibold text-accent">23</span> cards to review
             </p>
@@ -126,7 +128,7 @@ function Styleguide() {
               Start review
             </ButtonLink>
           </IndexCard>
-          <IndexCard tab="Biology 2e" tabColor="var(--course-2)" ruled={false} pile={false}>
+          <IndexCard label="Biology 2e" labelColor="var(--course-2)" ruled={false} pile={false}>
             <p className="text-lg">Unruled and on its own, for long or dense content.</p>
           </IndexCard>
         </div>
@@ -282,7 +284,8 @@ function Swatches({ label, names }: { label: string; names: string[] }) {
 function SampleCard({ children }: { children: ReactNode }) {
   return (
     <IndexCard
-      tab="Introduction to Psychology"
+      label="Introduction to Psychology"
+      labelColor="var(--course-1)"
       corner={<button className="rounded-md px-2 py-0.5 text-sm text-muted hover:bg-foreground/5">Report</button>}
     >
       <div className="min-h-40">{children}</div>

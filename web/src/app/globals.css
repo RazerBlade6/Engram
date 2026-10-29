@@ -58,7 +58,7 @@
   --box-text: #2f5d8a;
   --box-table: #2e7d4f;
   --box-figure: #b5541c;
-  /* Course colors: distinct, and dark enough for white text on a card's tab. */
+  /* Course colors: distinct, and dark enough to read as ink on a card or as text on the desk. */
   --course-1: #2b59c3;
   --course-2: #b5541c;
   --course-3: #2e7d4f;
@@ -106,6 +106,8 @@
   /* Figtree for the interface; Literata only for what a student reads (cards, sources). */
   --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
   --font-read: var(--font-literata), Georgia, serif;
+  /* Caveat, only for short notes written on a card, such as its course. */
+  --font-hand: var(--font-caveat), "Segoe Print", "Bradley Hand", cursive;
 
   --radius-card: 3px;
   --radius-control: 8px;
