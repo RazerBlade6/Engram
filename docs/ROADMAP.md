@@ -96,7 +96,7 @@ Whether flashcards and multiple-choice questions are interleaved or separated is
 - **Blocked**: all flashcards first, then all multiple choice.
 - **Separate**: two distinct sessions, "Review" and "Quiz".
 
-Users try each for a few days during Phase 2, and the preferred one becomes the fixed default. It is never a user-facing setting.
+Blocked is the default, since a tester liked having the multiple choice at the end. Users try blocked and separate for a few days each in their first weeks of daily study, and the preferred one becomes the fixed default (D55). It is never a user-facing setting.
 
 ### Engagement
 
@@ -263,16 +263,24 @@ The smallest end-to-end product, live at https://engramstudy.app (invite-only). 
 
 A dedicated pass on design and friction. Daily use by users starts at the end of this phase.
 
+Designed directly in the app and reviewed on the local dev server, without a separate prototype (D56).
+
+- [ ] Visual direction: palette, type, and the overall look
 - [ ] Design system: tokens, components, light theme (tokens structured so a dark theme can be added without a redesign)
-- [ ] Redesign the core flows from the Phase 1 session findings ([observations](UserObservations.md))
+- [ ] Redesign the core flows from the Phase 1 session findings ([observations](UserObservations.md#findings)):
+  - [ ] Dates written out and entered day/month/year (D54)
+  - [ ] Report control moved to the card's corner (D52)
+  - [ ] Card generation shows its progress (D53)
+  - [ ] Blocked review order as the default (D55)
 - [ ] One-time welcome screen: one sentence on what Engram does, one "Start your first review" button
-- [ ] Empty states, loading states, error states
+- [ ] Empty states, loading states, error states, including a stalled or failed upload
 - [ ] Mobile pass for review
-- [ ] Review-order experiment: a few days on each ordering, then fix the preferred one as the default
 - [ ] **Exit:** a second moderated session where a user on a fresh account takes their first meaningful action within 5 seconds, then users begin daily study
 
 ### Phase 3: Depth for studying
 
+- [ ] Review-order experiment in the first weeks of daily use: blocked against separate, then fix the preferred one (D55)
+- [ ] Session goals (general revision, a quiz, a project), explored alongside exam focus mode
 - [ ] More sources in the drop zone: photographed and typed notes, web articles via URL ("Add a link instead")
 - [ ] Short-answer cards with LLM grading
 - [ ] Concepts, mastery and the weak-spots view
@@ -347,3 +355,8 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 | 49  | Files upload from the browser straight to Storage with a signed token; the API then checks and queues them | Cloud Run caps request bodies at 32 MiB, well under a textbook |
 | 50  | A navigation bar on every signed-in page except review                                    | Pages reachable only by typed address don't exist for users; review keeps the screen to the card |
 | 51  | A running job renews its lock every minute; a lock five minutes old means the worker is gone | Modal preempted a worker mid-ingestion, and the one-hour stale lock left the upload stuck as "processing" |
+| 52  | The report control sits in the card's corner, with a keyboard shortcut, not under every card | Found at once in testing but rarely needed; under the card it competed with the ratings |
+| 53  | Waiting for cards shows how many have been made so far, with motion that respects reduced-motion settings | The wait was clear but dull in testing; real progress says more than decoration |
+| 54  | Dates are written out ("12 Nov 2026") and entered day/month/year in Engram's own date field | The browser's date input takes the order from the operating system, and mm/dd/yyyy confused a tester |
+| 55  | Blocked is the default review order; blocked and separate are compared in the first weeks of daily use (refines D20) | A tester liked having the multiple choice at the end; the experiment needs daily use, which starts after Phase 2 |
+| 56  | Phase 2 is designed in the app on the local dev server, with sketches only where a design isn't working out (refines D14) | The flows already tested well, so this is polish; the exit session validates the result with a user |

@@ -60,6 +60,15 @@ identifies the participant: this file is public.
 
 Each finding becomes a decision or a Phase 2 change in [`ROADMAP.md`](ROADMAP.md).
 
-| Finding | Outcome |
-| ------- | ------- |
-|         |         |
+| Finding                                                                                          | Outcome                                                                                                                          |
+| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| Oriented in about 3–4 s, but on a sparse account with little on screen                          | Keep the welcome screen (D21); the 5 s bar has to hold on a full Today screen, which the Phase 2 exit session tests             |
+| The worker was preempted mid-ingestion and the upload stalled                                    | Fixed by renewing the job lock (D51); a stalled or failed job still needs a clear state on screen (Phase 2 error states)        |
+| The wait for cards was clear but a little boring                                                 | Show real progress, the count of cards made so far, with gentle motion that respects reduced-motion settings (D53)              |
+| Found the flag at once, but doubted they'd use it often; it sits directly under every card       | Move it to a small "Report" control in the card's corner, with a keyboard shortcut (D52)                                         |
+| Preferred the top bar to the sidebar used in the demo                                            | Keep the top bar (D50)                                                                                                           |
+| Hesitated on the calendar's mm/dd/yyyy date entry                                                | Dates written out ("12 Nov 2026") and entered day/month/year in Engram's own date field (D54)                                   |
+| "I liked having all the MCQs at the end"                                                         | Blocked order becomes the default; blocked and separate are compared in the first weeks of daily use (D55)                      |
+| Suggested setting a goal for a session: general revision, a quiz, a project                      | Explored in Phase 3 alongside exam focus mode, which is the same idea aimed at a date                                           |
+| Text size fine on the tester's laptop, a little large on a higher-resolution screen              | Keep the larger base size; everything is sized relative to it, so a later change is one line                                    |
+| Sources, review, chat and marking chapters covered all went smoothly                             | Keep as built                                                                                                                    |
