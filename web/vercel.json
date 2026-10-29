@@ -6,5 +6,5 @@
       "main": true
     }
   },
-  "ignoreCommand": "git diff --quiet ${VERCEL_GIT_PREVIOUS_SHA:-HEAD^} HEAD -- ."
+  "ignoreCommand": "prev=${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}; git cat-file -e \"$prev^{commit}\" 2>/dev/null || exit 1; git diff --quiet \"$prev\" HEAD -- ."
 }
