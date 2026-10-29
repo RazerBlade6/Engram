@@ -263,7 +263,7 @@ The smallest end-to-end product, live at https://engramstudy.app (invite-only). 
 
 A dedicated pass on design and friction. Daily use by users starts at the end of this phase.
 
-Designed directly in the app and reviewed on the local dev server, without a separate prototype (D56).
+Designed directly in the app and reviewed on the local dev server, without a separate prototype (D56). API and database changes the pass needs are tracked in [BACKEND_PENDING.md](BACKEND_PENDING.md).
 
 - [x] Visual direction: palette, type, and the overall look (D57–D59)
 - [ ] Design system: tokens, components, light theme (tokens structured so a dark theme can be added without a redesign)
