@@ -62,7 +62,7 @@ function Admin() {
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
       <h1 className="text-3xl font-bold">Admin</h1>
-      <Materials key={materialsKey} show={show} />
+      <Materials key={`materials-${materialsKey}`} show={show} />
       <People
         people={people}
         setPeople={setPeople}
@@ -73,7 +73,7 @@ function Admin() {
         }}
         show={show}
       />
-      <Courses key={coursesKey} people={people} onDeleted={() => setMaterialsKey((k) => k + 1)} show={show} />
+      <Courses key={`courses-${coursesKey}`} people={people} onDeleted={() => setMaterialsKey((k) => k + 1)} show={show} />
       <Toast key={toast?.id} toast={toast} onDone={() => setToast(null)} />
     </main>
   );
