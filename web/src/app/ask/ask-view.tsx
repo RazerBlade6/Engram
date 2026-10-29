@@ -170,86 +170,101 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
   }, [messages]);
 
   return (
-    <main className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-3xl flex-col px-6 pt-10">
-      <h1 className="text-3xl font-bold">Ask a question</h1>
-      {courses.length > 1 && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="text-muted">Answering from</span>
-          {courses.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              aria-pressed={c.id === course.id}
-              disabled={busy}
-              onClick={() => router.replace(`/ask?course=${c.id}`)}
-              className={cx(
-                "rounded-full border px-3.5 py-1 transition-colors duration-150 disabled:opacity-60",
-                c.id === course.id
-                  ? "border-accent bg-accent-soft font-semibold text-accent"
-                  : "border-border-strong bg-surface hover:border-accent",
-              )}
-            >
-              {c.title}
-            </button>
-          ))}
-        </div>
-      )}
-      {messages.length === 0 && (
-        <p className="mt-6 max-w-prose text-lg text-muted">
-          Stuck on something in {course.title}? Ask in your own words. Answers come from your textbook, slides and
-          notes, with a link to the exact page.
-        </p>
-      )}
-
-      <div className="mt-8 flex flex-1 flex-col gap-6" aria-live="polite">
-        {messages.map((m, i) =>
-          m.role === "user" ? (
-            <p key={i} className="rise-in max-w-[80%] self-end rounded-control rounded-br-sm bg-accent-soft px-4 py-3">
-              {m.text}
-            </p>
-          ) : (
-            <Answer
-              key={i}
-              answer={m}
-              course={course.title}
-              onOpen={(chunkId, quote) => setOpen({ chunkId, quote })}
-              onAskAgain={i === messages.length - 1 ? askAgain : undefined}
-            />
-          ),
+    // As wide as the nav bar, so the right gutter lines up with it; the conversation is a
+    // narrower column in the middle.
+    <main className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-6xl flex-col px-6 pt-10">
+      <div className="mx-auto flex w-full max-w-[45rem] flex-1 flex-col">
+        <h1 className="text-3xl font-bold">Ask a question</h1>
+        {courses.length > 1 && (
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="text-muted">Answering from</span>
+            {courses.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                aria-pressed={c.id === course.id}
+                disabled={busy}
+                onClick={() => router.replace(`/ask?course=${c.id}`)}
+                className={cx(
+                  "rounded-full border px-3.5 py-1 transition-colors duration-150 disabled:opacity-60",
+                  c.id === course.id
+                    ? "border-accent bg-accent-soft font-semibold text-accent"
+                    : "border-border-strong bg-surface hover:border-accent",
+                )}
+              >
+                {c.title}
+              </button>
+            ))}
+          </div>
         )}
-        <div ref={end} />
+        {messages.length === 0 && (
+          <p className="mt-6 max-w-prose text-lg text-muted">
+            Stuck on something in {course.title}? Ask in your own words. Answers come from your textbook, slides and
+            notes, with a link to the exact page.
+          </p>
+        )}
+
+        <div className="mt-8 flex flex-1 flex-col gap-6" aria-live="polite">
+          {messages.map((m, i) =>
+            m.role === "user" ? (
+              <p
+                key={i}
+                className="rise-in max-w-[80%] self-end rounded-control rounded-br-sm bg-accent-soft px-4 py-3"
+              >
+                {m.text}
+              </p>
+            ) : (
+              <Answer
+                key={i}
+                answer={m}
+                course={course.title}
+                onOpen={(chunkId, quote) => setOpen({ chunkId, quote })}
+                onAskAgain={i === messages.length - 1 ? askAgain : undefined}
+              />
+            ),
+          )}
+          <div ref={end} />
+        </div>
       </div>
 
       {/* Stays at the bottom of the screen; the desk fades in behind it as answers scroll under. */}
       <form
-        className="sticky bottom-0 mt-6 flex gap-3 bg-linear-to-t from-desk from-75% to-transparent pt-6 pb-5"
+        className="sticky bottom-0 mt-6 grid grid-cols-[minmax(0,1fr)_minmax(0,45rem)_minmax(0,1fr)] items-center bg-linear-to-t from-desk from-75% to-transparent pt-6 pb-5"
         onSubmit={(e) => {
           e.preventDefault();
           ask(question);
         }}
       >
-        <label htmlFor="ask-input" className="sr-only">
-          Your question
-        </label>
-        <input
-          ref={input}
-          id="ask-input"
-          type="text"
-          autoComplete="off"
-          autoFocus
-          maxLength={2000}
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder={`Ask about ${course.title}…`}
-          className={cx(CONTROL, "min-w-0 flex-1 text-lg shadow-card")}
-        />
-        <Button type="submit" size="lg" disabled={busy || !question.trim()}>
-          Ask
-        </Button>
-        {/* Rides along with the question box, smaller than Ask so it never competes with it. */}
+        <div className="col-start-2 flex gap-3">
+          <label htmlFor="ask-input" className="sr-only">
+            Your question
+          </label>
+          <input
+            ref={input}
+            id="ask-input"
+            type="text"
+            autoComplete="off"
+            autoFocus
+            maxLength={2000}
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder={`Ask about ${course.title}…`}
+            className={cx(CONTROL, "min-w-0 flex-1 text-lg shadow-card")}
+          />
+          <Button type="submit" size="lg" disabled={busy || !question.trim()}>
+            Ask
+          </Button>
+          {/* Where there's no room in the gutter, it rides in the row, smaller than Ask. */}
+          {messages.length > 0 && (
+            <Button variant="secondary" disabled={busy} onClick={clear} className="self-center min-[75rem]:hidden">
+              Clear<span className="max-sm:hidden">&nbsp;chat</span>
+            </Button>
+          )}
+        </div>
+        {/* On wide screens it sits (1200px and up) in the right gutter, below Sign out, out of the way of asking. */}
         {messages.length > 0 && (
-          <Button variant="secondary" disabled={busy} onClick={clear} className="self-center">
-            Clear<span className="max-sm:hidden">&nbsp;chat</span>
+          <Button variant="secondary" disabled={busy} onClick={clear} className="justify-self-end max-[75rem]:hidden">
+            Clear chat
           </Button>
         )}
       </form>
