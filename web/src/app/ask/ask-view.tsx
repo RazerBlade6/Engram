@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { SourceViewer } from "@/components/source-viewer";
+import { Toast, type ToastMessage } from "@/components/toast";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CONTROL } from "@/components/ui/field";
@@ -83,6 +84,8 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
   const [messages, setMessages] = useState<Message[]>(() => load(course.id));
   const [question, setQuestion] = useState("");
   const [open, setOpen] = useState<{ chunkId: string; quote: string | null } | null>(null);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const hideToast = useCallback(() => setToast(null), []);
   const input = useRef<HTMLInputElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const busy = messages.at(-1)?.role === "assistant" && (messages.at(-1) as AnswerMessage).status === "streaming";
@@ -149,6 +152,14 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
     [course, busy, messages],
   );
 
+  // Clears the conversation from the screen (and this tab's copy of it), with a moment to undo.
+  const clear = useCallback(() => {
+    const cleared = messages;
+    setMessages([]);
+    setToast({ id: Date.now(), text: "Chat cleared.", undo: () => setMessages(cleared) });
+    input.current?.focus();
+  }, [messages]);
+
   // A failed answer is taken away and its question put back, ready to send again.
   const askAgain = useCallback(() => {
     const last = messages.at(-2);
@@ -160,7 +171,14 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
 
   return (
     <main className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-3xl flex-col px-6 pt-10">
-      <h1 className="text-3xl font-bold">Ask a question</h1>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-3xl font-bold">Ask a question</h1>
+        {messages.length > 0 && (
+          <Button variant="secondary" disabled={busy} onClick={clear}>
+            Clear chat
+          </Button>
+        )}
+      </div>
       {courses.length > 1 && (
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-muted">Answering from</span>
@@ -238,6 +256,8 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
       </form>
 
       {open && <SourceViewer chunkId={open.chunkId} quote={open.quote} origin="chat" onClose={() => setOpen(null)} />}
+      {/* Above the question box. */}
+      <Toast key={toast?.id} toast={toast} onDone={hideToast} above="bottom-28" />
     </main>
   );
 }
