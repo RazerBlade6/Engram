@@ -2,11 +2,12 @@ import asyncio
 from datetime import timedelta
 from typing import Any
 
+import psycopg
 import pytest
 from psycopg import AsyncConnection
 
-from engram.worker import queue
-from engram.worker.main import run, run_once
+from engram.worker import main, queue
+from engram.worker.main import run, run_once, serve
 from engram.worker.queue import Job
 
 
@@ -99,3 +100,37 @@ async def test_a_running_job_keeps_its_lock(
         "select status::text, locked_at from public.jobs where id = %s", (job_id,)
     )
     assert await cur.fetchone() == ("succeeded", None)
+
+
+class FakeConnection:
+    async def __aenter__(self) -> "FakeConnection":
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        pass
+
+
+async def test_the_worker_reconnects_when_the_database_drops_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stop = asyncio.Event()
+    connections: list[FakeConnection] = []
+    runs: list[FakeConnection] = []
+
+    async def connect() -> FakeConnection:
+        connections.append(FakeConnection())
+        return connections[-1]
+
+    async def fake_run(stop: asyncio.Event, conn: Any, *args: object) -> None:
+        runs.append(conn)
+        if len(runs) == 1:
+            raise psycopg.errors.AdminShutdown("terminating connection")
+        stop.set()
+
+    monkeypatch.setattr(main, "run", fake_run)
+    await asyncio.wait_for(
+        serve(stop, connect, 10, {}, reconnect_after=0.01),  # type: ignore[arg-type]
+        timeout=1,
+    )
+    assert len(connections) == 2
+    assert runs == connections  # a fresh connection for the second run

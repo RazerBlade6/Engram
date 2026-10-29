@@ -11,9 +11,10 @@ import logging
 import os
 import signal
 import socket
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
+import psycopg
 from psycopg import AsyncConnection
 
 from engram.config import Settings, get_settings
@@ -22,6 +23,9 @@ from engram.worker import queue
 from engram.worker.queue import Handler, Job
 
 logger = logging.getLogger("engram.worker")
+
+# Seconds between attempts to reach the database after losing it.
+RECONNECT_AFTER = 5.0
 
 
 def build_handlers(settings: Settings) -> dict[str, Handler]:
@@ -102,6 +106,26 @@ async def run(
     logger.info("worker %s stopped", worker_id)
 
 
+async def serve(
+    stop: asyncio.Event,
+    connect: Callable[[], Awaitable[AsyncConnection[Any]]],
+    poll_interval: float,
+    handlers: dict[str, Handler],
+    *,
+    reconnect_after: float = RECONNECT_AFTER,
+) -> None:
+    """`run` until stopped, reconnecting whenever the database drops the connection (a
+    restart, a failover). A job cut off that way is picked up again once its lock is stale."""
+    while not stop.is_set():
+        try:
+            async with await connect() as conn:
+                await run(stop, conn, poll_interval, handlers)
+        except psycopg.OperationalError as exc:
+            logger.warning("lost the database (%s); reconnecting in %ss", exc, reconnect_after)
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(stop.wait(), timeout=reconnect_after)
+
+
 async def drain(settings: Settings, worker_id: str) -> int:
     """Run jobs until none is ready, then return how many ran. Used where the worker scales
     to zero (Modal): it starts when woken, empties the queue and stops."""
@@ -119,8 +143,12 @@ async def _main() -> None:
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stop.set)
-    async with await AsyncConnection.connect(settings.database_url, autocommit=True) as conn:
-        await run(stop, conn, settings.worker_poll_interval_seconds, build_handlers(settings))
+    await serve(
+        stop,
+        lambda: AsyncConnection.connect(settings.database_url, autocommit=True),
+        settings.worker_poll_interval_seconds,
+        build_handlers(settings),
+    )
 
 
 def main() -> None:
@@ -128,7 +156,7 @@ def main() -> None:
     asyncio.run(_main())
 
 
-__all__ = ["Job", "build_handlers", "drain", "main", "run", "run_once"]
+__all__ = ["Job", "build_handlers", "drain", "main", "run", "run_once", "serve"]
 
 
 if __name__ == "__main__":
