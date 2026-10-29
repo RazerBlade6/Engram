@@ -12,6 +12,10 @@ export type MaterialSummary = {
   sections: number;
   figures: number;
   chunks: number;
+  /** Who uploaded it. Not sent by the API yet; the admin page shows a dash until it is. */
+  uploaded_by?: string | null;
+  /** Whose course it belongs to. Not sent by the API yet, like `uploaded_by`. */
+  owner?: string | null;
 };
 
 export type Section = {
@@ -78,9 +82,7 @@ export function boxStyle(bbox: BBox, width: number, height: number) {
 
 /** Sections whose page range includes `page`, outermost first. */
 export function sectionsOnPage(sections: Section[], page: number): Section[] {
-  return sections.filter(
-    (s) => s.page_start !== null && s.page_start <= page && page <= (s.page_end ?? s.page_start),
-  );
+  return sections.filter((s) => s.page_start !== null && s.page_start <= page && page <= (s.page_end ?? s.page_start));
 }
 
 /** Pages where nothing was extracted: often blank, sometimes a missed scan or a broken parse. */

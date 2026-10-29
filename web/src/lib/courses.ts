@@ -1,6 +1,13 @@
 /** Types for the course endpoints (see backend `api/routes/courses.py`). */
 
-export type CourseSummary = { id: string; title: string; chapters: number; covered: number };
+export type CourseSummary = {
+  id: string;
+  title: string;
+  chapters: number;
+  covered: number;
+  /** Whose course it is. Not sent by the API yet; the admin page needs it to list one person's courses. */
+  owner_id?: string;
+};
 
 export type Chapter = {
   id: string;
