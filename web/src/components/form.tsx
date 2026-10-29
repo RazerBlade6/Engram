@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { IndexCard } from "@/components/ui/index-card";
 import { Notice } from "@/components/ui/notice";
 
 export { Field } from "@/components/ui/field";
@@ -18,12 +19,18 @@ export function FormError({ message }: { message: string | null }) {
   return <Notice tone="error">{message}</Notice>;
 }
 
+/** Signed-out pages: the name, one line on what it is, and the form on a card on the desk. */
 export function AuthCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
-      <p className="text-lg font-bold text-accent">Engram</p>
-      <h1 className="mt-2 text-3xl font-bold">{title}</h1>
-      <div className="mt-8">{children}</div>
+      <p className="text-2xl font-bold text-accent">Engram</p>
+      <p className="mt-1 text-muted">Your course materials, turned into practice.</p>
+      <div className="rise-in mt-8">
+        <IndexCard>
+          <h1 className="text-2xl font-bold">{title}</h1>
+          <div className="mt-5">{children}</div>
+        </IndexCard>
+      </div>
     </main>
   );
 }

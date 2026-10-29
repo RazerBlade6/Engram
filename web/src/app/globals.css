@@ -232,6 +232,36 @@ body {
     animation: rise-in var(--duration-base) var(--ease-quiet) calc(var(--duration-flip) * 0.75) both;
   }
 
+  /* A tiny pile with a card being dealt onto it, while a chapter's cards are made. */
+  .making-cards i {
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: 2px;
+    background: var(--paper);
+  }
+  .making-cards i:nth-child(1) {
+    transform: rotate(-8deg) translate(-2px, 1px);
+  }
+  .making-cards i:nth-child(2) {
+    transform: rotate(5deg);
+  }
+  .making-cards i:nth-child(3) {
+    border-top: 2px solid var(--card-rule);
+    animation: deal 1.8s var(--ease-quiet) infinite;
+  }
+  @keyframes deal {
+    0% {
+      opacity: 0;
+      transform: translate(0.6rem, -0.4rem) rotate(16deg);
+    }
+    45%,
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
   /* An answered card sliding off the pile, revealing the next one underneath. */
   @keyframes card-leave {
     to {

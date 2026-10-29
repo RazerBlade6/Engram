@@ -1,24 +1,23 @@
 "use client";
 
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Toast, type ToastMessage } from "@/components/toast";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Notice } from "@/components/ui/notice";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api, apiFetch } from "@/lib/api";
-import {
-  chapterNote,
-  splitChapterTitle,
-  type Chapter,
-  type Coverage,
-  type Course,
-} from "@/lib/courses";
+import { chapterNote, splitChapterTitle, type Chapter, type Coverage, type Course } from "@/lib/courses";
+import { cx } from "@/lib/cx";
 import { useProfile } from "@/lib/profile";
 
 import { CardList } from "./card-list";
 import { MaterialsPanel } from "./materials-panel";
 
-const dateFormat = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" });
+// Day first, as everywhere else (D54).
+const dateFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" });
 const POLL_MS = 4000;
 // "uploading" isn't here: this page uploads and then reloads, so one left uploading was abandoned.
 const pending = (status: string) => ["queued", "processing"].includes(status);
@@ -53,18 +52,19 @@ export function CourseView() {
   }, [reading, reload]);
 
   const setCovered = useCallback((chapterId: string, coveredAt: string | null) => {
-    setCourse((c) =>
-      c && {
-        ...c,
-        textbooks: c.textbooks.map((t) => ({
-          ...t,
-          chapters: t.chapters.map((ch) =>
-            ch.id === chapterId
-              ? { ...ch, covered_at: coveredAt, cards_status: coveredAt ? (ch.cards_status ?? "pending") : null }
-              : ch,
-          ),
-        })),
-      },
+    setCourse(
+      (c) =>
+        c && {
+          ...c,
+          textbooks: c.textbooks.map((t) => ({
+            ...t,
+            chapters: t.chapters.map((ch) =>
+              ch.id === chapterId
+                ? { ...ch, covered_at: coveredAt, cards_status: coveredAt ? (ch.cards_status ?? "pending") : null }
+                : ch,
+            ),
+          })),
+        },
     );
   }, []);
 
@@ -123,42 +123,62 @@ export function CourseView() {
 
   if (error) {
     return (
-      <main className="mx-auto max-w-3xl px-6 py-16">
-        <p>This course couldn&apos;t be loaded.</p>
-        <Link href="/" className="mt-4 inline-block text-accent underline">
-          Back to your courses
-        </Link>
+      <main className="mx-auto max-w-3xl px-6 py-10">
+        <Notice
+          tone="error"
+          action={
+            <Button variant="secondary" onClick={() => window.location.reload()}>
+              Try again
+            </Button>
+          }
+        >
+          This course couldn&apos;t be loaded. Check your connection and try again.
+        </Notice>
+        <ButtonLink href="/" variant="secondary" className="mt-4">
+          ← Today
+        </ButtonLink>
       </main>
     );
   }
-  if (!course) return null;
+  if (!course) return <CourseLoading />;
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <Link href="/" className="text-muted underline hover:text-foreground">
-        Your courses
-      </Link>
-      <h1 className="mt-4 text-3xl font-semibold">{course.title}</h1>
+    <main className="mx-auto max-w-5xl px-6 py-8">
+      <ButtonLink href="/" variant="secondary">
+        ← Today
+      </ButtonLink>
+      <h1 className="mt-6 text-3xl font-bold">{course.title}</h1>
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_18rem]">
-        <section aria-labelledby="chapters-heading">
+      <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_19rem]">
+        <section aria-labelledby="chapters-heading" className="min-w-0">
           <h2 id="chapters-heading" className="text-xl font-semibold">
             Chapters
           </h2>
-          <p className="mt-1 text-muted">When you&apos;ve covered a chapter in class, mark it here.</p>
+          <p className="text-muted">
+            When you&apos;ve covered a chapter in class, mark it here. Its cards are made for you.
+          </p>
 
           {course.textbooks.length === 0 && (
-            <p className="mt-6 rounded-lg border border-border bg-white px-5 py-4">
-              {course.materials.some((m) => m.kind === "textbook" && pending(m.status))
-                ? "Your textbook is still being prepared. Its chapters will appear here once it's ready."
-                : "Chapters come from the course textbook. They'll appear here once it's added."}
-            </p>
+            <div className="mt-5">
+              <EmptyState
+                title={
+                  course.materials.some((m) => m.kind === "textbook" && pending(m.status))
+                    ? "Your textbook is being read"
+                    : "No chapters yet"
+                }
+              >
+                {course.materials.some((m) => m.kind === "textbook" && pending(m.status))
+                  ? "Its chapters will appear here once it's ready. You can leave this page."
+                  : "Chapters come from the course textbook. They'll appear here once it's added."}
+              </EmptyState>
+            </div>
           )}
 
           {course.textbooks.map((book) => (
-            <div key={book.material_id} className="mt-6">
+            <div key={book.material_id} className="mt-5">
               {course.textbooks.length > 1 && <h3 className="mb-2 font-semibold">{book.title}</h3>}
-              <ol className="divide-y divide-border rounded-lg border border-border bg-white">
+              {/* The book's contents page. */}
+              <ol className="divide-y divide-border/70 rounded-card bg-paper shadow-card">
                 {book.chapters.map((chapter) => (
                   <ChapterRow key={chapter.id} chapter={chapter} onCover={cover} onUncover={uncover} />
                 ))}
@@ -181,6 +201,19 @@ export function CourseView() {
   );
 }
 
+function CourseLoading() {
+  return (
+    <main className="mx-auto max-w-5xl px-6 py-8" role="status" aria-label="Loading the course">
+      <Skeleton className="h-11 w-28" />
+      <Skeleton className="mt-6 h-9 w-72" />
+      <div className="mt-8 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_19rem]">
+        <Skeleton className="h-96" />
+        <Skeleton className="h-64" />
+      </div>
+    </main>
+  );
+}
+
 function ChapterRow({
   chapter,
   onCover,
@@ -193,21 +226,28 @@ function ChapterRow({
   const { number, title } = splitChapterTitle(chapter.title);
   const [open, setOpen] = useState(false);
   const note = chapterNote(chapter, (iso) => dateFormat.format(new Date(iso)));
+  const making = chapter.covered_at !== null && chapter.cards_status === "pending";
   return (
-    <li className="px-5 py-4">
-      <div className="flex items-center gap-4">
-        <span className="w-8 shrink-0 text-lg font-semibold text-muted tabular-nums">{number}</span>
-        <div className="min-w-0 flex-1">
-          <div className="font-medium">{title}</div>
-          <div className="text-sm text-muted">
+    <li className="px-5 py-4 sm:px-6">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+        <span className="w-8 shrink-0 font-read text-2xl font-semibold text-muted tabular-nums">{number}</span>
+        <div className="min-w-0 flex-1 basis-48">
+          <div className="text-lg font-semibold">{title}</div>
+          <div
+            className={cx(
+              "flex flex-wrap items-center gap-x-2 text-sm",
+              chapter.cards_status === "failed" ? "text-danger" : "text-muted",
+            )}
+          >
+            {making && <MakingCards />}
             {note}
             {chapter.cards > 0 && (
               <>
-                {" · "}
+                <span aria-hidden>·</span>
                 <button
                   onClick={() => setOpen((o) => !o)}
                   aria-expanded={open}
-                  className="underline hover:text-foreground"
+                  className="font-semibold text-accent underline-offset-4 hover:underline"
                 >
                   {open ? "Hide cards" : "See cards"}
                 </button>
@@ -222,6 +262,17 @@ function ChapterRow({
   );
 }
 
+/** A tiny pile of cards being dealt, while a chapter's cards are made. */
+function MakingCards() {
+  return (
+    <span aria-hidden className="making-cards relative inline-block h-3.5 w-5">
+      <i />
+      <i />
+      <i />
+    </span>
+  );
+}
+
 function ChapterAction({
   chapter,
   onCover,
@@ -232,26 +283,18 @@ function ChapterAction({
   onUncover: (chapter: Chapter) => void;
 }) {
   return chapter.covered_at ? (
-    <span className="flex shrink-0 items-center gap-3">
-      <span className="flex items-center gap-1 font-medium text-success">
+    <span className="flex shrink-0 items-center gap-2">
+      <span className="flex items-center gap-1 font-semibold" style={{ color: "var(--rate-3)" }}>
         <CheckIcon /> Covered
       </span>
-      <button
-        onClick={() => onUncover(chapter)}
-        className="text-sm text-muted underline hover:text-foreground"
-        aria-label={`Unmark ${chapterName(chapter)}`}
-      >
+      <Button variant="quiet" onClick={() => onUncover(chapter)} aria-label={`Unmark ${chapterName(chapter)}`}>
         Unmark
-      </button>
+      </Button>
     </span>
   ) : (
-    <button
-      onClick={() => onCover(chapter)}
-      className="shrink-0 rounded-lg border border-accent px-4 py-2 font-medium text-accent hover:bg-accent hover:text-white"
-      aria-label={`Mark ${chapterName(chapter)} as covered`}
-    >
+    <Button variant="secondary" onClick={() => onCover(chapter)} aria-label={`Mark ${chapterName(chapter)} as covered`}>
       We&apos;ve covered this
-    </button>
+    </Button>
   );
 }
 
