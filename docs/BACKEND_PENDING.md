@@ -5,7 +5,6 @@ API and database changes the Phase 2 UI pass needs but doesn't make. The UI pass
 | #   | Change                                                              | Needs                      | Frontend ready?                                        |
 | --- | ------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------ |
 | 1   | [Card generation shows its progress](#1-card-generation-progress-d53) (D53) | Migration, worker, API | No: needs a few lines once the field exists           |
-| 3   | [Each course's owner on `/courses`](#3-each-courses-owner-on-courses) | API                      | Yes: the admin page filters as soon as it's sent      |
 | 4   | [Who uploaded a material, and whose it is](#4-who-uploaded-a-material-and-whose-it-is) | Migration, API | Yes: the admin columns fill in as soon as it's sent    |
 | 5   | [Delete a material (admin)](#5-delete-a-material-admin)            | Probably nothing           | Stub: `deleteMaterial` in `web/src/app/admin/page.tsx` |
 | 6   | [Delete a course](#6-delete-a-course)                               | API (maybe RLS)            | Stub: `deleteCourse` in `web/src/app/admin/page.tsx`   |
@@ -68,14 +67,6 @@ Already made during Phase 2, recorded here for completeness: review cards carry 
    - the course page already polls every 4 s while a chapter is pending, so the count updates without further work. The small animated pile next to it is already built.
 
 **Open question:** the count is taken before repeats are dropped, so "23 so far" can end as "21 cards are ready". Counting batches done out of total ("3 of 5 parts") is exact but means less to a student. The draft used the card count, worded "so far".
-
-## 3. Each course's owner on `/courses`
-
-The admin page's Courses section lists one person's courses. As an admin, `GET /courses` already returns every course (RLS lets admins read all), but not whose each one is, so the page lists all of them with a note saying so.
-
-- `backend/src/engram/api/routes/courses.py`: add `owner_id: UUID` to `CourseSummary`, and select `c.owner_id` in `list_courses`.
-- No migration: `courses.owner_id` exists.
-- Frontend: `owner_id` is already an optional field on `CourseSummary`; once every course has it, the filter turns on and the note disappears.
 
 ## 4. Who uploaded a material, and whose it is
 

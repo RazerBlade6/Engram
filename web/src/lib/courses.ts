@@ -5,8 +5,8 @@ export type CourseSummary = {
   title: string;
   chapters: number;
   covered: number;
-  /** Whose course it is. Not sent by the API yet; the admin page needs it to list one person's courses. */
-  owner_id?: string;
+  /** Whose course it is, so the admin page can list one person's courses. */
+  owner_id: string;
 };
 
 export type Chapter = {

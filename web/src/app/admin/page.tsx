@@ -416,9 +416,7 @@ function Courses({ people, show }: { people: Person[] | null; show: Show }) {
   // A student first, once people have loaded.
   const chosen = owner || people?.find((p) => p.role === "student")?.id || people?.[0]?.id || "";
   const person = people?.find((p) => p.id === chosen);
-  // The API doesn't yet say whose each course is; until it does, every course is listed.
-  const knowsOwners = courses?.every((c) => c.owner_id !== undefined) ?? false;
-  const listed = knowsOwners ? courses?.filter((c) => c.owner_id === chosen) : courses;
+  const listed = courses?.filter((c) => c.owner_id === chosen);
 
   // Not built yet: wire this to the API when deleting courses exists.
   function deleteCourse(course: CourseSummary) {
@@ -454,14 +452,6 @@ function Courses({ people, show }: { people: Person[] | null; show: Show }) {
             </Button>
           </div>
           {creating && person && <CourseForm owner={person} onCancel={() => setCreating(false)} />}
-          {!knowsOwners && (
-            <div className="mt-4">
-              <Notice tone="caution">
-                The API doesn&apos;t say who owns each course yet, so this lists every course, not just{" "}
-                {person?.display_name ? `${person.display_name}'s` : "this person's"}.
-              </Notice>
-            </div>
-          )}
           {listed!.length === 0 ? (
             <p className="mt-4 text-muted">{person ? `${nameOf(person)} has no courses yet.` : "No courses yet."}</p>
           ) : (

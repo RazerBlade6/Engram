@@ -56,6 +56,7 @@ class Course(BaseModel):
 
 class CourseSummary(BaseModel):
     id: UUID
+    owner_id: UUID
     title: str
     chapters: int
     covered: int
@@ -155,7 +156,7 @@ async def _chapters_by_material(db: UserDb, course_ids: list[UUID]) -> dict[UUID
 @router.get("/courses")
 async def list_courses(db: UserDb) -> list[CourseSummary]:
     cur = await db.execute(
-        "select c.id, c.title, array_remove(array_agg(m.id), null)"
+        "select c.id, c.owner_id, c.title, array_remove(array_agg(m.id), null)"
         " from public.courses c"
         " left join public.materials m"
         "   on m.course_id = c.id and m.kind = 'textbook' and m.status = 'ready'"
@@ -164,11 +165,13 @@ async def list_courses(db: UserDb) -> list[CourseSummary]:
     courses = await cur.fetchall()
     by_material = await _chapters_by_material(db, [c[0] for c in courses])
     summaries = []
-    for course_id, title, material_ids in courses:
+    for course_id, owner_id, title, material_ids in courses:
         found = [ch for m in material_ids for ch in by_material.get(m, [])]
         covered = sum(ch.covered_at is not None for ch in found)
         summaries.append(
-            CourseSummary(id=course_id, title=title, chapters=len(found), covered=covered)
+            CourseSummary(
+                id=course_id, owner_id=owner_id, title=title, chapters=len(found), covered=covered
+            )
         )
     return summaries
 
@@ -181,7 +184,7 @@ async def create_course(body: NewCourse, db: UserDb, visit: Visit) -> CourseSumm
     try:
         cur = await db.execute(
             "insert into public.courses (owner_id, title)"
-            " values (coalesce(%s, (select auth.uid())), %s) returning id",
+            " values (coalesce(%s, (select auth.uid())), %s) returning id, owner_id",
             (body.owner_id, title),
         )
     except psycopg.errors.InsufficientPrivilege:
@@ -191,7 +194,7 @@ async def create_course(body: NewCourse, db: UserDb, visit: Visit) -> CourseSumm
     row = await cur.fetchone()
     assert row is not None
     await usage.log(db, visit, "course_created", course_id=row[0])
-    return CourseSummary(id=row[0], title=title, chapters=0, covered=0)
+    return CourseSummary(id=row[0], owner_id=row[1], title=title, chapters=0, covered=0)
 
 
 @router.get("/courses/{course_id}")

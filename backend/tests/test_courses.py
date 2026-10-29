@@ -167,11 +167,12 @@ def test_students_create_their_own_courses(
     assert response.status_code == 201
     body = response.json()
     assert (body["title"], body["chapters"], body["covered"]) == ("Biology 101", 0, 0)
+    assert body["owner_id"] == student
     with psycopg.connect(database_url) as c:
         row = c.execute("select owner_id::text from public.courses where id = %s", (body["id"],))
         assert row.fetchone() == (student,)
     listed = client.get("/courses", headers=auth(token_for(student))).json()
-    assert [c["id"] for c in listed] == [body["id"]]
+    assert [(c["id"], c["owner_id"]) for c in listed] == [(body["id"], student)]
 
 
 def test_only_admins_create_courses_for_someone_else(
@@ -185,11 +186,18 @@ def test_only_admins_create_courses_for_someone_else(
 
     response = client.post("/courses", headers=auth(token_for(admin)), json=request)
     assert response.status_code == 201
+    assert response.json()["owner_id"] == other
     with psycopg.connect(database_url) as c:
         row = c.execute(
             "select owner_id::text from public.courses where id = %s", (response.json()["id"],)
         )
         assert row.fetchone() == (other,)
+
+    # Admins see every course, each with its owner, so the admin page can list one person's.
+    listed = client.get("/courses", headers=auth(token_for(admin))).json()
+    assert {"id": response.json()["id"], "owner_id": other}.items() <= next(
+        c for c in listed if c["id"] == response.json()["id"]
+    ).items()
 
     missing = {"title": "Politics", "owner_id": str(uuid.uuid4())}
     assert client.post("/courses", headers=auth(token_for(admin)), json=missing).status_code == 404
