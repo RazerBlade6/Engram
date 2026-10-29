@@ -270,6 +270,23 @@ def test_students_remove_their_slides_but_not_the_textbook(
     ) == [(1,)]
 
 
+def test_admins_delete_any_material_with_its_files(
+    client: TestClient,
+    course: dict[str, str],
+    storage: FakeStorage,
+    database_url: str,
+    make_user: Callable[..., str],
+) -> None:
+    textbook_file = f"{course['id']}/book/psych.pdf"
+    storage.objects[textbook_file] = PDF_BYTES
+    headers = auth(token_for(make_user("admin")))
+    assert client.delete(f"/materials/{course['textbook']}", headers=headers).status_code == 204
+    assert textbook_file not in storage.objects
+    assert (
+        rows(database_url, "select 1 from public.materials where id = %s", course["textbook"]) == []
+    )
+
+
 def test_unknown_course(client: TestClient, course: dict[str, str]) -> None:
     missing = {**course, "id": str(uuid.uuid4())}
     assert add(client, missing, "x.pdf").status_code == 404

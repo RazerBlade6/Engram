@@ -6,7 +6,6 @@ API and database changes the Phase 2 UI pass needs but doesn't make. The UI pass
 | --- | ------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------ |
 | 1   | [Card generation shows its progress](#1-card-generation-progress-d53) (D53) | Migration, worker, API | No: needs a few lines once the field exists           |
 | 4   | [Who uploaded a material, and whose it is](#4-who-uploaded-a-material-and-whose-it-is) | Migration, API | Yes: the admin columns fill in as soon as it's sent    |
-| 5   | [Delete a material (admin)](#5-delete-a-material-admin)            | Probably nothing           | Stub: `deleteMaterial` in `web/src/app/admin/page.tsx` |
 | 6   | [Delete a course](#6-delete-a-course)                               | API (maybe RLS)            | Stub: `deleteCourse` in `web/src/app/admin/page.tsx`   |
 | 7   | [Remove a person](#7-remove-a-person)                               | API, Auth, Storage         | Stub: `removePerson` in `web/src/app/admin/page.tsx`   |
 | 8   | [Remember the welcome tour per account](#8-remember-the-welcome-tour-per-account) (D60) | Migration, API | No: swap the browser flag for the profile field |
@@ -83,10 +82,6 @@ The admin materials table has "Uploaded by" and "Belongs to" columns, showing "â
   set to the signed-in user in `POST /courses/{course_id}/materials` (`backend/src/engram/api/routes/materials.py`), and returned by `/admin/materials` as `uploaded_by` (a display name). Existing materials stay null and show "â€”".
 
 - Frontend: `uploaded_by` and `owner` are already optional fields on `MaterialSummary` (`web/src/lib/inspector.ts`).
-
-## 5. Delete a material (admin)
-
-`DELETE /materials/{material_id}` already exists (`backend/src/engram/api/routes/materials.py`): the course page uses it, and it removes the stored files. Check that its RLS lets an admin delete any course's material; if so, `deleteMaterial` on the admin page only needs to call it (and reload the list).
 
 ## 6. Delete a course
 

@@ -105,14 +105,21 @@ const MATERIALS_SHOWN = 5;
 function Materials({ show }: { show: Show }) {
   const [materials, setMaterials] = useState<MaterialSummary[] | null>(null);
   const [all, setAll] = useState(false);
+  const [confirming, setConfirming] = useState<string | null>(null);
 
   useEffect(() => {
     api<MaterialSummary[]>("/admin/materials").then(setMaterials);
   }, []);
 
-  // Not built yet: wire this to the API when deleting materials exists.
-  function deleteMaterial(material: MaterialSummary) {
-    show(`Deleting ${material.title} isn't built yet.`);
+  async function deleteMaterial(material: MaterialSummary) {
+    setConfirming(null);
+    try {
+      await apiFetch(`/materials/${material.id}`, { method: "DELETE" });
+      setMaterials((ms) => ms && ms.filter((m) => m.id !== material.id));
+      show(`${material.title} deleted.`);
+    } catch {
+      show(`Couldn't delete ${material.title}. Please try again.`);
+    }
   }
 
   const shown = all ? materials : materials?.slice(0, MATERIALS_SHOWN);
@@ -169,9 +176,25 @@ function Materials({ show }: { show: Show }) {
                     <td className={cx(TD, "text-right tabular-nums")}>{m.figures}</td>
                     <td className={cx(TD, "text-right tabular-nums")}>{m.chunks}</td>
                     <td className={cx(TD, "text-right")}>
-                      <Button variant="danger" onClick={() => deleteMaterial(m)} aria-label={`Delete ${m.title}`}>
-                        Delete
-                      </Button>
+                      {confirming === m.id ? (
+                        <div className="rise-in flex flex-col items-end gap-2 text-sm">
+                          <span className="w-44">
+                            {m.kind === "textbook" ? "Delete it with its chapters and cards?" : "Delete these slides?"}
+                          </span>
+                          <div className="flex gap-2">
+                            <Button variant="danger" onClick={() => deleteMaterial(m)} className="min-h-9 px-3 py-1">
+                              Delete
+                            </Button>
+                            <Button variant="quiet" onClick={() => setConfirming(null)} className="min-h-9 px-3 py-1">
+                              Keep
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button variant="danger" onClick={() => setConfirming(m.id)} aria-label={`Delete ${m.title}`}>
+                          Delete
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))}
