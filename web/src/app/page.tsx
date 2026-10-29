@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 
 import { DateRow } from "@/components/dates";
-import { WelcomeTour, tourSeen } from "@/components/welcome-tour";
+import { WelcomeTour } from "@/components/welcome-tour";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { IndexCard } from "@/components/ui/index-card";
@@ -26,9 +26,8 @@ export default function Home() {
   const profile = useProfile();
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState(false);
-  // The first visit opens with a short tour. The page renders nothing on the server until the
-  // profile has loaded, so reading browser storage here can't mismatch the server's HTML.
-  const [touring, setTouring] = useState(() => typeof window !== "undefined" && !tourSeen());
+  // The first visit opens with a short tour, until it's finished or skipped.
+  const [toured, setToured] = useState(false);
   // The add-course form, which the tour opens for a student with no courses yet.
   const [adding, setAdding] = useState(false);
 
@@ -76,13 +75,13 @@ export default function Home() {
             onAdding={setAdding}
             onCreated={(course) => router.push(`/courses/${course.id}`)}
           />
-          {touring && (
+          {!profile.welcomed_at && !toured && (
             <WelcomeTour
               stage={
                 loaded.reviews.sessions.some((s) => s.cards > 0) ? "due" : loaded.courses.length ? "covering" : "new"
               }
               onAddCourse={() => setAdding(true)}
-              onDone={() => setTouring(false)}
+              onDone={() => setToured(true)}
             />
           )}
         </>

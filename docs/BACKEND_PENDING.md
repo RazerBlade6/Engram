@@ -7,7 +7,6 @@ API and database changes the Phase 2 UI pass needs but doesn't make. The UI pass
 | 1   | [Card generation shows its progress](#1-card-generation-progress-d53) (D53) | Migration, worker, API | No: needs a few lines once the field exists           |
 | 6   | [Delete a course](#6-delete-a-course)                               | API (maybe RLS)            | Stub: `deleteCourse` in `web/src/app/admin/page.tsx`   |
 | 7   | [Remove a person](#7-remove-a-person)                               | API, Auth, Storage         | Stub: `removePerson` in `web/src/app/admin/page.tsx`   |
-| 8   | [Remember the welcome tour per account](#8-remember-the-welcome-tour-per-account) (D60) | Migration, API | No: swap the browser flag for the profile field |
 | 9   | [Forgot password](#9-forgot-password) | Auth config, frontend | No: needs a "Forgot your password?" link and a reset page |
 
 Already made during Phase 2, recorded here for completeness: review cards carry `course_id` (`backend/src/engram/api/routes/review.py`), so the review screen can color a card's course. No migration.
@@ -83,14 +82,6 @@ Needs an admin endpoint, e.g. `DELETE /admin/people/{id}`:
 - their usage events: decide whether removal also deletes them (D42 deletes past events on request).
 
 The admin page hides Remove on your own row, so an admin can't remove themselves by accident.
-
-## 8. Remember the welcome tour per account (D60)
-
-The welcome tour shows once per browser: `web/src/components/welcome-tour.tsx` stores `engram.welcomed` in `localStorage`. A new device or a cleared browser shows it again.
-
-- Migration: `alter table public.profiles add column welcomed_at timestamptz;`, with the column added to the update grant students already have on `profiles`.
-- API: return `welcomed_at` from `GET /me`, and an endpoint (or `PUT /me`) that sets it.
-- Frontend: `tourSeen()` reads the profile instead of storage, and finishing or skipping the tour sets it.
 
 ## 9. Forgot password
 

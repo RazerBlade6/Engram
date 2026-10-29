@@ -76,7 +76,24 @@ def test_me_returns_own_profile(
     user_id = make_user()
     response = client.get("/me", headers=auth(token_for(user_id)))
     assert response.status_code == 200
-    assert response.json() == {"id": user_id, "display_name": None, "role": "student"}
+    assert response.json() == {
+        "id": user_id,
+        "display_name": None,
+        "role": "student",
+        "welcomed_at": None,
+    }
+
+
+def test_the_welcome_tour_is_remembered_per_account(
+    client: TestClient, make_user: Callable[..., str], database_url: str
+) -> None:
+    headers = auth(token_for(make_user()))
+    assert client.put("/me/welcomed", headers=headers).status_code == 204
+    first = client.get("/me", headers=headers).json()["welcomed_at"]
+    assert first is not None
+    # Seeing it again (another device that hadn't loaded the profile yet) keeps the first time.
+    assert client.put("/me/welcomed", headers=headers).status_code == 204
+    assert client.get("/me", headers=headers).json()["welcomed_at"] == first
 
 
 def test_invites_are_admin_only(

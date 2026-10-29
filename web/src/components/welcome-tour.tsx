@@ -5,27 +5,13 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { Button, ButtonLink } from "@/components/ui/button";
 import { IndexCard } from "@/components/ui/index-card";
 import { Kbd } from "@/components/ui/kbd";
+import { apiFetch } from "@/lib/api";
 import { cx } from "@/lib/cx";
 
-/**
- * Remembered in this browser only, so a new device shows the tour once more. Recording it on
- * the account needs the API (see docs/BACKEND_PENDING.md).
- */
-const SEEN_KEY = "engram.welcomed";
-
-export function tourSeen(): boolean {
-  try {
-    return localStorage.getItem(SEEN_KEY) !== null;
-  } catch {
-    // Storage blocked: don't show a tour that would come back on every visit.
-    return true;
-  }
-}
-
+/** Remembered on the account, so the tour shows once per person, not once per browser. */
 function markSeen() {
-  try {
-    localStorage.setItem(SEEN_KEY, new Date().toISOString());
-  } catch {}
+  // If this fails, the tour shows once more next time: not worth interrupting anyone over.
+  apiFetch("/me/welcomed", { method: "PUT" }).catch(() => {});
 }
 
 type Step = {
