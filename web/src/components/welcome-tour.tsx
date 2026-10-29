@@ -75,23 +75,50 @@ const STEPS: Step[] = [
     body: "Answers come from your materials, with a link to the exact page.",
     nav: "/ask",
   },
-  {
+];
+
+/** Where a student is when the tour ends, which decides its last card. */
+export type Stage = "new" | "covering" | "due";
+
+/** The last card always points at the one thing to do next. */
+const FINALE: Record<Stage, Step> = {
+  new: {
+    label: "First step",
+    title: "Start with a course",
+    body: "Add one for each subject you're studying. Your textbook and slides go on its page.",
+  },
+  covering: {
+    label: "Next step",
+    title: "Mark what you've covered",
+    body: "Open a course and mark the chapters your class has covered. Their cards will be waiting on Today.",
+  },
+  due: {
     label: "That's it",
     title: "Nothing to set up",
     body: "Study when it suits you. Skip a day and nothing is lost; Engram just picks up where you left off.",
   },
-];
+};
 
 /**
  * A short walk through the app on a first visit: one card per page, with back, next and skip.
  * The card leaves the pile on Next, the way an answered card does in review.
  */
-export function WelcomeTour({ hasDue, onDone }: { hasDue: boolean; onDone: () => void }) {
+export function WelcomeTour({
+  stage,
+  onAddCourse,
+  onDone,
+}: {
+  stage: Stage;
+  /** Opens the form to add a course, for a student who has none yet. */
+  onAddCourse: () => void;
+  onDone: () => void;
+}) {
+  const steps = [...STEPS, FINALE[stage]];
   const [step, setStep] = useState(0);
   const [leaving, setLeaving] = useState<{ id: number; step: number } | null>(null);
   const leavingId = useRef(0);
   const primary = useRef<HTMLButtonElement & HTMLAnchorElement>(null);
-  const last = step === STEPS.length - 1;
+  const last = step === steps.length - 1;
 
   const finish = useCallback(() => {
     markSeen();
@@ -100,7 +127,7 @@ export function WelcomeTour({ hasDue, onDone }: { hasDue: boolean; onDone: () =>
 
   const go = useCallback(
     (to: number) => {
-      if (to < 0 || to >= STEPS.length) return;
+      if (to < 0 || to >= steps.length) return;
       // Forward deals the card off the pile; back simply brings the previous one up.
       if (to > step) {
         leavingId.current += 1;
@@ -110,7 +137,7 @@ export function WelcomeTour({ hasDue, onDone }: { hasDue: boolean; onDone: () =>
       }
       setStep(to);
     },
-    [step],
+    [step, steps.length],
   );
 
   useEffect(() => {
@@ -118,7 +145,7 @@ export function WelcomeTour({ hasDue, onDone }: { hasDue: boolean; onDone: () =>
   }, [step]);
 
   // Point at the page's link in the top bar, lifted above the dimmed page.
-  const nav = STEPS[step].nav;
+  const nav = steps[step].nav;
   useEffect(() => {
     const root = document.documentElement;
     if (nav) root.dataset.tour = nav;
@@ -154,7 +181,7 @@ export function WelcomeTour({ hasDue, onDone }: { hasDue: boolean; onDone: () =>
       >
         <div className="relative isolate">
           <div aria-hidden className="index-card-under -z-10" />
-          <StepCard key={`step-${step}`} step={step} />
+          <StepCard key={`step-${step}`} step={steps[step]} />
           {leaving && (
             <div
               key={`leaving-${leaving.id}`}
@@ -163,7 +190,7 @@ export function WelcomeTour({ hasDue, onDone }: { hasDue: boolean; onDone: () =>
               className="card-leave absolute inset-x-0 top-0 z-10"
               onAnimationEnd={(e) => e.target === e.currentTarget && setLeaving(null)}
             >
-              <StepCard step={leaving.step} />
+              <StepCard step={steps[leaving.step]} />
             </div>
           )}
         </div>
@@ -179,7 +206,7 @@ export function WelcomeTour({ hasDue, onDone }: { hasDue: boolean; onDone: () =>
               Skip the tour <Kbd tone="inverse">Esc</Kbd>
             </button>
           )}
-          <Dots step={step} />
+          <Dots step={step} count={steps.length} />
           <div className="ml-auto flex gap-2">
             {step > 0 && (
               <Button variant="secondary" onClick={() => go(step - 1)} hint="←">
@@ -190,10 +217,21 @@ export function WelcomeTour({ hasDue, onDone }: { hasDue: boolean; onDone: () =>
               <Button ref={primary} onClick={() => go(step + 1)} hint="→">
                 {step === 0 ? "Show me around" : "Next"}
               </Button>
-            ) : hasDue ? (
+            ) : stage === "due" ? (
               <ButtonLink ref={primary} href="/review" onClick={markSeen} size="lg">
                 Start your first review
               </ButtonLink>
+            ) : stage === "new" ? (
+              <Button
+                ref={primary}
+                size="lg"
+                onClick={() => {
+                  finish();
+                  onAddCourse();
+                }}
+              >
+                Add your first course
+              </Button>
             ) : (
               <Button ref={primary} onClick={finish} size="lg">
                 Go to Today
@@ -206,8 +244,8 @@ export function WelcomeTour({ hasDue, onDone }: { hasDue: boolean; onDone: () =>
   );
 }
 
-function StepCard({ step }: { step: number }) {
-  const { label, title, body } = STEPS[step];
+function StepCard({ step }: { step: Step }) {
+  const { label, title, body } = step;
   return (
     <IndexCard label={label} pile={false}>
       <h2 id="tour-title" className="text-2xl font-bold text-balance">
@@ -220,10 +258,10 @@ function StepCard({ step }: { step: number }) {
   );
 }
 
-function Dots({ step }: { step: number }) {
+function Dots({ step, count }: { step: number; count: number }) {
   return (
-    <p className="flex items-center gap-1.5" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
-      {STEPS.map((_, i) => (
+    <p className="flex items-center gap-1.5" aria-label={`Step ${step + 1} of ${count}`}>
+      {Array.from({ length: count }, (_, i) => (
         <span
           key={i}
           aria-hidden

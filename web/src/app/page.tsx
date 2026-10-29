@@ -29,6 +29,8 @@ export default function Home() {
   // The first visit opens with a short tour. The page renders nothing on the server until the
   // profile has loaded, so reading browser storage here can't mismatch the server's HTML.
   const [touring, setTouring] = useState(() => typeof window !== "undefined" && !tourSeen());
+  // The add-course form, which the tour opens for a student with no courses yet.
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -68,9 +70,20 @@ export default function Home() {
               </Link>
             </p>
           )}
-          <Courses courses={loaded.courses} onCreated={(course) => router.push(`/courses/${course.id}`)} />
+          <Courses
+            courses={loaded.courses}
+            adding={adding}
+            onAdding={setAdding}
+            onCreated={(course) => router.push(`/courses/${course.id}`)}
+          />
           {touring && (
-            <WelcomeTour hasDue={loaded.reviews.sessions.some((s) => s.cards > 0)} onDone={() => setTouring(false)} />
+            <WelcomeTour
+              stage={
+                loaded.reviews.sessions.some((s) => s.cards > 0) ? "due" : loaded.courses.length ? "covering" : "new"
+              }
+              onAddCourse={() => setAdding(true)}
+              onDone={() => setTouring(false)}
+            />
           )}
         </>
       )}
@@ -197,7 +210,17 @@ function ComingUp({ courses, dates }: { courses: CourseSummary[]; dates: CourseD
   );
 }
 
-function Courses({ courses, onCreated }: { courses: CourseSummary[]; onCreated: (course: CourseSummary) => void }) {
+function Courses({
+  courses,
+  adding,
+  onAdding,
+  onCreated,
+}: {
+  courses: CourseSummary[];
+  adding: boolean;
+  onAdding: (adding: boolean) => void;
+  onCreated: (course: CourseSummary) => void;
+}) {
   return (
     <section aria-labelledby="courses-heading" className="mt-12">
       <h2 id="courses-heading" className="text-xl font-semibold">
@@ -227,14 +250,21 @@ function Courses({ courses, onCreated }: { courses: CourseSummary[]; onCreated: 
           ))}
         </RowList>
       )}
-      <NewCourse onCreated={onCreated} />
+      <NewCourse open={adding} onOpen={onAdding} onCreated={onCreated} />
     </section>
   );
 }
 
 /** A course needs only a name; its materials are added on the course page. */
-function NewCourse({ onCreated }: { onCreated: (course: CourseSummary) => void }) {
-  const [open, setOpen] = useState(false);
+function NewCourse({
+  open,
+  onOpen: setOpen,
+  onCreated,
+}: {
+  open: boolean;
+  onOpen: (open: boolean) => void;
+  onCreated: (course: CourseSummary) => void;
+}) {
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
