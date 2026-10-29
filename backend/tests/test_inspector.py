@@ -108,13 +108,30 @@ def test_inspector_is_admin_only(
 
 
 def test_list_and_inspect(
-    client: TestClient, material: dict[str, str], make_user: Callable[..., str]
+    client: TestClient,
+    material: dict[str, str],
+    make_user: Callable[..., str],
+    database_url: str,
 ) -> None:
-    headers = auth(token_for(make_user("admin")))
+    admin = make_user("admin")
+    headers = auth(token_for(admin))
     listed = {m["id"]: m for m in client.get("/admin/materials", headers=headers).json()}
     summary = listed[material["id"]]
     assert (summary["sections"], summary["figures"], summary["chunks"]) == (1, 1, 3)
     assert summary["course"] == "Bio"
+    # Nobody recorded as the uploader, and an owner without a display name.
+    assert (summary["uploaded_by"], summary["owner"]) == (None, "No name")
+
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute("update public.profiles set display_name = 'Sam' where id = %s", (admin,))
+        c.execute(
+            "update public.profiles set display_name = 'Robin' where id = %s", (material["owner"],)
+        )
+        c.execute(
+            "update public.materials set added_by = %s where id = %s", (admin, material["id"])
+        )
+    summary = client.get(f"/admin/materials/{material['id']}", headers=headers).json()["material"]
+    assert (summary["uploaded_by"], summary["owner"]) == ("Sam", "Robin")
 
     body: dict[str, Any] = client.get(f"/admin/materials/{material['id']}", headers=headers).json()
     assert body["preview"] is True

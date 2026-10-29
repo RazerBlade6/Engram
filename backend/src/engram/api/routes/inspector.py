@@ -37,6 +37,10 @@ class MaterialSummary(BaseModel):
     error: str | None
     page_count: int | None
     course: str
+    # Display names: who added the file, and whose course it's in. `uploaded_by` is null when
+    # nobody is recorded (materials loaded before uploads, or a removed account).
+    uploaded_by: str | None
+    owner: str
     created_at: datetime
     sections: int
     figures: int
@@ -100,11 +104,15 @@ class Page(BaseModel):
 _SUMMARY = """
 select m.id, m.title, m.kind::text as kind, m.status::text as status, m.error, m.page_count,
        c.title as course, m.created_at,
+       case when u.id is not null then coalesce(u.display_name, 'No name') end as uploaded_by,
+       coalesce(o.display_name, 'No name') as owner,
        (select count(*) from public.sections s where s.material_id = m.id) as sections,
        (select count(*) from public.figures f where f.material_id = m.id) as figures,
        (select count(*) from public.chunks k where k.material_id = m.id) as chunks
   from public.materials m
   join public.courses c on c.id = m.course_id
+  join public.profiles o on o.id = c.owner_id
+  left join public.profiles u on u.id = m.added_by
 """
 
 

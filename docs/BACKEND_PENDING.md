@@ -5,7 +5,6 @@ API and database changes the Phase 2 UI pass needs but doesn't make. The UI pass
 | #   | Change                                                              | Needs                      | Frontend ready?                                        |
 | --- | ------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------ |
 | 1   | [Card generation shows its progress](#1-card-generation-progress-d53) (D53) | Migration, worker, API | No: needs a few lines once the field exists           |
-| 4   | [Who uploaded a material, and whose it is](#4-who-uploaded-a-material-and-whose-it-is) | Migration, API | Yes: the admin columns fill in as soon as it's sent    |
 | 6   | [Delete a course](#6-delete-a-course)                               | API (maybe RLS)            | Stub: `deleteCourse` in `web/src/app/admin/page.tsx`   |
 | 7   | [Remove a person](#7-remove-a-person)                               | API, Auth, Storage         | Stub: `removePerson` in `web/src/app/admin/page.tsx`   |
 | 8   | [Remember the welcome tour per account](#8-remember-the-welcome-tour-per-account) (D60) | Migration, API | No: swap the browser flag for the profile field |
@@ -66,22 +65,6 @@ Already made during Phase 2, recorded here for completeness: review cards carry 
    - the course page already polls every 4 s while a chapter is pending, so the count updates without further work. The small animated pile next to it is already built.
 
 **Open question:** the count is taken before repeats are dropped, so "23 so far" can end as "21 cards are ready". Counting batches done out of total ("3 of 5 parts") is exact but means less to a student. The draft used the card count, worded "so far".
-
-## 4. Who uploaded a material, and whose it is
-
-The admin materials table has "Uploaded by" and "Belongs to" columns, showing "—" for now.
-
-- **Belongs to** (the course's owner): no migration. In `/admin/materials` (`backend/src/engram/api/routes/inspector.py`, `_SUMMARY`), join `courses` and `profiles` and return the owner's display name as `owner`.
-- **Uploaded by:** nothing records it today. Needs:
-
-  ```sql
-  alter table public.materials
-    add column uploaded_by uuid references public.profiles (id) on delete set null;
-  ```
-
-  set to the signed-in user in `POST /courses/{course_id}/materials` (`backend/src/engram/api/routes/materials.py`), and returned by `/admin/materials` as `uploaded_by` (a display name). Existing materials stay null and show "—".
-
-- Frontend: `uploaded_by` and `owner` are already optional fields on `MaterialSummary` (`web/src/lib/inspector.ts`).
 
 ## 6. Delete a course
 

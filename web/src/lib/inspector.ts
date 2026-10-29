@@ -12,10 +12,10 @@ export type MaterialSummary = {
   sections: number;
   figures: number;
   chunks: number;
-  /** Who uploaded it. Not sent by the API yet; the admin page shows a dash until it is. */
-  uploaded_by?: string | null;
-  /** Whose course it belongs to. Not sent by the API yet, like `uploaded_by`. */
-  owner?: string | null;
+  /** Who uploaded it; null when nobody is recorded, such as materials loaded before uploads. */
+  uploaded_by: string | null;
+  /** Whose course it belongs to. */
+  owner: string;
 };
 
 export type Section = {

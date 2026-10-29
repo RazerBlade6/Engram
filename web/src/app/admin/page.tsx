@@ -166,7 +166,7 @@ function Materials({ show }: { show: Show }) {
                       </div>
                     </td>
                     <td className={TD}>{m.uploaded_by ?? <span className="text-muted">—</span>}</td>
-                    <td className={TD}>{m.owner ?? <span className="text-muted">—</span>}</td>
+                    <td className={TD}>{m.owner}</td>
                     <td className={TD}>
                       <Status status={m.status} />
                       {m.error && <div className="mt-1 max-w-xs text-sm text-danger">{m.error}</div>}
