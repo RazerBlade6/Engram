@@ -1,13 +1,23 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { Toast, type ToastMessage } from "@/components/toast";
+import { Button, ButtonLink } from "@/components/ui/button";
+import { FlipCard } from "@/components/ui/flip-card";
+import { IndexCard } from "@/components/ui/index-card";
+import { Kbd } from "@/components/ui/kbd";
+import { Notice } from "@/components/ui/notice";
+import { ProgressBar } from "@/components/ui/progress";
+import { RatingButton } from "@/components/ui/rating-button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Highlight, SourceBox } from "@/components/ui/source-box";
 import { api, apiFetch } from "@/lib/api";
+import { courseColors } from "@/lib/calendar";
 import { clozeParts, KIND_LABEL } from "@/lib/cards";
-import { splitChapterTitle } from "@/lib/courses";
+import { splitChapterTitle, type CourseSummary } from "@/lib/courses";
+import { cx } from "@/lib/cx";
 import { useProfile } from "@/lib/profile";
 import { msSince } from "@/lib/usage";
 import {
@@ -31,6 +41,7 @@ export function ReviewView() {
   const session: ReviewSession = useSearchParams().get("session") === "quiz" ? "quiz" : "review";
   const [queue, setQueue] = useState<ReviewCard[] | null>(null);
   const [order, setOrder] = useState<ReviewOrder>("mixed");
+  const [colors, setColors] = useState<Map<string, string>>(new Map());
   const [failed, setFailed] = useState(false);
   // Answers given this session (a card still being learned is answered more than once),
   // and cards finished for today.
@@ -52,6 +63,10 @@ export function ReviewView() {
         setQueue(body.cards);
       })
       .catch(() => setFailed(true));
+    // Each course's color, the same as on the calendar; the cards work without them.
+    api<CourseSummary[]>("/courses")
+      .then((courses) => setColors(courseColors(courses)))
+      .catch(() => {});
   }, [profile, session]);
 
   const show = useCallback((text: string, undo?: () => void) => {
@@ -153,71 +168,80 @@ export function ReviewView() {
   if (failed) {
     return (
       <main className="mx-auto max-w-2xl px-6 py-16">
-        <p>Your reviews couldn&apos;t be loaded. Please try again.</p>
-        <Link href="/" className="mt-4 inline-block text-accent underline">
+        <Notice
+          tone="error"
+          action={
+            <Button variant="secondary" onClick={() => window.location.reload()}>
+              Try again
+            </Button>
+          }
+        >
+          Your reviews couldn&apos;t be loaded. Check your connection and try again.
+        </Notice>
+        <ButtonLink href="/" variant="quiet" className="mt-4 -ml-4">
           Back to Today
-        </Link>
+        </ButtonLink>
       </main>
     );
   }
-  if (!queue) return null;
+  if (!queue) return <ReviewLoading />;
 
   const total = answers + queue.length;
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
-      <div className="flex flex-wrap items-center gap-6">
-        <Link href="/" className="text-muted underline hover:text-foreground">
+    <main className="mx-auto max-w-6xl px-6 py-6 sm:py-8">
+      <div className="flex items-center gap-4">
+        <ButtonLink href="/" variant="quiet" className="-ml-4 shrink-0">
           {card ? "Stop for now" : "Back to Today"}
-        </Link>
+        </ButtonLink>
         {card && (
-          <div className="flex min-w-40 flex-1 items-center gap-3 text-muted tabular-nums">
-            <span>
+          <div className="flex flex-1 items-center gap-3 text-muted tabular-nums">
+            <span className="shrink-0">
               {answers} of {total}
             </span>
-            <div
-              className="h-1.5 flex-1 overflow-hidden rounded-full bg-border"
-              role="progressbar"
-              aria-valuenow={answers}
-              aria-valuemax={total}
-              aria-label="Cards reviewed"
-            >
-              <div className="h-full bg-accent transition-[width]" style={{ width: `${(answers / total) * 100}%` }} />
-            </div>
+            <ProgressBar value={answers} max={total} label="Cards reviewed" className="flex-1" />
           </div>
         )}
       </div>
 
       {card ? (
-        <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-          <section className="flex min-h-80 flex-col gap-6 rounded-2xl border border-border bg-white p-8" aria-live="polite">
-            <CardTag card={card} />
-            <CardFront card={card} revealed={revealed} picked={picked} onPick={setPicked} />
-            <div className="mt-auto flex flex-col gap-4">
-              <CardActions
-                card={card}
-                answered={answered}
-                picked={picked}
-                onReveal={() => setRevealed(true)}
-                onRate={rate}
-              />
-            </div>
-            <FlagMenu open={flagOpen} onToggle={() => setFlagOpen((o) => !o)} onFlag={flag} />
-          </section>
+        <div className="mt-8 grid items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+          {/* A new key per answer, so each card arrives face up instead of turning back. */}
+          <div key={`${card.id}-${answers}`} className="rise-in flex flex-col gap-6">
+            <Card
+              card={card}
+              color={colors.get(card.course_id)}
+              revealed={revealed}
+              picked={picked}
+              onPick={setPicked}
+              report={
+                <ReportMenu
+                  open={flagOpen}
+                  onToggle={() => setFlagOpen((o) => !o)}
+                  onClose={() => setFlagOpen(false)}
+                  onFlag={flag}
+                />
+              }
+            />
+            <CardActions
+              card={card}
+              answered={answered}
+              picked={picked}
+              onReveal={() => setRevealed(true)}
+              onRate={rate}
+            />
+          </div>
           <SourcePanel card={card} answered={answered} />
         </div>
       ) : (
-        <section className="mt-12 max-w-2xl">
-          <h1 className="text-3xl font-semibold">That&apos;s everything for now.</h1>
+        <section className="rise-in mt-16 max-w-2xl">
+          <h1 className="text-3xl font-bold">That&apos;s everything for now.</h1>
           <p className="mt-3 text-lg text-muted">
             {finished ? `You reviewed ${finished} ${finished === 1 ? "card" : "cards"}. ` : ""}
             New cards and the ones due again will be here next time.
           </p>
-          <Link
-            href="/"
-            className="mt-6 inline-block rounded-lg bg-accent px-5 py-3 font-medium text-white hover:bg-accent-strong"
-          >
+          <ButtonLink href="/" size="lg" className="mt-6">
             Back to Today
-          </Link>
+          </ButtonLink>
         </section>
       )}
 
@@ -226,84 +250,151 @@ export function ReviewView() {
   );
 }
 
-function CardTag({ card }: { card: ReviewCard }) {
-  const chapter = card.chapter ? splitChapterTitle(card.chapter) : null;
-  const parts = [
-    card.course,
-    chapter && (chapter.number ? `Chapter ${chapter.number}` : chapter.title),
-    KIND_LABEL[card.kind],
-    card.new && "New",
-  ].filter(Boolean);
-  return <div className="text-sm text-muted">{parts.join(" · ")}</div>;
+function ReviewLoading() {
+  return (
+    <main className="mx-auto max-w-6xl px-6 py-6 sm:py-8" role="status" aria-label="Loading your reviews">
+      <Skeleton className="h-11 w-full max-w-md" />
+      <div className="mt-8 grid items-start gap-x-10 gap-y-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <Skeleton className="h-80" />
+        <Skeleton className="h-48" />
+      </div>
+    </main>
+  );
 }
 
-function CardFront({
+/** The card on the desk. Flashcards turn over to show the answer; multiple choice doesn't. */
+function Card({
   card,
+  color,
   revealed,
+  picked,
+  onPick,
+  report,
+}: {
+  card: ReviewCard;
+  color: string | undefined;
+  revealed: boolean;
+  picked: string | null;
+  onPick: (choice: string) => void;
+  report: ReactNode;
+}) {
+  const face = (children: ReactNode, pile = true) => (
+    <IndexCard label={card.course} labelColor={color} corner={report} pile={pile}>
+      <CardMeta card={card} />
+      <div className="mt-3 min-h-44">{children}</div>
+    </IndexCard>
+  );
+  if (card.kind === "mcq") return face(<Choices card={card} picked={picked} onPick={onPick} />);
+  // The pile underneath stays put while the top card turns over.
+  return (
+    <div className="relative isolate">
+      <div aria-hidden className="index-card-under -z-10" />
+      <FlipCard
+        flipped={revealed}
+        front={face(<Front card={card} />, false)}
+        back={face(<Back card={card} />, false)}
+      />
+    </div>
+  );
+}
+
+function CardMeta({ card }: { card: ReviewCard }) {
+  const chapter = card.chapter ? splitChapterTitle(card.chapter) : null;
+  const parts = [chapter && (chapter.number ? `Chapter ${chapter.number}` : chapter.title), KIND_LABEL[card.kind]];
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
+      {parts.filter(Boolean).join(" · ")}
+      {card.new && (
+        <span className="rounded-full bg-accent-soft px-2 text-xs leading-5 font-semibold text-accent">New</span>
+      )}
+    </p>
+  );
+}
+
+const PROMPT = "font-read text-2xl leading-snug sm:text-[1.75rem]";
+
+function Front({ card }: { card: ReviewCard }) {
+  if (card.kind === "cloze") return <Cloze prompt={card.prompt} filled={false} />;
+  return <p className={PROMPT}>{card.prompt}</p>;
+}
+
+/** The back repeats the question, smaller, above the answer. */
+function Back({ card }: { card: ReviewCard }) {
+  if (card.kind === "cloze") return <Cloze prompt={card.prompt} filled />;
+  return (
+    <>
+      <p className="font-read text-lg leading-snug text-muted">{card.prompt}</p>
+      <p className="mt-5 font-read text-2xl leading-snug font-semibold">{card.answer}</p>
+    </>
+  );
+}
+
+function Cloze({ prompt, filled }: { prompt: string; filled: boolean }) {
+  return (
+    <p className={PROMPT}>
+      {clozeParts(prompt).map((part, i) =>
+        !part.hidden ? (
+          <span key={i}>{part.text}</span>
+        ) : filled ? (
+          <span key={i} className="border-b-2 border-accent font-semibold text-accent">
+            {part.text}
+          </span>
+        ) : (
+          <span key={i} aria-label="blank" className="inline-block w-[4.5em] border-b-2 border-foreground" />
+        ),
+      )}
+    </p>
+  );
+}
+
+/**
+ * Multiple choice grades itself in the rating inks: the right answer in "Got it" teal, a
+ * wrong pick in "Forgot" plum. Never red, so a wrong answer doesn't read as failing.
+ */
+function Choices({
+  card,
   picked,
   onPick,
 }: {
   card: ReviewCard;
-  revealed: boolean;
   picked: string | null;
   onPick: (choice: string) => void;
 }) {
-  const front = "text-2xl leading-snug sm:text-[1.75rem]";
-  if (card.kind === "cloze") {
-    return (
-      <p className={front}>
-        {clozeParts(card.prompt).map((part, i) =>
-          !part.hidden ? (
-            <span key={i}>{part.text}</span>
-          ) : revealed ? (
-            <span key={i} className="border-b-2 border-accent font-medium text-accent">
-              {part.text}
-            </span>
-          ) : (
-            <span key={i} aria-label="blank" className="inline-block w-[4.5em] border-b-2 border-foreground" />
-          ),
-        )}
-      </p>
-    );
-  }
-  if (card.kind === "mcq") {
-    return (
-      <>
-        <p className={front}>{card.prompt}</p>
-        <div className="flex flex-col gap-2.5">
-          {card.choices.map((choice, i) => {
-            const answered = picked !== null;
-            const tone =
-              answered && choice === card.answer
-                ? "border-success bg-success/10"
-                : answered && choice === picked
-                  ? "border-danger bg-danger-soft"
-                  : "border-border hover:border-accent";
-            return (
-              <button
-                key={choice}
-                type="button"
-                disabled={answered}
-                onClick={() => onPick(choice)}
-                className={`flex min-h-13 items-center gap-3.5 rounded-lg border px-4 py-3 text-left text-lg ${tone}`}
-              >
-                <span className="grid size-7 shrink-0 place-items-center rounded-md border border-border text-sm font-semibold text-muted">
-                  {i + 1}
-                </span>
-                {choice}
-              </button>
-            );
-          })}
-        </div>
-      </>
-    );
-  }
+  const answered = picked !== null;
   return (
     <>
-      <p className={front}>{card.prompt}</p>
-      {revealed && (
-        <p className="border-t border-dashed border-border pt-5 text-xl leading-relaxed">{card.answer}</p>
-      )}
+      <p className={PROMPT}>{card.prompt}</p>
+      <div className="mt-6 flex flex-col gap-2.5">
+        {card.choices.map((choice, i) => {
+          const ink = answered && choice === card.answer ? 3 : answered && choice === picked ? 1 : null;
+          return (
+            <button
+              key={choice}
+              type="button"
+              disabled={answered}
+              onClick={() => onPick(choice)}
+              style={
+                ink
+                  ? {
+                      color: `var(--rate-${ink})`,
+                      background: `var(--rate-${ink}-soft)`,
+                      borderColor: `var(--rate-${ink}-line)`,
+                    }
+                  : undefined
+              }
+              className={cx(
+                "flex min-h-13 items-center gap-3.5 rounded-control border px-4 py-3 text-left text-lg transition-colors duration-150",
+                ink ? "font-semibold" : "border-border-strong bg-surface",
+                !answered && "hover:border-accent hover:bg-accent-soft/40",
+                answered && !ink && "opacity-60",
+              )}
+            >
+              <Kbd>{i + 1}</Kbd>
+              {choice}
+            </button>
+          );
+        })}
+      </div>
     </>
   );
 }
@@ -327,102 +418,104 @@ function CardActions({
     const rating = choiceRating(card, picked);
     const when = whenLabel(card.next[rating], now);
     return (
-      <>
-        <p role="status" className={`text-center text-lg ${rating === 3 ? "text-success" : "text-danger"}`}>
+      <div className="flex flex-col items-center gap-4">
+        <p role="status" className="text-center text-lg font-semibold" style={{ color: `var(--rate-${rating})` }}>
           {rating === 3 ? "Correct." : `Not quite. It's ${card.answer}.`}{" "}
-          {when === "see it again soon" ? "You'll see this one again soon." : `You'll see it again ${when}.`}
+          <span className="font-normal text-muted">
+            {when === "see it again soon" ? "You'll see this one again soon." : `You'll see it again ${when}.`}
+          </span>
         </p>
-        <div className="flex justify-center">
-          <PrimaryButton onClick={() => onRate(rating)} hint="Space">
-            Continue
-          </PrimaryButton>
-        </div>
-      </>
+        <Button size="lg" hint="Space" onClick={() => onRate(rating)}>
+          Continue
+        </Button>
+      </div>
     );
   }
   if (!answered) {
     return (
       <div className="flex justify-center">
-        <PrimaryButton onClick={onReveal} hint="Space">
+        <Button size="lg" hint="Space" onClick={onReveal}>
           Show answer
-        </PrimaryButton>
+        </Button>
       </div>
     );
   }
   return (
-    <>
+    <div className="flex flex-col gap-3">
       <p className="text-center text-muted">How well did you remember it?</p>
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        {RATINGS.map(({ rating, label, tone }) => (
-          <button
+        {RATINGS.map(({ rating, label }) => (
+          <RatingButton
             key={rating}
-            type="button"
+            rating={rating}
+            label={label}
+            when={whenLabel(card.next[rating], now)}
             onClick={() => onRate(rating)}
-            className="flex min-h-16 flex-col items-center gap-0.5 rounded-lg border border-border bg-white px-2 py-3 hover:border-accent hover:bg-accent/5"
-          >
-            <b className={`text-lg ${tone}`}>{label}</b>
-            <small className="text-sm text-muted">{whenLabel(card.next[rating], now)}</small>
-            <kbd className="text-xs text-muted">{rating}</kbd>
-          </button>
+          />
         ))}
       </div>
-    </>
+    </div>
   );
 }
 
-function PrimaryButton({ onClick, hint, children }: { onClick: () => void; hint: string; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-center gap-3 rounded-lg bg-accent px-6 py-3 text-lg font-medium text-white hover:bg-accent-strong"
-    >
-      {children}
-      <kbd className="rounded border border-white/40 px-1.5 text-sm font-normal">{hint}</kbd>
-    </button>
-  );
-}
-
-function FlagMenu({
+/** A small control in the card's corner: rarely needed, so it stays out of the way (D52). */
+function ReportMenu({
   open,
   onToggle,
+  onClose,
   onFlag,
 }: {
   open: boolean;
   onToggle: () => void;
+  onClose: () => void;
   onFlag: (reason: string) => void;
 }) {
+  const root = useRef<HTMLDivElement>(null);
+
+  // A click anywhere else closes the menu.
+  useEffect(() => {
+    if (!open) return;
+    function onPointer(event: PointerEvent) {
+      if (!root.current?.contains(event.target as Node)) onClose();
+    }
+    document.addEventListener("pointerdown", onPointer);
+    return () => document.removeEventListener("pointerdown", onPointer);
+  }, [open, onClose]);
+
   return (
-    <div className="relative border-t border-border pt-4">
+    <div ref={root} className="relative">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted transition-colors duration-150 hover:bg-foreground/5 hover:text-foreground"
+      >
+        Report <Kbd>F</Kbd>
+      </button>
       {open && (
         <div
           role="menu"
-          aria-label="Report a problem"
-          className="absolute top-full left-0 z-10 mt-2 w-full max-w-sm rounded-lg border border-border bg-white p-3 shadow-lg"
+          aria-label="Report a problem with this card"
+          className="rise-in absolute top-full right-0 z-20 mt-2 w-80 max-w-[calc(100vw-3rem)] rounded-control border border-border bg-surface p-2 shadow-lifted"
         >
-          <p className="px-2 pb-2 text-sm text-muted">What&apos;s wrong with this card? It won&apos;t come up again.</p>
+          <p className="px-3 pt-1 pb-2 text-sm text-muted">
+            What&apos;s wrong with this card? It won&apos;t come up again.
+          </p>
           {FLAG_REASONS.map(({ reason, label, detail }) => (
             <button
               key={reason}
               type="button"
               role="menuitem"
               onClick={() => onFlag(reason)}
-              className="block w-full rounded-md px-2 py-2 text-left hover:bg-accent/5"
+              className="block w-full rounded-md px-3 py-2 text-left hover:bg-accent-soft/60"
             >
-              <span className="block font-medium">{label}</span>
+              <span className="block font-semibold">{label}</span>
               <span className="block text-sm text-muted">{detail}</span>
             </button>
           ))}
         </div>
       )}
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="flex items-center gap-2 text-muted hover:text-foreground"
-      >
-        Something wrong with this card? <kbd className="rounded border border-border px-1.5 text-xs">F</kbd>
-      </button>
     </div>
   );
 }
@@ -430,21 +523,22 @@ function FlagMenu({
 function SourcePanel({ card, answered }: { card: ReviewCard; answered: boolean }) {
   const source = card.source;
   if (!source) return null;
-  const where = [source.heading_path.at(-1), source.page !== null && `page ${source.page}`].filter(Boolean).join(" · ");
   if (!answered) {
     return (
-      <aside aria-label="Where this comes from" className="rounded-2xl border border-dashed border-border p-6">
-        <p className="font-semibold">From {source.book}</p>
-        <p className="mt-2 text-muted">The passage this card comes from shows up here once you&apos;ve answered.</p>
-      </aside>
+      <SourceBox quiet title={`From ${source.book}`}>
+        <p className="font-sans text-base text-muted">
+          The passage this card comes from shows up here once you&apos;ve answered.
+        </p>
+      </SourceBox>
     );
   }
-  return <Passage source={source} where={where} />;
+  return <Passage source={source} />;
 }
 
-function Passage({ source, where }: { source: NonNullable<ReviewCard["source"]>; where: string }) {
+function Passage({ source }: { source: NonNullable<ReviewCard["source"]> }) {
   const { before, marked, after } = passageParts(source);
-  const box = useRef<HTMLParagraphElement>(null);
+  const where = [source.heading_path.at(-1), source.page !== null && `page ${source.page}`].filter(Boolean).join(" · ");
+  const box = useRef<HTMLDivElement>(null);
   const mark = useRef<HTMLElement>(null);
 
   // Bring the quoted words into view; scrolling the box alone, not the page.
@@ -456,18 +550,12 @@ function Passage({ source, where }: { source: NonNullable<ReviewCard["source"]>;
   }, [source]);
 
   return (
-    <aside aria-label="Where this comes from" className="rounded-2xl border border-border bg-white p-6">
-      <p className="font-semibold">From {source.book}</p>
-      {where && <p className="text-sm text-muted">{where}</p>}
-      <p ref={box} className="relative mt-4 max-h-[28rem] overflow-y-auto text-lg leading-relaxed whitespace-pre-line">
+    <SourceBox title={`From ${source.book}`} where={where} className="rise-in">
+      <div ref={box} className="relative max-h-[28rem] overflow-y-auto whitespace-pre-line">
         {before}
-        {marked && (
-          <mark ref={mark} className="rounded bg-accent/15 px-0.5 text-foreground">
-            {marked}
-          </mark>
-        )}
+        {marked && <Highlight ref={mark}>{marked}</Highlight>}
         {after}
-      </p>
-    </aside>
+      </div>
+    </SourceBox>
   );
 }

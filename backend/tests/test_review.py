@@ -140,7 +140,7 @@ def deck(database_url: str, make_user: Callable[..., str]) -> dict[str, Any]:
                     " values (%s, %s, now() - interval '1 day')",
                     (section[0], owner),
                 )
-    yield {"owner": owner, "cards": cards}
+    yield {"owner": owner, "course": str(course[0]), "cards": cards}
     with psycopg.connect(database_url, autocommit=True) as c:
         c.execute("delete from public.jobs where id > %s and kind = 'generate_cards'", last_job)
 
@@ -163,6 +163,7 @@ def test_new_cards_are_introduced_a_few_a_day_covered_chapters_first(
     ]
     first = body["cards"][0]
     assert first["new"] and (first["course"], first["chapter"]) == ("Biology", "Chapter 2 Genes")
+    assert first["course_id"] == deck["course"]
     source = first["source"]
     assert source["passage"] == "Intro. The fact about Chapter 2 Genes is here."
     assert source["passage"][slice(*source["highlight"])] == "The fact about Chapter 2 Genes"

@@ -10,9 +10,12 @@ export function SourceBox({
   title,
   where,
   action,
+  quiet = false,
   className,
   children,
 }: {
+  /** Grey and flat, for a source that isn't shown yet. */
+  quiet?: boolean;
   /** The book or file, e.g. "From Introduction to Psychology". */
   title: ReactNode;
   /** Section and page, e.g. "8.2 Parts of the Brain Involved in Memory · page 274". */
@@ -23,7 +26,13 @@ export function SourceBox({
   children?: ReactNode;
 }) {
   return (
-    <aside className={cx("rounded-r-control border-l-[3px] border-accent bg-paper px-6 py-5 shadow-card", className)}>
+    <aside
+      className={cx(
+        "rounded-r-control border-l-[3px] px-6 py-5",
+        quiet ? "border-border-strong" : "border-accent bg-paper shadow-card",
+        className,
+      )}
+    >
       <p className="font-semibold">{title}</p>
       {where && <p className="text-sm text-muted">{where}</p>}
       {children && <div className="mt-3 font-read text-lg leading-relaxed">{children}</div>}

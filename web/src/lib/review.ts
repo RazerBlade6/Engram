@@ -16,6 +16,7 @@ export type ReviewCard = {
   prompt: string;
   answer: string;
   choices: string[];
+  course_id: string;
   course: string;
   chapter: string | null;
   new: boolean;

@@ -53,6 +53,7 @@ class ReviewCard(BaseModel):
     prompt: str
     answer: str
     choices: list[str]
+    course_id: UUID
     course: str
     chapter: str | None
     new: bool
@@ -96,7 +97,7 @@ class Flag(BaseModel):
 
 _CARD = """
 select k.id, k.kind::text as kind, k.prompt, k.answer, k.choices, k.sources,
-       c.title as course, s.title as chapter, m.title as book,
+       c.id as course_id, c.title as course, s.title as chapter, m.title as book,
        ch.content as chunk, ch.heading_path as chunk_heading_path,
        p.state::text as state, p.step, p.stability, p.difficulty, p.due, p.last_review
   from public.cards k
@@ -194,6 +195,7 @@ def _card(row: dict[str, Any], now: datetime) -> ReviewCard:
         prompt=row["prompt"],
         answer=row["answer"],
         choices=row["choices"],
+        course_id=row["course_id"],
         course=row["course"],
         chapter=row["chapter"],
         new=progress is None,
