@@ -1,7 +1,7 @@
 -- Row-level security for the foundation schema. Run with `supabase test db`.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(16);
+select plan(19);
 
 -- Fixtures: two students and an admin, one course each for the students.
 insert into auth.users (id, aud, role, email) values
@@ -77,6 +77,10 @@ $$, '42501', null, 'students cannot create courses for someone else');
 
 select is_empty('select 1 from storage.objects', 'storage objects are not readable by users');
 
+delete from public.courses where id = 'aaaaaaaa-0000-0000-0000-000000000000';
+select isnt_empty($$ select 1 from public.courses where id = 'aaaaaaaa-0000-0000-0000-000000000000' $$,
+  'students cannot delete their own courses');
+
 -- Admin ---------------------------------------------------------------------------------
 reset role;
 select pg_temp.act_as('33333333-3333-3333-3333-333333333333');
@@ -93,6 +97,10 @@ select lives_ok($$
   insert into public.materials (course_id, kind, title, storage_path, status)
   values ('aaaaaaaa-0000-0000-0000-000000000000', 'textbook', 'Biology 2e', 'aaaaaaaa/bio.pdf', 'queued')
 $$, 'admins can add textbooks');
+select lives_ok($$ delete from public.courses where id = 'bbbbbbbb-0000-0000-0000-000000000000' $$,
+  'admins delete courses');
+select is_empty($$ select 1 from public.materials where course_id = 'bbbbbbbb-0000-0000-0000-000000000000' $$,
+  'and their materials go with them');
 
 -- Storage -------------------------------------------------------------------------------
 reset role;

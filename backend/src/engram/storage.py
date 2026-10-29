@@ -78,6 +78,12 @@ class Storage:
             )
             response.raise_for_status()
 
+    async def remove_material(self, path: str) -> None:
+        """Delete a material's file and its page images, which share the file's folder."""
+        folder = str(Path(path).parent)
+        await self.remove_prefix(f"{folder}/figures")
+        await self.remove_prefix(folder)
+
     async def signed_url(self, path: str, expires_in: int = 3600) -> str:
         response = await self._client.post(
             f"/object/sign/{BUCKET}/{path}", json={"expiresIn": expires_in}

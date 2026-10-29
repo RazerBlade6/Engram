@@ -5,6 +5,7 @@ queues the job (see the cards migration). Coverage is stored per section; studen
 chapters, which `chapters` picks out of the parsed sections.
 """
 
+import logging
 import re
 from collections import defaultdict
 from datetime import datetime
@@ -17,7 +18,10 @@ from pydantic import BaseModel, Field
 
 from engram.api import usage
 from engram.api.db import UserDb
+from engram.api.files import Files
 from engram.api.usage import Visit
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -195,6 +199,27 @@ async def create_course(body: NewCourse, db: UserDb, visit: Visit) -> CourseSumm
     assert row is not None
     await usage.log(db, visit, "course_created", course_id=row[0])
     return CourseSummary(id=row[0], owner_id=row[1], title=title, chapters=0, covered=0)
+
+
+@router.delete("/courses/{course_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_course(course_id: UUID, db: UserDb, storage: Files, visit: Visit) -> Response:
+    """Admins only (row-level security). Its materials, chapters, cards, reviews, coverage and
+    dates go with it by cascade; usage events that mention it are kept."""
+    cur = await db.execute(
+        "select storage_path from public.materials where course_id = %s", (course_id,)
+    )
+    paths = [row[0] for row in await cur.fetchall()]
+    cur = await db.execute("delete from public.courses where id = %s", (course_id,))
+    if not cur.rowcount:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found")
+    await usage.log(db, visit, "course_deleted", course_id=course_id)
+    for path in paths:
+        try:
+            await storage.remove_material(path)
+        except Exception:
+            # The course is gone; leftover files are only a storage cost.
+            logger.exception("could not remove the stored files at %s", path)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/courses/{course_id}")

@@ -9,9 +9,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from engram.api.auth import get_verifier
+from engram.api.files import get_storage
 from engram.api.main import create_app
 from engram.api.routes import materials
-from engram.api.routes.materials import get_storage
+from engram.storage import Storage
 from tests.test_api import FakeVerifier, auth, token_for
 
 PDF_BYTES = b"%PDF-1.4\n% a lecture\n%%EOF\n"
@@ -47,6 +48,8 @@ class FakeStorage:
     async def remove_prefix(self, prefix: str) -> None:
         for key in [k for k in self.objects if k.rsplit("/", 1)[0] == prefix]:
             del self.objects[key]
+
+    remove_material = Storage.remove_material
 
 
 @pytest.fixture
@@ -285,6 +288,31 @@ def test_admins_delete_any_material_with_its_files(
     assert (
         rows(database_url, "select 1 from public.materials where id = %s", course["textbook"]) == []
     )
+
+
+def test_only_admins_delete_courses_with_their_files(
+    client: TestClient,
+    course: dict[str, str],
+    storage: FakeStorage,
+    database_url: str,
+    make_user: Callable[..., str],
+) -> None:
+    textbook_file = f"{course['id']}/book/psych.pdf"
+    storage.objects[textbook_file] = PDF_BYTES
+    upload(client, storage, course, "Week 1.pdf", PDF_BYTES)
+    assert len(storage.objects) == 2
+    url = f"/courses/{course['id']}"
+
+    owner = auth(token_for(course["owner"]))
+    assert client.delete(url, headers=owner).status_code == 404
+    assert rows(database_url, "select 1 from public.courses where id = %s", course["id"]) == [(1,)]
+
+    admin = auth(token_for(make_user("admin")))
+    assert client.delete(url, headers=admin).status_code == 204
+    assert storage.objects == {}
+    gone = rows(database_url, "select 1 from public.materials where course_id = %s", course["id"])
+    assert gone == []
+    assert client.delete(url, headers=admin).status_code == 404
 
 
 def test_unknown_course(client: TestClient, course: dict[str, str]) -> None:

@@ -13,19 +13,20 @@ The browser uploads the file straight to Storage, because Cloud Run caps request
 
 import logging
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Literal
 from uuid import UUID, uuid4
 
 import psycopg
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, HTTPException, Response, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from engram.api import usage
 from engram.api.db import UserDb
+from engram.api.files import Files
 from engram.api.routes.courses import Material
 from engram.api.usage import Visit
-from engram.storage import Storage, safe_filename
+from engram.storage import safe_filename
 
 logger = logging.getLogger(__name__)
 
@@ -40,14 +41,6 @@ PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentatio
 CONTENT_TYPES = {".pdf": PDF, ".pptx": PPTX}
 
 UNSUPPORTED = "Engram can read PDF and PowerPoint (.pptx) files."
-
-
-def get_storage(request: Request) -> Storage:
-    storage: Storage = request.app.state.storage
-    return storage
-
-
-Files = Annotated[Storage, Depends(get_storage)]
 
 
 class NewMaterial(BaseModel):
@@ -166,10 +159,8 @@ async def remove(material_id: UUID, db: UserDb, storage: Files, visit: Visit) ->
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Material not found")
     await usage.log(db, visit, "material_deleted", material_id=material_id)
-    folder = str(Path(row[0]).parent)
     try:
-        await storage.remove_prefix(f"{folder}/figures")
-        await storage.remove_prefix(folder)
+        await storage.remove_material(row[0])
     except Exception:
         # The material is gone for the student; leftover files are only a storage cost.
         logger.exception("could not remove the stored files of material %s", material_id)

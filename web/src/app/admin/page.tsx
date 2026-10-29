@@ -431,6 +431,7 @@ function Courses({ people, show }: { people: Person[] | null; show: Show }) {
   const [courses, setCourses] = useState<CourseSummary[] | null>(null);
   const [owner, setOwner] = useState("");
   const [creating, setCreating] = useState(false);
+  const [confirming, setConfirming] = useState<string | null>(null);
 
   useEffect(() => {
     api<CourseSummary[]>("/courses").then(setCourses);
@@ -441,9 +442,15 @@ function Courses({ people, show }: { people: Person[] | null; show: Show }) {
   const person = people?.find((p) => p.id === chosen);
   const listed = courses?.filter((c) => c.owner_id === chosen);
 
-  // Not built yet: wire this to the API when deleting courses exists.
-  function deleteCourse(course: CourseSummary) {
-    show(`Deleting ${course.title} isn't built yet.`);
+  async function deleteCourse(course: CourseSummary) {
+    setConfirming(null);
+    try {
+      await apiFetch(`/courses/${course.id}`, { method: "DELETE" });
+      setCourses((cs) => cs && cs.filter((c) => c.id !== course.id));
+      show(`${course.title} deleted.`);
+    } catch {
+      show(`Couldn't delete ${course.title}. Please try again.`);
+    }
   }
 
   return (
@@ -490,9 +497,21 @@ function Courses({ people, show }: { people: Person[] | null; show: Show }) {
                   <span className="text-sm text-muted tabular-nums">
                     {c.chapters ? `${c.covered} of ${c.chapters} chapters covered` : "No chapters yet"}
                   </span>
-                  <Button variant="danger" onClick={() => deleteCourse(c)} aria-label={`Delete ${c.title}`}>
-                    Delete course
-                  </Button>
+                  {confirming === c.id ? (
+                    <div className="rise-in flex w-full flex-wrap items-center justify-end gap-2 text-sm">
+                      <span>Delete it with its materials, cards and review history? This can&apos;t be undone.</span>
+                      <Button variant="danger" onClick={() => deleteCourse(c)} className="min-h-9 px-3 py-1">
+                        Delete
+                      </Button>
+                      <Button variant="quiet" onClick={() => setConfirming(null)} className="min-h-9 px-3 py-1">
+                        Keep
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button variant="danger" onClick={() => setConfirming(c.id)} aria-label={`Delete ${c.title}`}>
+                      Delete course
+                    </Button>
+                  )}
                 </li>
               ))}
             </RowList>
