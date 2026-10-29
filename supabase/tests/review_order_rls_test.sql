@@ -18,10 +18,10 @@ select pg_temp.act_as('11111111-1111-1111-1111-111111111111');
 update public.profiles set review_order = 'separate';
 reset role;
 select is((select review_order::text from public.profiles where id = '11111111-1111-1111-1111-111111111111'),
-  'mixed', 'students cannot change their own review order');
+  'blocked', 'students cannot change their own review order');
 
 select pg_temp.act_as('99999999-9999-9999-9999-999999999999');
-select lives_ok($$ update public.profiles set review_order = 'blocked'
+select lives_ok($$ update public.profiles set review_order = 'mixed'
   where id = '11111111-1111-1111-1111-111111111111' $$, 'admins set a student''s review order');
 select throws_ok($$ update public.profiles set role = 'admin'
   where id = '11111111-1111-1111-1111-111111111111' $$, '42501', null, 'admins cannot change roles');
@@ -29,7 +29,7 @@ select throws_ok($$ update public.profiles set display_name = 'x'
   where id = '11111111-1111-1111-1111-111111111111' $$, '42501', null, 'or other profile fields');
 reset role;
 select is((select review_order::text from public.profiles where id = '11111111-1111-1111-1111-111111111111'),
-  'blocked', 'the change is saved');
+  'mixed', 'the change is saved');
 
 select * from finish();
 rollback;

@@ -171,7 +171,7 @@ def test_new_cards_are_introduced_a_few_a_day_covered_chapters_first(
 
     summary = client.get("/review/summary", headers=headers).json()
     assert summary == {
-        "order": "mixed",
+        "order": "blocked",
         "sessions": [{"session": "review", "cards": 3, "minutes": 1, "courses": ["Biology"]}],
     }
 
@@ -246,7 +246,7 @@ def test_an_admin_sets_each_students_review_order(
     assert client.put(url, json={"order": "separate"}, headers=student).status_code == 403
 
     people = client.get("/admin/people", headers=admin).json()
-    assert {"id": deck["owner"], "review_order": "mixed"}.items() <= next(
+    assert {"id": deck["owner"], "review_order": "blocked"}.items() <= next(
         p for p in people if p["id"] == deck["owner"]
     ).items()
 

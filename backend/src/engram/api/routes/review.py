@@ -209,7 +209,7 @@ async def _order(db: UserDb) -> Order:
         "select review_order::text from public.profiles where id = (select auth.uid())"
     )
     row = await cur.fetchone()
-    return row[0] if row else "mixed"
+    return row[0] if row else "blocked"
 
 
 async def _today(db: UserDb, day: Day) -> list[dict[str, Any]]:

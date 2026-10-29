@@ -5,7 +5,6 @@ API and database changes the Phase 2 UI pass needs but doesn't make. The UI pass
 | #   | Change                                                              | Needs                      | Frontend ready?                                        |
 | --- | ------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------ |
 | 1   | [Card generation shows its progress](#1-card-generation-progress-d53) (D53) | Migration, worker, API | No: needs a few lines once the field exists           |
-| 2   | [Blocked as the default review order](#2-blocked-as-the-default-review-order-d55) (D55) | Migration     | Yes: nothing to change                                 |
 | 3   | [Each course's owner on `/courses`](#3-each-courses-owner-on-courses) | API                      | Yes: the admin page filters as soon as it's sent      |
 | 4   | [Who uploaded a material, and whose it is](#4-who-uploaded-a-material-and-whose-it-is) | Migration, API | Yes: the admin columns fill in as soon as it's sent    |
 | 5   | [Delete a material (admin)](#5-delete-a-material-admin)            | Probably nothing           | Stub: `deleteMaterial` in `web/src/app/admin/page.tsx` |
@@ -69,18 +68,6 @@ Already made during Phase 2, recorded here for completeness: review cards carry 
    - the course page already polls every 4 s while a chapter is pending, so the count updates without further work. The small animated pile next to it is already built.
 
 **Open question:** the count is taken before repeats are dropped, so "23 so far" can end as "21 cards are ready". Counting batches done out of total ("3 of 5 parts") is exact but means less to a student. The draft used the card count, worded "so far".
-
-## 2. Blocked as the default review order (D55)
-
-`profiles.review_order` defaults to `'mixed'` (`supabase/migrations/20261028090000_review_order.sql`). D55 makes blocked the default.
-
-```sql
-alter table public.profiles alter column review_order set default 'blocked';
--- Optionally move everyone still on the old default:
--- update public.profiles set review_order = 'blocked' where review_order = 'mixed';
-```
-
-Whether to move existing people is a choice: the admin page can also set each person's order by hand.
 
 ## 3. Each course's owner on `/courses`
 

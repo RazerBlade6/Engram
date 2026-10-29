@@ -271,7 +271,7 @@ Designed directly in the app and reviewed on the local dev server, without a sep
   - [x] Dates written out and entered day/month/year (D54)
   - [x] Report control moved to the card's corner (D52)
   - [ ] Card generation shows its progress (D53)
-  - [ ] Blocked review order as the default (D55)
+  - [x] Blocked review order as the default (D55)
 - [x] Welcome tour on the first visit: a few cards walking through Today, courses, review, Calendar and Ask, with back, next and skip, ending on "Start your first review" (D60)
 - [ ] Empty states, loading states, error states, including a stalled or failed upload
 - [ ] Mobile pass for review

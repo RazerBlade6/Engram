@@ -40,7 +40,7 @@ export function ReviewView() {
   const profile = useProfile();
   const session: ReviewSession = useSearchParams().get("session") === "quiz" ? "quiz" : "review";
   const [queue, setQueue] = useState<ReviewCard[] | null>(null);
-  const [order, setOrder] = useState<ReviewOrder>("mixed");
+  const [order, setOrder] = useState<ReviewOrder>("blocked");
   const [colors, setColors] = useState<Map<string, string>>(new Map());
   const [failed, setFailed] = useState(false);
   // Answers given this session (a card still being learned is answered more than once),
