@@ -12,6 +12,7 @@ API and database changes the Phase 2 UI pass needs but doesn't make. The UI pass
 | 6   | [Delete a course](#6-delete-a-course)                               | API (maybe RLS)            | Stub: `deleteCourse` in `web/src/app/admin/page.tsx`   |
 | 7   | [Remove a person](#7-remove-a-person)                               | API, Auth, Storage         | Stub: `removePerson` in `web/src/app/admin/page.tsx`   |
 | 8   | [Remember the welcome tour per account](#8-remember-the-welcome-tour-per-account) (D60) | Migration, API | No: swap the browser flag for the profile field |
+| 9   | [Forgot password](#9-forgot-password) | Auth config, frontend | No: needs a "Forgot your password?" link and a reset page |
 
 Already made during Phase 2, recorded here for completeness: review cards carry `course_id` (`backend/src/engram/api/routes/review.py`), so the review screen can color a card's course. No migration.
 
@@ -134,3 +135,15 @@ The welcome tour shows once per browser: `web/src/components/welcome-tour.tsx` s
 - Migration: `alter table public.profiles add column welcomed_at timestamptz;`, with the column added to the update grant students already have on `profiles`.
 - API: return `welcomed_at` from `GET /me`, and an endpoint (or `PUT /me`) that sets it.
 - Frontend: `tourSeen()` reads the profile instead of storage, and finishing or skipping the tour sets it.
+
+## 9. Forgot password
+
+There's no way to recover a forgotten password: an admin would have to send a new invite to a new address, or reset it by hand. Someone signed out without their password saved has no way back in.
+
+Supabase Auth covers most of it:
+
+- **Request:** a "Forgot your password?" link on the sign-in page opens a form for the email address and calls `supabase.auth.resetPasswordForEmail(email, { redirectTo: <web url>/auth/reset-password })`. The page always says "If that address has an account, a link is on its way", so it doesn't reveal who has one.
+- **Reset:** the link signs them in for a moment and lands on a page that sets the new password with `supabase.auth.updateUser({ password })`. `web/src/app/auth/set-password/page.tsx`, which invite links already use, does exactly this and can likely be reused.
+- **Configuration:** add the reset page to the allowed redirect URLs (`supabase/config.toml` locally, and the hosted project's Auth settings), and word the reset email template plainly. Production needs working email sending (custom SMTP) for these to arrive reliably.
+- **Admin fallback:** a "Send a password reset" button per person on the admin page, calling the same thing from the API with the service key, for anyone who can't get the email.
+- **Locally:** emails are caught at http://localhost:54324, so the flow can be tested end to end.
