@@ -215,7 +215,7 @@ function PageView({
           <Button variant="secondary" onClick={() => goTo(pageNumber - 1)} disabled={pageNumber <= 1}>
             ← Previous
           </Button>
-          <label className="flex items-center gap-2">
+          <label className="flex items-center gap-2 whitespace-nowrap">
             Page
             <input
               type="number"
