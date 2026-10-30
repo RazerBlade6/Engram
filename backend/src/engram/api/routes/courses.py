@@ -51,6 +51,8 @@ class Material(BaseModel):
     title: str
     kind: str
     status: str
+    # A PDF, which a browser can show (`GET /materials/{id}/file`); PowerPoint files can't be.
+    viewable: bool = False
 
 
 class Course(BaseModel):
@@ -235,7 +237,8 @@ async def get_course(course_id: UUID, db: UserDb) -> Course:
 
     async with db.cursor(row_factory=class_row(Material)) as mcur:
         await mcur.execute(
-            "select id, title, kind::text as kind, status::text as status"
+            "select id, title, kind::text as kind, status::text as status,"
+            " lower(storage_path) like '%%.pdf' as viewable"
             " from public.materials where course_id = %s order by created_at",
             (course_id,),
         )

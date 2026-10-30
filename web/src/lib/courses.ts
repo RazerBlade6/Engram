@@ -30,6 +30,8 @@ export type Material = {
   title: string;
   kind: "textbook" | "slides";
   status: "uploading" | "queued" | "processing" | "ready" | "failed";
+  /** A PDF, which opens in the browser. PowerPoint files can't. */
+  viewable: boolean;
 };
 
 export type Course = { id: string; title: string; textbooks: Textbook[]; materials: Material[] };

@@ -103,7 +103,13 @@ async def add(course_id: UUID, body: NewMaterial, db: UserDb, storage: Files) ->
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only admins add textbooks") from None
     token = await storage.upload_token(path)
     return PendingMaterial(
-        material=Material(id=material_id, title=title, kind=body.kind, status="uploading"),
+        material=Material(
+            id=material_id,
+            title=title,
+            kind=body.kind,
+            status="uploading",
+            viewable=suffix == ".pdf",
+        ),
         upload=Upload(path=path, token=token),
     )
 
@@ -147,7 +153,31 @@ async def queue(
         type="pdf" if content_type == PDF else "pptx",
         bytes=size,
     )
-    return Material(id=material_id, title=title, kind=kind, status="queued")
+    return Material(
+        id=material_id, title=title, kind=kind, status="queued", viewable=content_type == PDF
+    )
+
+
+class FileLink(BaseModel):
+    url: str
+
+
+# Long enough to open the file, short enough that a shared link soon stops working.
+VIEW_LINK_SECONDS = 600
+
+
+@router.get("/materials/{material_id}/file")
+async def file(material_id: UUID, db: UserDb, storage: Files) -> FileLink:
+    """A short-lived link to the file as it was uploaded, for the browser to open. Only those
+    who can see the material (its course's owner, and admins) get one."""
+    cur = await db.execute(
+        "select storage_path from public.materials where id = %s and status <> 'uploading'",
+        (material_id,),
+    )
+    row = await cur.fetchone()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Material not found")
+    return FileLink(url=await storage.signed_url(row[0], expires_in=VIEW_LINK_SECONDS))
 
 
 @router.delete("/materials/{material_id}", status_code=status.HTTP_204_NO_CONTENT)

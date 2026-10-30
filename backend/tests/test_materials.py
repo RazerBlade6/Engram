@@ -52,6 +52,9 @@ class FakeStorage:
 
     remove_material = Storage.remove_material
 
+    async def signed_url(self, path: str, expires_in: int = 3600) -> str:
+        return f"https://storage.test/sign/{path}?expires={expires_in}"
+
 
 @pytest.fixture
 def storage() -> FakeStorage:
@@ -347,3 +350,38 @@ def test_removing_a_person_takes_their_courses_files_and_events(
 def test_unknown_course(client: TestClient, course: dict[str, str]) -> None:
     missing = {**course, "id": str(uuid.uuid4())}
     assert add(client, missing, "x.pdf").status_code == 404
+
+
+def test_students_open_the_files_in_their_courses_only(
+    client: TestClient,
+    course: dict[str, str],
+    storage: FakeStorage,
+    make_user: Callable[..., str],
+    database_url: str,
+) -> None:
+    textbook = f"/materials/{course['textbook']}/file"
+    owner = auth(token_for(course["owner"]))
+    response = client.get(textbook, headers=owner)
+    assert response.status_code == 200
+    assert response.json() == {
+        "url": f"https://storage.test/sign/{course['id']}/book/psych.pdf"
+        f"?expires={materials.VIEW_LINK_SECONDS}"
+    }
+    assert client.get(textbook, headers=auth(token_for(make_user()))).status_code == 404
+    assert client.get(textbook, headers=auth(token_for(make_user("admin")))).status_code == 200
+    unknown = f"/materials/{uuid.uuid4()}/file"
+    assert client.get(unknown, headers=owner).status_code == 404
+
+    # Not before the file has arrived.
+    pending = add(client, course, "Week 1.pdf").json()["material"]
+    assert client.get(f"/materials/{pending['id']}/file", headers=owner).status_code == 404
+
+
+def test_only_pdfs_are_marked_viewable(
+    client: TestClient, course: dict[str, str], storage: FakeStorage
+) -> None:
+    assert upload(client, storage, course, "Week 1.pdf", PDF_BYTES).json()["viewable"] is True
+    assert upload(client, storage, course, "Week 2.pptx", pptx_bytes()).json()["viewable"] is False
+    listed = client.get(f"/courses/{course['id']}", headers=auth(token_for(course["owner"])))
+    viewable = {m["title"]: m["viewable"] for m in listed.json()["materials"]}
+    assert viewable == {"Psychology 2e": True, "Week 1": True, "Week 2": False}

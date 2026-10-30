@@ -6,7 +6,7 @@ import { Button, buttonClass } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { ProgressBar } from "@/components/ui/progress";
 import { RowList } from "@/components/ui/row-list";
-import { ApiError, apiFetch } from "@/lib/api";
+import { ApiError, api, apiFetch } from "@/lib/api";
 import { cx } from "@/lib/cx";
 import type { Material } from "@/lib/courses";
 import { ACCEPT, addMaterial, uploadProblem, type MaterialKind } from "@/lib/uploads";
@@ -66,6 +66,24 @@ export function MaterialsPanel({
     }
   }
 
+  async function view(material: Material) {
+    // Opened now, while the click still counts, so a pop-up blocker doesn't stop it; the
+    // file's link takes a moment to fetch.
+    const tab = window.open("", "_blank");
+    try {
+      const { url } = await api<{ url: string }>(`/materials/${material.id}/file`);
+      if (tab) {
+        tab.opener = null;
+        tab.location.href = url;
+      } else {
+        window.location.assign(url);
+      }
+    } catch {
+      tab?.close();
+      show(`Couldn't open ${material.title}. Please try again.`);
+    }
+  }
+
   function onDrop(event: DragEvent) {
     event.preventDefault();
     setDragging(false);
@@ -90,29 +108,41 @@ export function MaterialsPanel({
               >
                 {materialStatus(m)}
               </div>
-              {(m.kind === "slides" || canAddTextbook) &&
-                (confirming === m.id ? (
-                  <div className="rise-in mt-2 flex flex-wrap items-center gap-2 text-sm">
-                    <span>Remove {m.kind === "slides" ? "these slides" : "this textbook"}?</span>
-                    <Button variant="danger" onClick={() => remove(m)} className="min-h-9 px-3 py-1">
-                      Remove
-                    </Button>
-                    <Button variant="quiet" onClick={() => setConfirming(null)} className="min-h-9 px-3 py-1">
-                      Keep
-                    </Button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setConfirming(m.id);
-                      setProblem(null);
-                    }}
-                    className="mt-1 text-sm text-muted underline-offset-4 hover:text-foreground hover:underline"
-                    aria-label={`Remove ${m.title}`}
-                  >
+              {confirming === m.id ? (
+                <div className="rise-in mt-2 flex flex-wrap items-center gap-2 text-sm">
+                  <span>Remove {m.kind === "slides" ? "these slides" : "this textbook"}?</span>
+                  <Button variant="danger" onClick={() => remove(m)} className="min-h-9 px-3 py-1">
                     Remove
-                  </button>
-                ))}
+                  </Button>
+                  <Button variant="quiet" onClick={() => setConfirming(null)} className="min-h-9 px-3 py-1">
+                    Keep
+                  </Button>
+                </div>
+              ) : (
+                <div className="mt-1 flex flex-wrap gap-x-4 text-sm">
+                  {m.viewable && m.status !== "uploading" && (
+                    <button
+                      onClick={() => view(m)}
+                      className="font-semibold text-accent underline-offset-4 hover:underline"
+                      aria-label={`View ${m.title}`}
+                    >
+                      View
+                    </button>
+                  )}
+                  {(m.kind === "slides" || canAddTextbook) && (
+                    <button
+                      onClick={() => {
+                        setConfirming(m.id);
+                        setProblem(null);
+                      }}
+                      className="text-muted underline-offset-4 hover:text-foreground hover:underline"
+                      aria-label={`Remove ${m.title}`}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              )}
             </li>
           ))}
         </RowList>
