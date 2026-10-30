@@ -31,7 +31,9 @@ async def record(
     await conn.execute(
         "insert into public.llm_usage (job, model, material_id, section_id, requests,"
         " input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens)"
-        " values (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+        # A material or section deleted while the job ran is recorded as null: still billed.
+        " values (%s, %s, (select id from public.materials where id = %s),"
+        " (select id from public.sections where id = %s), %s, %s, %s, %s, %s)",
         (
             job,
             ", ".join(sorted(usage.models)),

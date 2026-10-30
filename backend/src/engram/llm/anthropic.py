@@ -130,6 +130,12 @@ def _errors(model: str) -> Iterator[None]:
         raise ProviderUnavailable(f"Anthropic rejected the credentials: {exc.message}") from exc
     except anthropic.NotFoundError as exc:
         raise ProviderUnavailable(f"Unknown model {model!r}: {exc.message}") from exc
+    except anthropic.BadRequestError as exc:
+        # The output filter blocks some responses at random (a figure's labels, transcribed
+        # verbatim, can read as reproduced text). Like a refusal, it affects only this request.
+        if "content filtering" not in exc.message:
+            raise
+        raise ProviderError(f"{model} output was blocked ({exc.request_id})") from exc
     except TypeError as exc:
         # The SDK raises TypeError when no API key or profile can be found.
         if "authentication" not in str(exc):

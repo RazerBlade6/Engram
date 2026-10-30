@@ -352,3 +352,24 @@ async def test_parsed_content_follows_course_access(
 
     assert visible(material["owner"]) == (3, 2, 5)
     assert visible(stranger) == (0, 0, 0)
+
+
+async def test_usage_is_kept_when_the_material_was_deleted_meanwhile(
+    database_url: str, material: dict[str, str]
+) -> None:
+    from engram.usage import record
+
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute("delete from public.materials where id = %s", (material["id"],))
+    async with await psycopg.AsyncConnection.connect(database_url, autocommit=True) as conn:
+        await record(
+            conn,
+            "describe_figures",
+            Usage(3, 100, 10, models={"vision-1"}),
+            material_id=material["id"],
+        )
+    assert rows(
+        database_url,
+        "select material_id, requests from public.llm_usage where job = 'describe_figures'"
+        " order by id desc limit 1",
+    ) == [(None, 3)]

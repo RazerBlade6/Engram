@@ -162,3 +162,35 @@ async def test_anthropic_cited_streams_text_and_citations() -> None:
     documents = sent["messages"][-1]["content"][:2]
     assert all(d["type"] == "document" and d["citations"] == {"enabled": True} for d in documents)
     assert sent["messages"][-1]["content"][-1] == {"type": "text", "text": "When does water boil?"}
+
+
+def bad_request(message: str) -> Any:
+    import anthropic
+    import httpx2 as httpx
+
+    response = httpx.Response(
+        400, request=httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    )
+    body = {"type": "error", "error": {"type": "invalid_request_error", "message": message}}
+    return anthropic.BadRequestError(message, response=response, body=body)
+
+
+async def test_blocked_output_is_a_decline_for_this_request_only() -> None:
+    import anthropic
+
+    class Raises:
+        def __init__(self, error: Exception) -> None:
+            self.error = error
+
+        async def parse(self, **kwargs: Any) -> Any:
+            raise self.error
+
+    blocked = Raises(bad_request("Output blocked by content filtering policy"))
+    provider = AnthropicProvider(SimpleNamespace(messages=blocked))  # type: ignore[arg-type]
+    with pytest.raises(ProviderError):
+        await provider.structured("m", system="s", parts=[TextPart("x")], schema=Answer)
+
+    malformed = Raises(bad_request("messages: field required"))
+    provider = AnthropicProvider(SimpleNamespace(messages=malformed))  # type: ignore[arg-type]
+    with pytest.raises(anthropic.BadRequestError):
+        await provider.structured("m", system="s", parts=[TextPart("x")], schema=Answer)
