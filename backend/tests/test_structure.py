@@ -217,3 +217,42 @@ def test_powerpoint_boxes_are_converted_to_points() -> None:
     assert slide.locations[0].bbox == (36, 21.6, 684, 111.6)
     [figure] = parsed.figures
     assert figure.location.bbox == (144, 144, 504, 384)
+
+
+def test_a_missed_heading_does_not_pull_the_book_after_a_later_match() -> None:
+    """Docling runs "INTRODUCTION" into the first paragraph, and the references at the back
+    repeat the chapter's headings. The section must start at its outline page, not at the
+    references."""
+    from docling_core.types.doc import BoundingBox, CoordOrigin, DocItemLabel, ProvenanceItem, Size
+
+    from engram.ingest.structure import OutlineEntry, build
+
+    def prov(page: int, top: float) -> ProvenanceItem:
+        box = BoundingBox(l=72, t=top, r=540, b=top + 20, coord_origin=CoordOrigin.TOPLEFT)
+        return ProvenanceItem(page_no=page, bbox=box, charspan=(0, 0))
+
+    doc = DoclingDocument(name="missed")
+    for page in range(1, 11):
+        doc.add_page(page_no=page, size=Size(width=612, height=792))
+    doc.add_heading("Chapter 1 Minds", prov=prov(1, 72))
+    doc.add_text(DocItemLabel.TEXT, "INTRODUCTION Minds are studied.", prov=prov(1, 100))
+    doc.add_heading("1.1 Thinking", prov=prov(2, 72))
+    doc.add_text(DocItemLabel.TEXT, "Thinking is work.", prov=prov(2, 100))
+    doc.add_heading("Chapter 2 Bodies", prov=prov(3, 72))
+    doc.add_text(DocItemLabel.TEXT, "Bodies move.", prov=prov(3, 100))
+    doc.add_heading("Introduction to the references", prov=prov(10, 72))
+    doc.add_text(DocItemLabel.TEXT, "Smith (2010). Minds.", prov=prov(10, 100))
+
+    outline = [
+        OutlineEntry(1, "Chapter 1 Minds", 1),
+        OutlineEntry(2, "Introduction", 1),
+        OutlineEntry(2, "1.1 Thinking", 2),
+        OutlineEntry(1, "Chapter 2 Bodies", 3),
+    ]
+    parsed = build(doc, outline=outline)
+    by_section = {
+        parsed.sections[c.section].title: c.text for c in parsed.chunks if c.section is not None
+    }
+    assert by_section["Introduction"] == "INTRODUCTION Minds are studied."
+    assert by_section["1.1 Thinking"] == "Thinking is work."
+    assert by_section["Chapter 2 Bodies"].startswith("Bodies move.")

@@ -196,6 +196,13 @@ def _anchor_sections(
     return anchors
 
 
+# How many pages past its outline page a section's heading may be. Docling misses some
+# headings (OpenStax runs "INTRODUCTION" into the first paragraph), and a search through the
+# whole book then matches a heading far ahead, such as the same title in the references,
+# pulling every later section after it.
+HEADER_SLACK = 1
+
+
 def _find_header(
     headers: list[tuple[int, SectionHeaderItem]], entry: OutlineEntry, floor: int
 ) -> int | None:
@@ -203,6 +210,8 @@ def _find_header(
     for position, item in headers:
         if position < floor or _page(item) < entry.page:
             continue
+        if _page(item) > entry.page + HEADER_SLACK:
+            return None
         have = _normalize(item.text)
         if have and (have == want or have.startswith(want) or want.startswith(have)):
             return position

@@ -67,6 +67,10 @@ class Unmarked(Exception):
     """The chapter was unmarked while its cards were being made."""
 
 
+class NoText(PermanentError):
+    """The chapter has no text to make cards from: nothing was read into it at ingestion."""
+
+
 def make_handler(settings: Settings, *, router: Router | None = None) -> Handler:
     async def handle(job: Job) -> None:
         section_id = str(job.payload["section_id"])
@@ -125,10 +129,15 @@ async def generate(conn: AsyncConnection[Any], section_id: str, *, router: Route
         "update public.covered_sections set cards_drafted = 0 where section_id = %s",
         (section_id,),
     )
+    passages = await load_passages(conn, section_id)
+    if not passages:
+        # Shown as failed rather than as zero cards, so a parsing problem doesn't pass for an
+        # empty chapter.
+        raise NoText(f"{chapter!r} has no text to make cards from")
     try:
         cards = await make_cards(
             chapter,
-            await load_passages(conn, section_id),
+            passages,
             provider,
             model,
             usage=usage,

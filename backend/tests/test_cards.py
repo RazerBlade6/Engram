@@ -345,6 +345,23 @@ async def test_a_permanent_error_fails_at_once(database_url: str, chapter: dict[
     assert status(database_url, chapter) == [("failed",)]
 
 
+async def test_a_chapter_with_no_text_fails_rather_than_making_no_cards(
+    database_url: str, chapter: dict[str, str]
+) -> None:
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute(
+            "delete from public.chunks where section_id in (select id from public.sections"
+            " where id = %(id)s or parent_id = %(id)s)",
+            {"id": chapter["id"]},
+        )
+    mark(database_url, chapter)
+    provider = FakeProvider()
+    with pytest.raises(cards_job.NoText):
+        await run(database_url, chapter, provider)
+    assert provider.prompts == []
+    assert status(database_url, chapter) == [("failed",)]
+
+
 # The API ------------------------------------------------------------------------------
 
 
