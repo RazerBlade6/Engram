@@ -134,3 +134,24 @@ async def test_the_worker_reconnects_when_the_database_drops_it(
     )
     assert len(connections) == 2
     assert runs == connections  # a fresh connection for the second run
+
+
+async def test_a_cancelled_job_stops_within_a_heartbeat(
+    conn: AsyncConnection[Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(queue, "HEARTBEAT", timedelta(milliseconds=20))
+    stopped = asyncio.Event()
+
+    async def long(job: Job) -> None:
+        await conn.execute("update public.jobs set status = 'cancelled' where id = %s", (job.id,))
+        try:
+            await asyncio.sleep(10)
+        finally:
+            stopped.set()
+
+    await conn.execute("delete from public.jobs")
+    job_id = await queue.enqueue(conn, "long")
+    assert await asyncio.wait_for(run_once(conn, "w", {"long": long}), timeout=2)
+    assert stopped.is_set()
+    cur = await conn.execute("select status::text from public.jobs where id = %s", (job_id,))
+    assert await cur.fetchone() == ("cancelled",)

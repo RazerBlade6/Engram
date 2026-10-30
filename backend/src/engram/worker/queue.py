@@ -4,6 +4,8 @@ Jobs live in `public.jobs`. A worker claims one with `FOR UPDATE SKIP LOCKED`, s
 workers can poll the same table without handing out a job twice. While a job runs, its
 worker renews the lock every `HEARTBEAT`; a job left `running` by a worker that died (or was
 preempted, as Modal containers can be) is reclaimed once its lock is older than `STALE_LOCK`.
+A job whose work was removed is marked 'cancelled' by the database (see the cancel_jobs
+migration); its worker finds out when the lock no longer renews, and stops.
 """
 
 from collections.abc import Awaitable, Callable
@@ -91,29 +93,40 @@ async def heartbeat(conn: AsyncConnection[Any], job: Job, worker_id: str) -> boo
     return cur.rowcount == 1
 
 
-async def complete(conn: AsyncConnection[Any], job: Job) -> None:
+# Only the worker holding a job may finish it: one that was cancelled, or reclaimed by
+# another worker meanwhile, is left as it is.
+HELD = "id = %(id)s and status = 'running' and locked_by = %(worker)s"
+
+
+async def complete(conn: AsyncConnection[Any], job: Job, worker_id: str) -> None:
     await conn.execute(
         "update public.jobs set status = 'succeeded', locked_at = null, locked_by = null"
-        " where id = %s",
-        (job.id,),
+        f" where {HELD}",
+        {"id": job.id, "worker": worker_id},
     )
 
 
 async def fail(
-    conn: AsyncConnection[Any], job: Job, error: str, *, permanent: bool = False
+    conn: AsyncConnection[Any],
+    job: Job,
+    worker_id: str,
+    error: str,
+    *,
+    permanent: bool = False,
 ) -> None:
     """Requeue with exponential backoff, or mark failed once attempts are used up (or at once,
     for a permanent error)."""
+    held = {"id": job.id, "worker": worker_id, "error": error}
     if permanent or job.attempts >= job.max_attempts:
         await conn.execute(
-            "update public.jobs set status = 'failed', last_error = %s,"
-            " locked_at = null, locked_by = null where id = %s",
-            (error, job.id),
+            "update public.jobs set status = 'failed', last_error = %(error)s,"
+            f" locked_at = null, locked_by = null where {HELD}",
+            held,
         )
         return
     delay = RETRY_BASE_DELAY * 2 ** (job.attempts - 1)
     await conn.execute(
-        "update public.jobs set status = 'queued', last_error = %s, run_after = now() + %s,"
-        " locked_at = null, locked_by = null where id = %s",
-        (error, delay, job.id),
+        "update public.jobs set status = 'queued', last_error = %(error)s,"
+        f" run_after = now() + %(delay)s, locked_at = null, locked_by = null where {HELD}",
+        held | {"delay": delay},
     )

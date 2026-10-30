@@ -364,3 +364,4 @@ Designed directly in the app and reviewed on the local dev server, without a sep
 | 58  | The four ratings are colored in four inks (plum, ochre, teal, blue), none of them red | Color makes the choice faster, but a red "Forgot" reads as failing, against the no-guilt principle (D6) |
 | 59  | No illustration; motion stays subtle except the card flip, which can be generous | The card is what a student watches; anywhere else, motion would only distract |
 | 60  | The welcome is a short tour of index cards, one per page, with back, next and skip; seen once per account | A single welcome line explained Engram but not where things are; skip on every card and arrow keys keep it from standing between a student and their first review |
+| 61  | Removing a material cancels its jobs in the database; a running job stops within a minute, when its lock no longer renews | A removed textbook was read to the end, paying for every figure description |

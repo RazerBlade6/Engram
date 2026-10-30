@@ -11,7 +11,7 @@ import logging
 import os
 import signal
 import socket
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import psycopg
@@ -35,30 +35,51 @@ def build_handlers(settings: Settings) -> dict[str, Handler]:
     return {ingest.KIND: ingest.make_handler(settings), cards.KIND: cards.make_handler(settings)}
 
 
-@contextlib.asynccontextmanager
-async def _keep_alive(conn: AsyncConnection[Any], job: Job, worker_id: str) -> AsyncIterator[None]:
-    """Renew the job's lock while the block runs, so only a dead worker's job looks stale.
-    Stopped with an event rather than cancelled, so a renewal in flight on the shared
-    connection always finishes."""
+class JobLost(Exception):
+    """The job was cancelled, or reclaimed by another worker, while it ran."""
+
+
+async def _run_held(conn: AsyncConnection[Any], job: Job, worker_id: str, handler: Handler) -> None:
+    """Run the handler while renewing the job's lock, so only a dead worker's job looks
+    stale. If the lock stops renewing, the handler is cancelled and JobLost raised. The
+    renewal is stopped with an event rather than cancelled, so a renewal in flight on the
+    shared connection always finishes."""
+    work: asyncio.Task[None] = asyncio.ensure_future(handler(job))
     done = asyncio.Event()
-    task = asyncio.create_task(_renew(conn, job, worker_id, done))
+    renewal = asyncio.create_task(_renew(conn, job, worker_id, done, work))
     try:
-        yield
+        await work
+    except asyncio.CancelledError:
+        if renewal.done() and renewal.result():
+            raise JobLost(f"job {job.id} is no longer locked by {worker_id}") from None
+        raise
     finally:
         done.set()
-        await task
+        await renewal
 
 
-async def _renew(conn: AsyncConnection[Any], job: Job, worker_id: str, done: asyncio.Event) -> None:
+async def _renew(
+    conn: AsyncConnection[Any],
+    job: Job,
+    worker_id: str,
+    done: asyncio.Event,
+    work: asyncio.Task[None],
+) -> bool:
+    """Renew the lock every HEARTBEAT until `done`. Returns True if the lock was lost, after
+    cancelling `work`."""
     while not done.is_set():
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(done.wait(), timeout=queue.HEARTBEAT.total_seconds())
-            return
+            return False
         try:
-            if not await queue.heartbeat(conn, job, worker_id):
-                logger.warning("job %s is no longer locked by %s", job.id, worker_id)
+            held = await queue.heartbeat(conn, job, worker_id)
         except Exception:
             logger.exception("heartbeat for job %s failed", job.id)
+            continue
+        if not held:
+            work.cancel()
+            return True
+    return False
 
 
 async def run_once(
@@ -72,8 +93,9 @@ async def run_once(
     try:
         if handler is None:
             raise LookupError(f"no handler for job kind {job.kind!r}")
-        async with _keep_alive(conn, job, worker_id):
-            await handler(job)
+        await _run_held(conn, job, worker_id, handler)
+    except JobLost:
+        logger.warning("job %s (%s) was cancelled or taken over; stopped it", job.id, job.kind)
     except Exception as exc:
         permanent = isinstance(exc, PermanentError | LookupError)
         logger.exception(
@@ -83,9 +105,9 @@ async def run_once(
             job.attempts,
             " (permanent)" if permanent else "",
         )
-        await queue.fail(conn, job, f"{type(exc).__name__}: {exc}", permanent=permanent)
+        await queue.fail(conn, job, worker_id, f"{type(exc).__name__}: {exc}", permanent=permanent)
     else:
-        await queue.complete(conn, job)
+        await queue.complete(conn, job, worker_id)
         logger.info("job %s (%s) succeeded", job.id, job.kind)
     return True
 
