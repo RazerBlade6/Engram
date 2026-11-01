@@ -147,11 +147,19 @@ class FakeProvider:
     name = "fake"
 
     def __init__(
-        self, during: Callable[[], None] | None = None, fail: Exception | None = None
+        self,
+        during: Callable[[], None] | None = None,
+        fail: Exception | None = None,
+        *,
+        flaky: int = 0,
+        wordy: bool = False,
     ) -> None:
         self.prompts: list[str] = []
         self.during = during
         self.fail = fail
+        # The first `flaky` calls fail; `wordy` answers run far past the length limit.
+        self.flaky = flaky
+        self.wordy = wordy
 
     async def structured(
         self,
@@ -171,6 +179,8 @@ class FakeProvider:
             self.during()
         if self.fail:
             raise self.fail
+        if len(self.prompts) <= self.flaky:
+            raise ProviderError("output didn't parse")
         cards = []
         for block in prompt.split("\n\n[P")[1:]:
             number, _, rest = block.partition("]")
@@ -180,12 +190,17 @@ class FakeProvider:
                     kind="basic",
                     concept="c",
                     prompt=f"What does passage {number} say?",
-                    answer=text,
+                    answer=" ".join([text] * 40) if self.wordy else text,
                     distractors=[],
                     sources=[Source(passage=int(number), quote=text)],
                 )
             )
         return CardSet(cards=cards)
+
+
+@pytest.fixture(autouse=True)
+def no_retry_wait(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cards_job, "RETRY_AFTER_SECONDS", 0)
 
 
 @pytest.fixture
@@ -368,6 +383,26 @@ async def test_the_job_failing_for_good_marks_the_chapter_failed(
         job = Job(row[0], cards_job.KIND, {"section_id": chapter["id"]}, 3, 3)
         await queue.fail(conn, job, "w", "ProviderError: declined")
     assert status(database_url, chapter) == [("failed",)]
+
+
+async def test_a_batch_that_fails_is_sent_again(database_url: str, chapter: dict[str, str]) -> None:
+    mark(database_url, chapter)
+    provider = FakeProvider(flaky=1)
+    await run(database_url, chapter, provider)
+    assert len(provider.prompts) == 2
+    assert len(stored(database_url, chapter)) == 2
+    assert status(database_url, chapter) == [("ready",)]
+
+
+async def test_a_chapter_whose_cards_are_all_dropped_is_not_ready(
+    database_url: str, chapter: dict[str, str]
+) -> None:
+    mark(database_url, chapter)
+    with pytest.raises(cards_job.NoCards):
+        await run(database_url, chapter, FakeProvider(wordy=True))
+    # Left pending for the job's next attempt; failed once there are none left.
+    assert status(database_url, chapter) == [("pending",)]
+    assert stored(database_url, chapter) == []
 
 
 async def test_a_permanent_error_is_reraised(database_url: str, chapter: dict[str, str]) -> None:

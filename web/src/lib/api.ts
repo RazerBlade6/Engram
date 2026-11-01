@@ -2,6 +2,8 @@ import { supabase } from "./supabase";
 import { currentVisit } from "./visit";
 
 const DEFAULT_API_URL = "http://localhost:8000";
+/** Where a request that finds the session over sends the user. */
+export const SIGNED_OUT_URL = "/sign-in?signed-out=1";
 
 /** Absolute URL for an Engram API path, based on NEXT_PUBLIC_API_URL. */
 export function apiUrl(path: string, base = process.env.NEXT_PUBLIC_API_URL ?? DEFAULT_API_URL): string {
@@ -29,6 +31,15 @@ export async function apiFetch(path: string, init: RequestInit = {}): Promise<Re
   headers.set("X-Session", currentVisit());
 
   const response = await fetch(apiUrl(path), { ...init, headers });
+  if (response.status === 401 && typeof window !== "undefined") {
+    // The session ended (signed out elsewhere, or expired past refreshing): every page says
+    // the same thing, on the sign-in page, rather than each failing in its own way.
+    await supabase()
+      .auth.signOut({ scope: "local" })
+      .catch(() => {});
+    // A full load, so nothing from the ended session stays on screen.
+    window.location.assign(new URL(SIGNED_OUT_URL, window.location.origin));
+  }
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     throw new ApiError(response.status, body.detail ?? response.statusText);

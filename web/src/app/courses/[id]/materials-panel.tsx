@@ -32,11 +32,14 @@ export function MaterialsPanel({
 }) {
   const [upload, setUpload] = useState<Upload | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  // An upload cut off by the connection, kept so it can be sent again in one click.
+  const [interrupted, setInterrupted] = useState<{ file: File; kind: MaterialKind } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [confirming, setConfirming] = useState<string | null>(null);
 
   async function add(files: File[], kind: MaterialKind = "slides") {
     setProblem(null);
+    setInterrupted(null);
     for (const file of files) {
       const issue = uploadProblem(file, kind);
       if (issue) {
@@ -50,6 +53,8 @@ export function MaterialsPanel({
       } catch (e) {
         const reason = e instanceof ApiError && e.status !== 500 ? e.message : UPLOAD_FAILED;
         setProblem(`${file.name}: ${reason}`);
+        // Status 0: the connection dropped or stalled, so the same file may well go through.
+        if (e instanceof ApiError && e.status === 0) setInterrupted({ file, kind });
       }
     }
     setUpload(null);
@@ -212,7 +217,19 @@ export function MaterialsPanel({
       )}
       {problem && (
         <div className="mt-3">
-          <Notice tone="error">{problem}</Notice>
+          <Notice
+            tone="error"
+            action={
+              interrupted &&
+              !upload && (
+                <Button variant="secondary" onClick={() => add([interrupted.file], interrupted.kind)}>
+                  Try again
+                </Button>
+              )
+            }
+          >
+            {problem}
+          </Notice>
         </div>
       )}
     </section>

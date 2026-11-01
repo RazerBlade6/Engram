@@ -38,6 +38,10 @@ logger = logging.getLogger(__name__)
 
 KIND = "generate_cards"
 CONCURRENCY = 4
+# A batch whose request fails (a refusal, output that doesn't parse) is sent again this many
+# times before the chapter goes on without it; the SDK already retries overloads itself.
+BATCH_RETRIES = 1
+RETRY_AFTER_SECONDS = 5.0
 
 # End-of-chapter material repeats the chapter or asks questions about it: no new cards.
 _SKIPPED = re.compile(
@@ -69,6 +73,11 @@ class Unmarked(Exception):
 
 class NoText(PermanentError):
     """The chapter has no text to make cards from: nothing was read into it at ingestion."""
+
+
+class NoCards(Exception):
+    """Every card drafted for the chapter was dropped. Not permanent: the model may do
+    better on the job's next attempt, and only after the last does the chapter show failed."""
 
 
 def make_handler(settings: Settings, *, router: Router | None = None) -> Handler:
@@ -143,6 +152,9 @@ async def generate(conn: AsyncConnection[Any], section_id: str, *, router: Route
     finally:
         # Recorded however the run ended: every finished request was billed.
         await record(conn, KIND, usage, material_id=material_id, section_id=section_id)
+    if not cards:
+        # Shown as failed, not as a chapter that is ready with no cards.
+        raise NoCards(f"every card drafted for {chapter!r} was dropped")
     await _finish(conn, section_id, material_id, cards, router)
 
 
@@ -179,18 +191,24 @@ async def make_cards(
         async with gate:
             if not await still_covered():
                 raise Unmarked
-            try:
-                result = await provider.structured(
-                    model,
-                    system=SYSTEM,
-                    parts=[TextPart(prompt_for(chapter, batch))],
-                    schema=CardSet,
-                    max_tokens=MAX_TOKENS,
-                    usage=usage,
-                )
-            except ProviderError as exc:
-                logger.warning("%s, %s passages: %s", chapter, len(batch), exc)
-                return None
+            for attempt in range(BATCH_RETRIES + 1):
+                try:
+                    result = await provider.structured(
+                        model,
+                        system=SYSTEM,
+                        parts=[TextPart(prompt_for(chapter, batch))],
+                        schema=CardSet,
+                        max_tokens=MAX_TOKENS,
+                        usage=usage,
+                    )
+                    break
+                except ProviderError as exc:
+                    logger.warning(
+                        "%s, %s passages, try %s: %s", chapter, len(batch), attempt + 1, exc
+                    )
+                    if attempt == BATCH_RETRIES:
+                        return None
+                    await asyncio.sleep(RETRY_AFTER_SECONDS)
         cards, dropped = accept(result.cards, batch)
         if dropped:
             logger.info("%s: dropped %s", chapter, dropped)
