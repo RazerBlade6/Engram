@@ -53,21 +53,16 @@ def make_handler(
                 files: Storage = await stack.enter_async_context(Storage(settings))
             else:
                 files = storage
-            try:
-                await ingest(
-                    conn,
-                    material_id,
-                    router=router or Router(settings),
-                    storage=files,
-                    embedder=embedder or get_embedder(settings.embedding_model),
-                    parser=parser,
-                )
-            except Exception as exc:
-                await conn.execute(
-                    "update public.materials set status = 'failed', error = %s where id = %s",
-                    (f"{type(exc).__name__}: {exc}", material_id),
-                )
-                raise
+            # On failure the material stays 'processing' while the job is retried; once it
+            # fails for good, the database marks it failed (migration job_failed_marks_work).
+            await ingest(
+                conn,
+                material_id,
+                router=router or Router(settings),
+                storage=files,
+                embedder=embedder or get_embedder(settings.embedding_model),
+                parser=parser,
+            )
 
     return handle
 

@@ -3,7 +3,9 @@
 Jobs live in `public.jobs`. A worker claims one with `FOR UPDATE SKIP LOCKED`, so several
 workers can poll the same table without handing out a job twice. While a job runs, its
 worker renews the lock every `HEARTBEAT`; a job left `running` by a worker that died (or was
-preempted, as Modal containers can be) is reclaimed once its lock is older than `STALE_LOCK`.
+preempted, as Modal containers can be) is reclaimed once its lock is older than `STALE_LOCK`,
+unless it has used up its attempts: then it is marked failed, so a job that kills its worker
+every time (a book too large for its memory) doesn't loop forever.
 A job whose work was removed is marked 'cancelled' by the database (see the cancel_jobs
 migration); its worker finds out when the lock no longer renews, and stops.
 """
@@ -47,22 +49,33 @@ async def enqueue(
     return int(row[0])
 
 
-# Jobs a worker may claim now: queued and due, or left running by a worker that died.
-READY = """
+# Left running by a worker that died.
+ABANDONED = "status = 'running' and locked_at < now() - %(stale)s"
+# Jobs a worker may claim now: queued and due, or abandoned with attempts to spare.
+READY = f"""
     (status = 'queued' and run_after <= now())
-    or (status = 'running' and locked_at < now() - %(stale)s)
+    or ({ABANDONED} and attempts < max_attempts)
 """
+GAVE_UP = "Abandoned: the worker stopped while running it, on every attempt"
 
 
 async def has_ready(conn: AsyncConnection[Any]) -> bool:
+    """Whether a worker has anything to do, counting abandoned jobs out of attempts, which
+    `claim` marks failed."""
     cur = await conn.execute(
-        f"select exists (select 1 from public.jobs where {READY})", {"stale": STALE_LOCK}
+        f"select exists (select 1 from public.jobs where {READY} or ({ABANDONED}))",
+        {"stale": STALE_LOCK},
     )
     row = await cur.fetchone()
     return bool(row and row[0])
 
 
 async def claim(conn: AsyncConnection[Any], worker_id: str) -> Job | None:
+    await conn.execute(
+        "update public.jobs set status = 'failed', last_error = %(error)s,"
+        f" locked_at = null, locked_by = null where {ABANDONED} and attempts >= max_attempts",
+        {"stale": STALE_LOCK, "error": GAVE_UP},
+    )
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
             f"""

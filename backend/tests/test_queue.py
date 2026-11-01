@@ -74,6 +74,23 @@ async def test_stale_running_job_is_reclaimed(conn: AsyncConnection[Any]) -> Non
     assert job is not None and job.id == job_id and job.attempts == 2
 
 
+async def test_abandoned_job_out_of_attempts_is_failed_not_reclaimed(
+    conn: AsyncConnection[Any],
+) -> None:
+    job_id = await queue.enqueue(conn, "test")
+    await conn.execute(
+        "update public.jobs set status = 'running', attempts = max_attempts, locked_by = 'dead',"
+        " locked_at = now() - %s where id = %s",
+        (queue.STALE_LOCK + timedelta(minutes=1), job_id),
+    )
+    # Counted as work, so the sweep starts a worker to give up on it.
+    assert await queue.has_ready(conn)
+    assert await queue.claim(conn, "w2") is None
+    status, _, _, error = await status_of(conn, job_id)
+    assert (status, error) == ("failed", queue.GAVE_UP)
+    assert not await queue.has_ready(conn)
+
+
 async def test_concurrent_workers_never_share_a_job(database_url: str) -> None:
     async with (
         await AsyncConnection.connect(database_url, autocommit=True) as setup,

@@ -74,17 +74,10 @@ class NoText(PermanentError):
 def make_handler(settings: Settings, *, router: Router | None = None) -> Handler:
     async def handle(job: Job) -> None:
         section_id = str(job.payload["section_id"])
+        # The chapter stays 'pending' while the job is retried; once it fails for good, the
+        # database marks it failed (migration job_failed_marks_work).
         async with await AsyncConnection.connect(settings.database_url, autocommit=True) as conn:
-            try:
-                await generate(conn, section_id, router=router or Router(settings))
-            except Exception as exc:
-                if isinstance(exc, PermanentError) or job.attempts >= job.max_attempts:
-                    await conn.execute(
-                        "update public.covered_sections set cards_status = 'failed'"
-                        " where section_id = %s",
-                        (section_id,),
-                    )
-                raise
+            await generate(conn, section_id, router=router or Router(settings))
 
     return handle
 

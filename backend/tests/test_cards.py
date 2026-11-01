@@ -6,6 +6,7 @@ from typing import Any
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
+from psycopg import AsyncConnection
 from pydantic import BaseModel
 
 from engram.api.auth import get_verifier
@@ -22,7 +23,9 @@ from engram.cards.generate import (
     distinct,
 )
 from engram.config import Settings
+from engram.errors import PermanentError
 from engram.llm import ProviderError, ProviderUnavailable, Router, Usage
+from engram.worker import queue
 from engram.worker.queue import Job
 from tests.test_api import FakeVerifier, auth, token_for
 
@@ -337,23 +340,40 @@ async def test_unmarking_during_generation_stores_nothing(
     assert provider.prompts == []
 
 
-async def test_status_is_failed_only_after_the_last_attempt(
+async def test_a_failed_attempt_leaves_the_chapter_pending(
     database_url: str, chapter: dict[str, str]
 ) -> None:
     mark(database_url, chapter)
-    with pytest.raises(ProviderError):
-        await run(database_url, chapter, FakeProvider(fail=ProviderError("declined")), attempts=1)
+    for attempt in (1, 3):
+        with pytest.raises(ProviderError):
+            await run(database_url, chapter, FakeProvider(fail=ProviderError("declined")), attempt)
+    # Marked failed by the database once the job fails for good (below), not by the handler.
     assert status(database_url, chapter) == [("pending",)]
-    with pytest.raises(ProviderError):
-        await run(database_url, chapter, FakeProvider(fail=ProviderError("declined")), attempts=3)
+
+
+async def test_the_job_failing_for_good_marks_the_chapter_failed(
+    database_url: str, chapter: dict[str, str]
+) -> None:
+    mark(database_url, chapter)
+    async with await AsyncConnection.connect(database_url, autocommit=True) as conn:
+        cur = await conn.execute(
+            "select id from public.jobs where kind = %s and payload ->> 'section_id' = %s",
+            (cards_job.KIND, chapter["id"]),
+        )
+        row = await cur.fetchone()
+        assert row
+        await conn.execute(
+            "update public.jobs set status = 'running', locked_by = 'w' where id = %s", (row[0],)
+        )
+        job = Job(row[0], cards_job.KIND, {"section_id": chapter["id"]}, 3, 3)
+        await queue.fail(conn, job, "w", "ProviderError: declined")
     assert status(database_url, chapter) == [("failed",)]
 
 
-async def test_a_permanent_error_fails_at_once(database_url: str, chapter: dict[str, str]) -> None:
+async def test_a_permanent_error_is_reraised(database_url: str, chapter: dict[str, str]) -> None:
     mark(database_url, chapter)
     with pytest.raises(ProviderUnavailable):
         await run(database_url, chapter, FakeProvider(fail=ProviderUnavailable("no key")))
-    assert status(database_url, chapter) == [("failed",)]
 
 
 async def test_a_chapter_with_no_text_fails_rather_than_making_no_cards(
@@ -367,10 +387,11 @@ async def test_a_chapter_with_no_text_fails_rather_than_making_no_cards(
         )
     mark(database_url, chapter)
     provider = FakeProvider()
-    with pytest.raises(cards_job.NoText):
+    # Permanent, so the job fails at once and the chapter shows as failed.
+    with pytest.raises(cards_job.NoText) as raised:
         await run(database_url, chapter, provider)
+    assert isinstance(raised.value, PermanentError)
     assert provider.prompts == []
-    assert status(database_url, chapter) == [("failed",)]
 
 
 # The API ------------------------------------------------------------------------------

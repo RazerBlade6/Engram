@@ -6,6 +6,7 @@ from typing import Any
 
 import psycopg
 import pytest
+from psycopg import AsyncConnection
 from pydantic import BaseModel
 
 from engram.config import Settings
@@ -13,6 +14,7 @@ from engram.ingest import job as ingest_job
 from engram.ingest.describe import FigureDescription
 from engram.ingest.model import Chunk, Figure, Location, ParsedMaterial, Section
 from engram.llm import ProviderError, Router, Usage
+from engram.worker import queue
 from engram.worker.queue import Job
 
 PNG = b"\x89PNG fake"
@@ -311,7 +313,7 @@ async def test_declined_figure_keeps_its_caption(
     assert content.endswith("Figure 1.1 A cell.")
 
 
-async def test_failure_marks_material_failed_and_reraises(
+async def test_a_failed_attempt_reraises_and_leaves_the_material_reading(
     database_url: str, material: dict[str, str]
 ) -> None:
     def broken(path: Path, slides: bool) -> ParsedMaterial:
@@ -321,11 +323,40 @@ async def test_failure_marks_material_failed_and_reraises(
         await handler(Settings(database_url=database_url), FakeStorage(), broken)(
             Job(1, ingest_job.KIND, {"material_id": material["id"]}, 1, 3)
         )
+    # The job may be retried; only its final failure marks the material failed.
     assert rows(
-        database_url,
-        "select status::text, error from public.materials where id = %s",
-        material["id"],
-    ) == [("failed", "ValueError: corrupt PDF")]
+        database_url, "select status::text from public.materials where id = %s", material["id"]
+    ) == [("processing",)]
+
+
+async def test_the_job_failing_for_good_marks_the_material_failed(
+    database_url: str, material: dict[str, str]
+) -> None:
+    async with await AsyncConnection.connect(database_url, autocommit=True) as conn:
+        job = await queue.enqueue(conn, ingest_job.KIND, {"material_id": material["id"]})
+        try:
+            claimed = Job(job, ingest_job.KIND, {"material_id": material["id"]}, 1, 3)
+            await conn.execute(
+                "update public.jobs set status = 'running', locked_by = 'w' where id = %s", (job,)
+            )
+            await queue.fail(conn, claimed, "w", "ValueError: corrupt PDF")
+            assert rows(
+                database_url,
+                "select status::text from public.materials where id = %s",
+                material["id"],
+            ) == [("queued",)]
+
+            await conn.execute(
+                "update public.jobs set status = 'running', locked_by = 'w' where id = %s", (job,)
+            )
+            await queue.fail(conn, claimed, "w", "ValueError: corrupt PDF", permanent=True)
+            assert rows(
+                database_url,
+                "select status::text, error from public.materials where id = %s",
+                material["id"],
+            ) == [("failed", "ValueError: corrupt PDF")]
+        finally:
+            await conn.execute("delete from public.jobs where id = %s", (job,))
 
 
 async def test_parsed_content_follows_course_access(
