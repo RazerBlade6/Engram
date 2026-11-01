@@ -183,7 +183,7 @@ Other source types use the same output format: slides become one chunk per slide
 
 ## Learning model
 
-- **Scheduling:** [FSRS](https://github.com/open-spaced-repetition/fsrs4anki/wiki/The-Algorithm), the current state-of-the-art open spaced-repetition scheduler.
+- **Scheduling:** [FSRS](https://github.com/open-spaced-repetition/awesome-fsrs/wiki/The-Algorithm), the current state-of-the-art open spaced-repetition scheduler.
 - **Mastery (Phase 3):** concept mastery is derived from the FSRS recall probability of each concept's cards, weighted by quiz and short-answer results. This powers a weak-spots view and "quiz me on my weakest concepts in Ch. 4–7".
 - **Learner model (Phase 4):** once there is enough real review data, fit a dedicated learner model (e.g. Bayesian knowledge tracing) and compare it with the FSRS-derived baseline.
 

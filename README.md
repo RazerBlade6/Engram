@@ -2,7 +2,7 @@
 
 A study system that turns course materials into spaced-repetition practice.
 
-Students bring textbooks, lecture slides, notes and readings. Engram parses them, generates flashcards and practice questions that cite the exact page they came from, schedules reviews with [FSRS](https://github.com/open-spaced-repetition/fsrs4anki/wiki/The-Algorithm), and answers questions about the material when the student gets stuck.
+Students bring textbooks, lecture slides, notes and readings. Engram parses them, generates flashcards and practice questions that cite the exact page they came from, schedules reviews with [FSRS](https://github.com/open-spaced-repetition/awesome-fsrs/wiki/The-Algorithm), and answers questions about the material when the student gets stuck.
 
 > **Status: Phase 1 (functional core) complete; Phase 2 (UI/UX) in progress.** Engram runs at [engramstudy.app](https://engramstudy.app) (invite-only). The design is in [docs/README.md](docs/README.md) and progress in [docs/ROADMAP.md](docs/ROADMAP.md).
 
