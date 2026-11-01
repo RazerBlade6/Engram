@@ -142,8 +142,14 @@ def test_browser_events_are_checked(
         {"name": "page_view", "page": "/courses/what I typed?"},
         {"name": "search", "query": "anything"},
         {"name": "source_opened", "origin": "email", "page_image": True},
+        {"name": "pdf_opened", "origin": "email"},
     ]:
         assert client.post("/events", json=bad, headers=headers).status_code == 422
+    for good in [
+        {"name": "pdf_opened", "origin": "chat"},
+        {"name": "pdf_opened", "origin": "course"},
+    ]:
+        assert client.post("/events", json=good, headers=headers).json() == {"logged": True}
 
 
 def test_only_admins_record_consent(

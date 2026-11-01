@@ -20,6 +20,7 @@ x-backend: &backend
     ENGRAM_DATABASE_URL: postgresql://postgres:postgres@host.docker.internal:54322/postgres
     ENGRAM_SUPABASE_URL: http://host.docker.internal:54321
     ENGRAM_SUPABASE_JWT_ISSUER: http://127.0.0.1:54321/auth/v1
+    ENGRAM_SUPABASE_PUBLIC_URL: http://127.0.0.1:54321
     ENGRAM_WEB_URL: http://localhost:3000
   extra_hosts:
     - "host.docker.internal:host-gateway"

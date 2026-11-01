@@ -33,6 +33,7 @@ Event = Literal[
     "session_start",
     "page_view",
     "source_opened",
+    "pdf_opened",
     "chat_question",
 ]
 

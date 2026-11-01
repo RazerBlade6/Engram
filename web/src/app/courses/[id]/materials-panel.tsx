@@ -10,6 +10,7 @@ import { ApiError, api, apiFetch } from "@/lib/api";
 import { cx } from "@/lib/cx";
 import type { Material } from "@/lib/courses";
 import { ACCEPT, addMaterial, uploadProblem, type MaterialKind } from "@/lib/uploads";
+import { track } from "@/lib/usage";
 
 type Upload = { name: string; progress: number };
 
@@ -72,6 +73,7 @@ export function MaterialsPanel({
     const tab = window.open("", "_blank");
     try {
       const { url } = await api<{ url: string }>(`/materials/${material.id}/file`);
+      track({ name: "pdf_opened", origin: "course" });
       if (tab) {
         tab.opener = null;
         tab.location.href = url;

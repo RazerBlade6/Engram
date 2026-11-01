@@ -10,6 +10,7 @@ export type BrowserEvent =
   | { name: "session_start"; width: number }
   | { name: "page_view"; page: string }
   | { name: "source_opened"; origin: "chat" | "review"; page_image: boolean }
+  | { name: "pdf_opened"; origin: "chat" | "course" }
   | {
       name: "chat_question";
       course_id: string;

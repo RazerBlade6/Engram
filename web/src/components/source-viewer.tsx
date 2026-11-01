@@ -77,6 +77,7 @@ export function SourceViewer({
       const { url } = await api<{ url: string }>(`/materials/${materialId}/file`);
       const atPage = new URL(url);
       atPage.hash = `page=${page}`;
+      track({ name: "pdf_opened", origin: "chat" });
       if (tab) {
         tab.opener = null;
         tab.location.href = atPage.href;

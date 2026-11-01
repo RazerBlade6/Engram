@@ -33,6 +33,13 @@ class SourceOpened(BaseModel):
     page_image: bool
 
 
+class PdfOpened(BaseModel):
+    """A material's PDF opened in the browser: from a citation's page link, or the course page."""
+
+    name: Literal["pdf_opened"]
+    origin: Literal["chat", "course"]
+
+
 class ChatQuestion(BaseModel):
     name: Literal["chat_question"]
     course_id: UUID
@@ -46,7 +53,7 @@ class ChatQuestion(BaseModel):
 
 
 BrowserEvent = Annotated[
-    SessionStart | PageView | SourceOpened | ChatQuestion, Field(discriminator="name")
+    SessionStart | PageView | SourceOpened | PdfOpened | ChatQuestion, Field(discriminator="name")
 ]
 
 

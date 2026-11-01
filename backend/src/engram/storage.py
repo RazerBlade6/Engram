@@ -22,6 +22,9 @@ def safe_filename(name: str) -> str:
 class Storage:
     def __init__(self, settings: Settings, client: httpx.AsyncClient | None = None) -> None:
         secret = settings.supabase_secret_key.get_secret_value()
+        # Signed links are opened by the browser, which may reach Supabase at another address.
+        public = settings.supabase_public_url or settings.supabase_url
+        self._public_url = f"{public.rstrip('/')}/storage/v1"
         self._client = client or httpx.AsyncClient(
             base_url=f"{settings.supabase_url.rstrip('/')}/storage/v1",
             headers={"apikey": secret, "Authorization": f"Bearer {secret}"},
@@ -85,9 +88,10 @@ class Storage:
         await self.remove_prefix(folder)
 
     async def signed_url(self, path: str, expires_in: int = 3600) -> str:
+        """A short-lived link to an object, at the address browsers reach Supabase on."""
         response = await self._client.post(
             f"/object/sign/{BUCKET}/{path}", json={"expiresIn": expires_in}
         )
         response.raise_for_status()
         body: dict[str, Any] = response.json()
-        return f"{self._client.base_url}{body['signedURL']}"
+        return f"{self._public_url}{body['signedURL']}"

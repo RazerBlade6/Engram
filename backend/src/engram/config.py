@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # The `iss` claim in access tokens. Defaults to `<supabase_url>/auth/v1`; set it when the
     # API reaches Supabase at a different address than the browser does (as in Docker).
     supabase_jwt_issuer: str | None = None
+    # Where browsers reach Supabase, for signed links to files. Defaults to `supabase_url`;
+    # set it when the API reaches Supabase at a different address than the browser does.
+    supabase_public_url: str | None = None
     supabase_secret_key: SecretStr = SecretStr("")
     web_url: str = "http://localhost:3000"
     cors_origins: list[str] = ["http://localhost:3000"]
