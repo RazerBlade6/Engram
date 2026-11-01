@@ -321,14 +321,13 @@ function QuickAdd({
         <div className="w-60">
           <DateField label="Date" required value={day} onChange={onDay} />
         </div>
-        {/* Level with the fields, not their hints. */}
-        <Button type="submit" size="lg" disabled={busy || !title.trim() || !day} className="mt-8">
-          Add
-        </Button>
       </div>
-      <div className="mt-3">
+      <div className="mt-4">
         <ChapterPicker courseId={course} selected={chapters} onChange={setChapters} />
       </div>
+      <Button type="submit" size="lg" disabled={busy || !title.trim() || !day} className="mt-5">
+        Add
+      </Button>
       {error && (
         <div className="mt-4">
           <FormError message={error} />

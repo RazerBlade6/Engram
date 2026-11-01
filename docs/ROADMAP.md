@@ -274,9 +274,9 @@ Designed directly in the app and reviewed on the local dev server, without a sep
   - [x] Blocked review order as the default (D55)
 - [ ] Changes from the second round of testing ([findings](UserObservations.md#findings-1)):
   - [ ] A less zoomed-in interface at the same text size; review fits a 1366×768 screen without scrolling (D63)
-  - [ ] Ask without the intro text (D64)
+  - [x] Ask without the intro text (D64)
   - [x] Citations in Ask open the passage as text (D65)
-  - [ ] Chapter picker: covered chapters first, a range, the full list one step away; placed above Add (D66)
+  - [x] Chapter picker: covered chapters first, a range, the full list one step away; placed above Add (D66)
   - [ ] Sidebar menu on phones (D67)
   - [ ] Review on phones: ratings pinned to the bottom, source directly under the card (D68)
   - [ ] Week-by-week calendar on phones (D69)

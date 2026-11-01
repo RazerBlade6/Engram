@@ -197,12 +197,6 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
             ))}
           </div>
         )}
-        {messages.length === 0 && (
-          <p className="mt-6 max-w-prose text-lg text-muted">
-            Stuck on something in {course.title}? Ask in your own words. Answers come from your textbook, slides and
-            notes, with a link to the exact page.
-          </p>
-        )}
 
         <div className="mt-8 flex flex-1 flex-col gap-6" aria-live="polite">
           {messages.map((m, i) =>
