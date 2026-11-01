@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { SourceViewer } from "@/components/source-viewer";
 import { Toast, type ToastMessage } from "@/components/toast";
@@ -86,7 +86,7 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
   const [open, setOpen] = useState<{ chunkId: string; quote: string | null } | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const hideToast = useCallback(() => setToast(null), []);
-  const input = useRef<HTMLInputElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const busy = messages.at(-1)?.role === "assistant" && (messages.at(-1) as AnswerMessage).status === "streaming";
 
@@ -97,6 +97,14 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
   }, [messages.length]);
+
+  // The field grows with the question, up to its max height (Safari has no CSS for this yet).
+  useLayoutEffect(() => {
+    const el = input.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+  }, [question]);
 
   const ask = useCallback(
     async (text: string) => {
@@ -174,7 +182,14 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
     // narrower column in the middle.
     <main className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-6xl flex-col px-6 pt-10">
       <div className="mx-auto flex w-full max-w-[45rem] flex-1 flex-col">
-        <h1 className="text-3xl font-bold">Ask a question</h1>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <h1 className="text-3xl font-bold">Ask a question</h1>
+          {messages.length > 0 && (
+            <Button variant="secondary" disabled={busy} onClick={clear}>
+              New question
+            </Button>
+          )}
+        </div>
         {courses.length > 1 && (
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className="text-muted">Answering from</span>
@@ -203,7 +218,7 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
             m.role === "user" ? (
               <p
                 key={i}
-                className="rise-in max-w-[80%] self-end rounded-control rounded-br-sm bg-accent-soft px-4 py-3"
+                className="rise-in max-w-[80%] self-end rounded-control rounded-br-sm bg-accent-soft px-4 py-3 whitespace-pre-line"
               >
                 {m.text}
               </p>
@@ -223,44 +238,53 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
 
       {/* Stays at the bottom of the screen; the desk fades in behind it as answers scroll under. */}
       <form
-        className="sticky bottom-0 mt-6 grid grid-cols-[minmax(0,1fr)_minmax(0,45rem)_minmax(0,1fr)] items-center bg-linear-to-t from-desk from-75% to-transparent pt-6 pb-5"
+        className="sticky bottom-0 mx-auto mt-6 w-full max-w-[45rem] bg-linear-to-t from-desk from-75% to-transparent pt-6 pb-5"
         onSubmit={(e) => {
           e.preventDefault();
           ask(question);
         }}
       >
-        <div className="col-start-2 flex gap-3">
-          <label htmlFor="ask-input" className="sr-only">
-            Your question
-          </label>
-          <input
+        <label htmlFor="ask-input" className="sr-only">
+          Your question
+        </label>
+        {/* Send sits inside the field's edge, so the field keeps the whole width (D70). */}
+        <div className="relative">
+          <textarea
             ref={input}
             id="ask-input"
-            type="text"
+            rows={1}
             autoComplete="off"
             autoFocus
             maxLength={2000}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter sends; Shift+Enter starts a new line. Not while an IME is composing.
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                ask(question);
+              }
+            }}
             placeholder={`Ask about ${course.title}…`}
-            className={cx(CONTROL, "min-w-0 flex-1 text-lg shadow-card")}
+            className={cx(CONTROL, "block max-h-48 resize-none overflow-y-auto pr-16 text-lg shadow-card")}
           />
-          <Button type="submit" size="lg" disabled={busy || !question.trim()}>
-            Ask
-          </Button>
-          {/* Where there's no room in the gutter, it rides in the row, smaller than Ask. */}
-          {messages.length > 0 && (
-            <Button variant="secondary" disabled={busy} onClick={clear} className="self-center min-[75rem]:hidden">
-              Clear<span className="max-sm:hidden">&nbsp;chat</span>
-            </Button>
-          )}
+          <button
+            type="submit"
+            aria-label="Ask"
+            disabled={busy || !question.trim()}
+            className="absolute right-2 bottom-2 grid size-10 place-items-center rounded-control bg-accent text-on-accent transition-opacity duration-150 hover:bg-accent/90 disabled:opacity-40"
+          >
+            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="size-5">
+              <path
+                d="M10 16V4M4.5 9.5 10 4l5.5 5.5"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
         </div>
-        {/* On wide screens it sits (1200px and up) in the right gutter, below Sign out, out of the way of asking. */}
-        {messages.length > 0 && (
-          <Button variant="secondary" disabled={busy} onClick={clear} className="justify-self-end max-[75rem]:hidden">
-            Clear chat
-          </Button>
-        )}
       </form>
 
       {open && <SourceViewer chunkId={open.chunkId} quote={open.quote} origin="chat" onClose={() => setOpen(null)} />}
@@ -305,11 +329,15 @@ function Answer({
   }
 
   return (
-    <article className="rise-in flex flex-col gap-4 rounded-card bg-paper px-6 py-5 shadow-card sm:px-8 sm:py-6">
+    <article className="rise-in flex flex-col gap-4 rounded-card bg-paper px-4 py-4 shadow-card sm:px-8 sm:py-6">
       {answer.outside && (
         <Notice tone="caution">
-          <span className="font-semibold">Not from your {course} materials.</span> This answer comes from general
-          knowledge, so check it against your course.
+          <span className="font-semibold">Not from your {course} materials.</span>
+          {/* One line on a phone; the heading already says enough. */}
+          <span className="max-sm:hidden">
+            {" "}
+            This answer comes from general knowledge, so check it against your course.
+          </span>
         </Notice>
       )}
       {waiting && (
@@ -321,7 +349,7 @@ function Answer({
         </div>
       )}
       {answer.segments.length > 0 && (
-        <p className="font-read text-lg leading-relaxed whitespace-pre-line">
+        <p className="font-read leading-relaxed whitespace-pre-line sm:text-lg">
           {answer.segments.map((s) => (
             <span key={s.block}>
               {s.text}
