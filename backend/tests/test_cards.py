@@ -96,6 +96,17 @@ def test_multiple_choice_needs_three_distinct_distractors() -> None:
     assert dropped == {"mcq choices": 2}
 
 
+def test_cards_far_longer_than_asked_for_are_dropped() -> None:
+    words = lambda n: " ".join(["word"] * n)  # noqa: E731
+    long_question = card(prompt=words(46) + "?")
+    long_answer = card(prompt="Q2", answer=words(51))
+    long_choice = card("mcq", prompt="Q3", distractors=["RNA", "Proteins", words(21)])
+    just_fits = card(prompt=words(45) + "?", answer=words(50))
+    kept, dropped = accept([long_question, long_answer, long_choice, just_fits], BATCH)
+    assert [len(c.prompt.split()) for c in kept] == [45]
+    assert dropped == {"too long": 3}
+
+
 def test_repeated_cards_are_dropped_across_the_chapter() -> None:
     def kept(kind: str, prompt: str, answer: str) -> Card:
         return Card(kind, "c", prompt, answer, [], [{"chunk_id": "c1"}])
@@ -285,8 +296,8 @@ async def test_cards_are_made_from_the_chapter_but_not_its_review_questions(
     [prompt] = provider.prompts
     assert "Review" not in prompt and "Which organelle" not in prompt
     assert stored(database_url, chapter) == [
-        ("The nucleus stores DNA.", "fake:writer-1", "cards-v2"),
-        ("Ribosomes make proteins.", "fake:writer-1", "cards-v2"),
+        ("The nucleus stores DNA.", "fake:writer-1", "cards-v3"),
+        ("Ribosomes make proteins.", "fake:writer-1", "cards-v3"),
     ]
     assert status(database_url, chapter) == [("ready",)]
     assert rows(

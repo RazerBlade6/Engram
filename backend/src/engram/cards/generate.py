@@ -13,7 +13,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-PROMPT_VERSION = "cards-v2"
+PROMPT_VERSION = "cards-v3"
 
 # Passages are sent in batches of about this many words, a few subsections at a time, so a
 # long chapter becomes several calls that run side by side.
@@ -35,15 +35,16 @@ Never make two cards that test the same fact.
 
 Card kinds:
 - basic: a question and a short answer. The question must make sense on its own, without \
-the passage, and have one clear answer. Keep answers to one or two sentences.
+the passage, and have one clear answer. Keep questions under 25 words and answers to one or \
+two short sentences, under 30 words.
 - cloze: one sentence taken or closely adapted from the passage, with the key term or \
 phrase hidden by wrapping it in double braces, like "The {{hippocampus}} consolidates new \
-memories." Hide exactly one span, and only a part worth recalling. The answer is the hidden \
-text, exactly.
+memories." Keep the sentence under 25 words. Hide exactly one span, and only a part worth \
+recalling. The answer is the hidden text, exactly.
 - mcq: a question, its correct answer, and three distractors. Distractors are related ideas \
 from the same material that a student could confuse with the answer, are clearly wrong, and \
-are similar to the answer in length and form. Never use "all of the above" or "none of the \
-above".
+are similar to the answer in length and form. Keep the question under 25 words and each \
+choice under 12. Never use "all of the above" or "none of the above".
 
 Mix the kinds: definitions usually suit cloze or basic; choosing between related ideas suits \
 mcq.
@@ -155,6 +156,17 @@ def _normal(text: str) -> str:
 
 _CLOZE = re.compile(r"\{\{(.+?)\}\}")
 
+# Cards far past the lengths the prompt asks for are dropped: a card is one fact to recall, and
+# on a 14-inch laptop a longer one pushes its buttons off the screen (D63). Well above any card
+# generated so far (at most 32 words in a question, 35 in an answer, 10 in a choice).
+MAX_PROMPT_WORDS = 45
+MAX_ANSWER_WORDS = 50
+MAX_CHOICE_WORDS = 20
+
+
+def _too_long(text: str, words: int) -> bool:
+    return len(text.split()) > words
+
 
 def accept(
     generated: list[GeneratedCard], batch: list[Passage]
@@ -209,6 +221,14 @@ def accept(
             # Shuffled the same way every time for the same question.
             random.Random(prompt).shuffle(options)
             choices = options
+
+        if (
+            _too_long(prompt, MAX_PROMPT_WORDS)
+            or _too_long(answer, MAX_ANSWER_WORDS)
+            or any(_too_long(c, MAX_CHOICE_WORDS) for c in choices)
+        ):
+            drop("too long")
+            continue
 
         cards.append(Card(g.kind, g.concept.strip(), prompt, answer, choices, sources))
 
