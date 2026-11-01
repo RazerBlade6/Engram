@@ -27,13 +27,21 @@ export function CourseView() {
   const profile = useProfile();
   const [course, setCourse] = useState<Course | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A check after the page has loaded failed (a Wi-Fi blip, say): the page stays as it was and
+  // keeps checking until one goes through, rather than giving way to an error.
+  const [behind, setBehind] = useState(false);
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const toastId = useRef(0);
+  const loaded = useRef(false);
 
   const reload = useCallback(() => {
     api<Course>(`/courses/${id}`)
-      .then(setCourse)
-      .catch((e: Error) => setError(e.message));
+      .then((c) => {
+        loaded.current = true;
+        setBehind(false);
+        setCourse(c);
+      })
+      .catch((e: Error) => (loaded.current ? setBehind(true) : setError(e.message)));
   }, [id]);
 
   useEffect(() => {
@@ -46,10 +54,10 @@ export function CourseView() {
       course?.textbooks.some((t) => t.chapters.some((ch) => ch.cards_status === "pending"))) ??
     false;
   useEffect(() => {
-    if (!reading) return;
+    if (!reading && !behind) return;
     const timer = setInterval(reload, POLL_MS);
     return () => clearInterval(timer);
-  }, [reading, reload]);
+  }, [reading, behind, reload]);
 
   const setCovered = useCallback((chapterId: string, coveredAt: string | null) => {
     setCourse(

@@ -57,15 +57,46 @@ export async function storageUpload(path: string, token: string, file: File, onP
     const request = new XMLHttpRequest();
     request.open("PUT", `${base}/storage/v1/object/upload/sign/materials/${path}?token=${encodeURIComponent(token)}`);
     request.setRequestHeader("apikey", process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "");
+
+    // A connection that drops without an error (weak Wi-Fi, a laptop going to sleep) would
+    // otherwise leave the progress bar standing still for good.
+    let lastHeard = Date.now();
+    let sent = false;
+    const watch = setInterval(() => {
+      if (Date.now() - lastHeard > (sent ? STORED_WITHIN_MS : UPLOAD_STALL_MS)) {
+        clearInterval(watch);
+        request.abort();
+        reject(new ApiError(0, "The upload stopped making progress. Check your internet connection and try again."));
+      }
+    }, 5000);
+    const settle = (finish: () => void) => {
+      clearInterval(watch);
+      finish();
+    };
+
     request.upload.onprogress = (event) => {
+      lastHeard = Date.now();
       if (event.lengthComputable) onProgress(event.loaded / event.total);
     };
-    request.onload = () => {
-      if (request.status >= 200 && request.status < 300) resolve();
-      else reject(new ApiError(request.status, "The upload didn't go through. Please try again."));
+    // Every byte is sent; Storage still has to save the file before it answers.
+    request.upload.onload = () => {
+      lastHeard = Date.now();
+      sent = true;
     };
+    request.onload = () =>
+      settle(() => {
+        if (request.status >= 200 && request.status < 300) resolve();
+        else reject(new ApiError(request.status, "The upload didn't go through. Please try again."));
+      });
     request.onerror = () =>
-      reject(new ApiError(0, "The upload was interrupted. Check your internet connection and try again."));
+      settle(() =>
+        reject(new ApiError(0, "The upload was interrupted. Check your internet connection and try again.")),
+      );
     request.send(form);
   });
 }
+
+/** How long an upload may go without sending anything before it counts as stalled. */
+const UPLOAD_STALL_MS = 60_000;
+/** How long Storage may take to answer once the whole file is sent. */
+const STORED_WITHIN_MS = 120_000;
