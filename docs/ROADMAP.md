@@ -58,7 +58,7 @@ Designed directly in the app and reviewed on the local dev server, without a sep
   - [x] A file that can't be read says why: scanned pages with no text, a password, a damaged file, or reading that took too long; such files fail at once instead of being retried (D72)
   - [x] A chapter whose cards couldn't be made has a Try again button, and a file being read shows its step: waiting, reading, looking at figures, almost ready (D73)
   - [x] A card batch that fails is sent again, a chapter whose cards are all dropped shows as failed rather than ready with none, an interrupted upload has Try again, and an ended session goes to sign-in with a note saying so (D74)
-- [ ] Mobile pass for review
+- [x] Mobile pass for review: ratings pinned to the bottom, the source under the card, and a fit for short laptop screens (D63, D68)
 - [ ] **Exit:** a second moderated session where a user on a fresh account takes their first meaningful action within 5 seconds, then users begin daily study
 
 ## Phase 3: Depth for studying
