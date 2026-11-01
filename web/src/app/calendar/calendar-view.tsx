@@ -225,6 +225,16 @@ function Calendar({ courses, initial }: { courses: CourseSummary[]; initial: Cou
   );
 }
 
+/** "tap" on a touchscreen, "click" with a mouse. */
+function Tap() {
+  return (
+    <>
+      <span className="pointer-coarse:hidden">click</span>
+      <span className="hidden pointer-coarse:inline">tap</span>
+    </>
+  );
+}
+
 function monthOf(iso: string): Month {
   const d = parseDay(iso);
   return { year: d.getFullYear(), month: d.getMonth() };
@@ -285,8 +295,16 @@ function QuickAdd({
       <h2 id="add-heading" className="text-xl font-semibold">
         Add an exam, quiz or deadline
       </h2>
-      {courses.length === 1 && <p className="text-muted">For {courses[0].title}. Or click a day on the calendar.</p>}
-      {courses.length > 1 && <p className="text-muted">Or click a day on the calendar to fill in the date.</p>}
+      {courses.length === 1 && (
+        <p className="text-muted">
+          For {courses[0].title}. Or <Tap /> a day on the calendar.
+        </p>
+      )}
+      {courses.length > 1 && (
+        <p className="text-muted">
+          Or <Tap /> a day on the calendar to fill in the date.
+        </p>
+      )}
       <div className="mt-4 flex flex-wrap items-start gap-4">
         {courses.length > 1 && (
           <label className="flex flex-col">
