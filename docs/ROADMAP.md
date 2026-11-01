@@ -56,6 +56,7 @@ Designed directly in the app and reviewed on the local dev server, without a sep
   - [x] A job whose worker dies on every attempt is given up on and shown as failed; a material or chapter shows as failed only once its job has (D71)
   - [x] An upload that stops making progress is stopped with a message, and a failed background check no longer replaces the course page
   - [x] A file that can't be read says why: scanned pages with no text, a password, a damaged file, or reading that took too long; such files fail at once instead of being retried (D72)
+  - [x] A chapter whose cards couldn't be made has a Try again button, and a file being read shows its step: waiting, reading, looking at figures, almost ready (D73)
 - [ ] Mobile pass for review
 - [ ] **Exit:** a second moderated session where a user on a fresh account takes their first meaningful action within 5 seconds, then users begin daily study
 

@@ -24,6 +24,7 @@ Event = Literal[
     "course_deleted",
     "chapter_covered",
     "chapter_unmarked",
+    "cards_retried",
     "material_uploaded",
     "material_deleted",
     "date_added",

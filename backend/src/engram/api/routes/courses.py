@@ -53,6 +53,8 @@ class Material(BaseModel):
     status: str
     # Why it couldn't be read, once failed: a `material_failure` value.
     failure: str | None = None
+    # While processing: the step it's on, a `material_stage` value.
+    stage: str | None = None
     # A PDF, which a browser can show (`GET /materials/{id}/file`); PowerPoint files can't be.
     viewable: bool = False
 
@@ -240,7 +242,8 @@ async def get_course(course_id: UUID, db: UserDb) -> Course:
     async with db.cursor(row_factory=class_row(Material)) as mcur:
         await mcur.execute(
             "select id, title, kind::text as kind, status::text as status,"
-            " failure::text as failure, lower(storage_path) like '%%.pdf' as viewable"
+            " failure::text as failure, stage::text as stage,"
+            " lower(storage_path) like '%%.pdf' as viewable"
             " from public.materials where course_id = %s order by created_at",
             (course_id,),
         )
@@ -306,6 +309,18 @@ async def list_cards(section_id: UUID, db: UserDb) -> list[Card]:
         )
         for id, kind, concept, prompt, answer, choices, sources in await cur.fetchall()
     ]
+
+
+@router.post("/sections/{section_id}/cards/retry", status_code=status.HTTP_204_NO_CONTENT)
+async def retry_cards(section_id: UUID, db: UserDb, visit: Visit) -> Response:
+    """Queue a covered chapter's cards again after they failed (see `retry_cards`)."""
+    try:
+        await db.execute("select public.retry_cards(%s)", (section_id,))
+    except psycopg.errors.InsufficientPrivilege:
+        # Someone else's chapter, one not covered, or one whose cards didn't fail.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No failed cards to retry") from None
+    await usage.log(db, visit, "cards_retried", section_id=section_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete("/sections/{section_id}/covered", status_code=status.HTTP_204_NO_CONTENT)

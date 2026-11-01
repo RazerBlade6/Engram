@@ -444,3 +444,42 @@ async def test_chapters_show_their_cards(
     other = auth(token_for(make_user()))
     assert client.get(f"/sections/{chapter['id']}/cards", headers=other).status_code == 404
     assert client.get(f"/sections/{uuid.uuid4()}/cards", headers=headers).status_code == 404
+
+
+def test_failed_cards_can_be_tried_again(
+    client: TestClient,
+    database_url: str,
+    chapter: dict[str, str],
+    make_user: Callable[..., str],
+) -> None:
+    headers = auth(token_for(chapter["owner"]))
+    retry = f"/sections/{chapter['id']}/cards/retry"
+    # Only a covered chapter whose cards failed.
+    assert client.post(retry, headers=headers).status_code == 404
+    mark(database_url, chapter)
+    assert client.post(retry, headers=headers).status_code == 404
+
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute(
+            "update public.covered_sections set cards_status = 'failed', cards_drafted = 3"
+            " where section_id = %s",
+            (chapter["id"],),
+        )
+    # Not someone else's.
+    assert client.post(retry, headers=auth(token_for(make_user()))).status_code == 404
+
+    jobs = (
+        "select count(*) from public.jobs where kind = 'generate_cards'"
+        " and payload ->> 'section_id' = %s and status = 'queued'"
+    )
+    before = rows(database_url, jobs, chapter["id"])[0][0]
+    assert client.post(retry, headers=headers).status_code == 204
+    assert rows(
+        database_url,
+        "select cards_status::text, cards_drafted from public.covered_sections"
+        " where section_id = %s",
+        chapter["id"],
+    ) == [("pending", 0)]
+    assert rows(database_url, jobs, chapter["id"])[0][0] == before + 1
+    # Once pending, there is nothing to retry.
+    assert client.post(retry, headers=headers).status_code == 404

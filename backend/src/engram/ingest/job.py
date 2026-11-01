@@ -86,8 +86,8 @@ async def ingest(
     parser: Parser,
 ) -> None:
     cur = await conn.execute(
-        "update public.materials set status = 'processing', error = null, failure = null"
-        " where id = %s"
+        "update public.materials set status = 'processing', stage = 'parsing', error = null,"
+        " failure = null where id = %s"
         " returning storage_path, kind::text",
         (material_id,),
     )
@@ -114,6 +114,7 @@ async def ingest(
         len(parsed.chunks),
     )
 
+    await _stage(conn, material_id, "describing" if parsed.figures else "indexing")
     usage = Usage()
     try:
         descriptions = await describe_figures(parsed.figures, router, usage)
@@ -141,6 +142,7 @@ async def ingest(
     ]
     chunks = [c for c in [*parsed.chunks, *figure_chunks] if c.text.strip()]
     chunks = [replace(c, ordinal=i) for i, c in enumerate(chunks)]
+    await _stage(conn, material_id, "indexing")
     embeddings = await asyncio.to_thread(embedder.passages, [c.content for c in chunks])
 
     await store.replace_material_content(
@@ -154,3 +156,8 @@ async def ingest(
         embeddings=embeddings,
         embedding_model=embedder.model_name,
     )
+
+
+async def _stage(conn: AsyncConnection[Any], material_id: str, stage: str) -> None:
+    """Which step the material is on, for the course page (migration retry_cards_and_stages)."""
+    await conn.execute("update public.materials set stage = %s where id = %s", (stage, material_id))

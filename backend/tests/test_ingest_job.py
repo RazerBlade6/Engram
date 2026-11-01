@@ -382,6 +382,41 @@ def failure(database_url: str, material_id: str) -> list[tuple[Any, ...]]:
     )
 
 
+async def test_the_material_shows_each_stage_while_it_is_read(
+    database_url: str, material: dict[str, str]
+) -> None:
+    def stage() -> Any:
+        return rows(
+            database_url, "select stage::text from public.materials where id = %s", material["id"]
+        )[0][0]
+
+    seen: list[Any] = []
+
+    def parser(path: Path, slides: bool) -> ParsedMaterial:
+        seen.append(stage())
+        return parsed_material()
+
+    class Watching(FakeProvider):
+        async def structured(self, model: str, **kwargs: Any) -> Any:
+            seen.append(stage())
+            return await super().structured(model, **kwargs)
+
+    class Embedding(FakeEmbedder):
+        def passages(self, texts: list[str]) -> list[list[float]]:
+            seen.append(stage())
+            return super().passages(texts)
+
+    await ingest_job.make_handler(
+        Settings(database_url=database_url),
+        router=Router(Settings(model_figure_description="fake:vision-1"), {"fake": Watching()}),
+        storage=FakeStorage(),  # type: ignore[arg-type]
+        embedder=Embedding(),  # type: ignore[arg-type]
+        parser=parser,
+    )(Job(1, ingest_job.KIND, {"material_id": material["id"]}, 1, 3))
+    assert seen == ["parsing", "describing", "describing", "indexing"]
+    assert stage() is None
+
+
 async def test_an_unreadable_file_keeps_its_reason(
     database_url: str, material: dict[str, str]
 ) -> None:

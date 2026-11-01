@@ -8,7 +8,7 @@ import { ProgressBar } from "@/components/ui/progress";
 import { RowList } from "@/components/ui/row-list";
 import { ApiError, api, apiFetch } from "@/lib/api";
 import { cx } from "@/lib/cx";
-import { failureText, type Material } from "@/lib/courses";
+import { failureText, readingText, type Material } from "@/lib/courses";
 import { ACCEPT, addMaterial, uploadProblem, type MaterialKind } from "@/lib/uploads";
 import { track } from "@/lib/usage";
 
@@ -229,8 +229,10 @@ function materialStatus(m: Material): string {
     case "uploading":
       // Left behind when a page is closed mid-upload.
       return "This upload didn't finish. Remove it and add the file again.";
+    case "queued":
+      return "Waiting to be read. You can leave this page.";
     default:
-      return "Reading it now. You can leave this page.";
+      return readingText(m);
   }
 }
 

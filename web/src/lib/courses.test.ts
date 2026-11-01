@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { chapterNote, failureText, pageRange, splitChapterTitle, type Chapter } from "./courses";
+import { chapterNote, failureText, pageRange, readingText, splitChapterTitle, type Chapter } from "./courses";
 
 describe("splitChapterTitle", () => {
   it("separates the chapter number from its title", () => {
@@ -76,5 +76,14 @@ describe("failureText", () => {
   it("suggests a PDF only for a PowerPoint that failed for no known reason", () => {
     expect(failureText({ failure: "unknown", viewable: false })).toMatch(/PDF version/);
     expect(failureText({ failure: null, viewable: true })).not.toMatch(/PDF version/);
+  });
+});
+
+describe("readingText", () => {
+  it("says which step a material is on", () => {
+    expect(readingText({ kind: "textbook", stage: "parsing" })).toMatch(/A textbook takes a few minutes/);
+    expect(readingText({ kind: "slides", stage: null })).toMatch(/Reading the slides/);
+    expect(readingText({ kind: "slides", stage: "describing" })).toMatch(/figures/);
+    expect(readingText({ kind: "textbook", stage: "indexing" })).toMatch(/Almost ready/);
   });
 });

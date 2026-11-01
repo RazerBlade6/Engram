@@ -127,7 +127,7 @@ async def replace_material_content(
             )
 
         await conn.execute(
-            "update public.materials set status = 'ready', error = null, page_count = %s"
-            " where id = %s",
+            "update public.materials set status = 'ready', stage = null, error = null,"
+            " page_count = %s where id = %s",
             (parsed.page_count, material_id),
         )

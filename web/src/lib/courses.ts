@@ -30,11 +30,27 @@ export type Material = {
   title: string;
   kind: "textbook" | "slides";
   status: "uploading" | "queued" | "processing" | "ready" | "failed";
+  /** While processing: the step it's on. */
+  stage?: "parsing" | "describing" | "indexing" | null;
   /** Why it couldn't be read, once failed. */
   failure?: "no_text" | "protected" | "damaged" | "stalled" | "unknown" | null;
   /** A PDF, which opens in the browser. PowerPoint files can't. */
   viewable: boolean;
 };
+
+/** Which step a material being read is on. A textbook takes minutes, so it says so. */
+export function readingText(material: Pick<Material, "kind" | "stage">): string {
+  switch (material.stage) {
+    case "describing":
+      return "Looking at its figures and diagrams. You can leave this page.";
+    case "indexing":
+      return "Almost ready. You can leave this page.";
+    default:
+      return material.kind === "textbook"
+        ? "Reading the pages. A textbook takes a few minutes; you can leave this page."
+        : "Reading the slides. You can leave this page.";
+  }
+}
 
 /** What went wrong reading a failed material, and what to do about it. */
 export function failureText(material: Pick<Material, "failure" | "viewable">): string {
@@ -85,7 +101,7 @@ export function chapterNote(chapter: Chapter, coveredOn: (iso: string) => string
     case "ready":
       return `${covered} · ${cards}`;
     case "failed":
-      return `${covered} · Its cards couldn't be made. Unmark it and mark it again to retry.`;
+      return `${covered} · Its cards couldn't be made.`;
     default:
       return chapter.cards_drafted > 0
         ? `${covered} · ${chapter.cards_drafted} ${chapter.cards_drafted === 1 ? "card" : "cards"} so far…`

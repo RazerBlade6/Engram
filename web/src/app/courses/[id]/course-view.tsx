@@ -82,6 +82,21 @@ export function CourseView() {
     );
   }, []);
 
+  const setCards = useCallback((chapterId: string, status: "pending" | "failed") => {
+    setCourse(
+      (c) =>
+        c && {
+          ...c,
+          textbooks: c.textbooks.map((t) => ({
+            ...t,
+            chapters: t.chapters.map((ch) =>
+              ch.id === chapterId ? { ...ch, cards_status: status, cards_drafted: 0 } : ch,
+            ),
+          })),
+        },
+    );
+  }, []);
+
   const show = useCallback((text: string, undo?: () => void) => {
     toastId.current += 1;
     setToast({ id: toastId.current, text, undo });
@@ -120,6 +135,16 @@ export function CourseView() {
     } catch {
       setCovered(chapter.id, null);
       show(`Couldn't mark ${name} as covered. Please try again.`);
+    }
+  }
+
+  async function retry(chapter: Chapter) {
+    setCards(chapter.id, "pending");
+    try {
+      await apiFetch(`/sections/${chapter.id}/cards/retry`, { method: "POST" });
+    } catch {
+      setCards(chapter.id, "failed");
+      show(`Couldn't try ${chapterName(chapter)} again. Please try again in a moment.`);
     }
   }
 
@@ -194,7 +219,7 @@ export function CourseView() {
               {/* The book's contents page. */}
               <ol className="divide-y divide-border/70 rounded-card bg-paper shadow-card">
                 {book.chapters.map((chapter) => (
-                  <ChapterRow key={chapter.id} chapter={chapter} onCover={cover} onUncover={uncover} />
+                  <ChapterRow key={chapter.id} chapter={chapter} onCover={cover} onUncover={uncover} onRetry={retry} />
                 ))}
               </ol>
             </div>
@@ -232,8 +257,10 @@ function ChapterRow({
   chapter,
   onCover,
   onUncover,
+  onRetry,
 }: {
   chapter: Chapter;
+  onRetry: (chapter: Chapter) => void;
   onCover: (chapter: Chapter) => void;
   onUncover: (chapter: Chapter) => void;
 }) {
@@ -255,6 +282,14 @@ function ChapterRow({
           >
             {making && <MakingCards />}
             {note}
+            {chapter.covered_at && chapter.cards_status === "failed" && (
+              <button
+                onClick={() => onRetry(chapter)}
+                className="font-semibold text-accent underline-offset-4 hover:underline"
+              >
+                Try again
+              </button>
+            )}
             {chapter.cards > 0 && (
               <>
                 <span aria-hidden>·</span>
