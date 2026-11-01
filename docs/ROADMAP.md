@@ -273,7 +273,7 @@ Designed directly in the app and reviewed on the local dev server, without a sep
   - [x] Card generation shows its progress (D53)
   - [x] Blocked review order as the default (D55)
 - [ ] Changes from the second round of testing ([findings](UserObservations.md#findings-1)):
-  - [ ] A less zoomed-in interface at the same text size; review fits a 1366×768 screen without scrolling (D63)
+  - [x] A less zoomed-in interface at the same text size; review fits a 14-inch 1920×1080 laptop (a 1280×590 viewport) without scrolling (D63)
   - [x] Ask without the intro text (D64)
   - [x] Citations in Ask open the passage as text (D65)
   - [x] Chapter picker: covered chapters first, a range, the full list one step away; placed above Add (D66)
@@ -375,7 +375,7 @@ Designed directly in the app and reviewed on the local dev server, without a sep
 | 60  | The welcome is a short tour of index cards, one per page, with back, next and skip; seen once per account | A single welcome line explained Engram but not where things are; skip on every card and arrow keys keep it from standing between a student and their first review |
 | 61  | Removing a material cancels its jobs in the database; a running job stops within a minute, when its lock no longer renews | A removed textbook was read to the end, paying for every figure description |
 | 62  | A section's heading is only matched within a page of its outline page; a chapter with no text fails card generation instead of making none | Docling missed a heading, the search matched the same title in the references, and the whole book landed in one section, so chapters got 0 cards without an error |
-| 63  | Text keeps its size; the rest of the interface (spacing, padding, controls, the card's frame) is scaled down, which means sizing it apart from the text rather than from the root size, and is tuned on the dev server until review fits a 1366×768 screen (supersedes keeping the larger base size from the Phase 1 session) | On the tester's own laptop the whole interface felt zoomed in, though the text itself was fine, and the buttons under the card often needed scrolling |
+| 63  | Text keeps its size; the spacing unit behind padding, gaps and control heights shrinks with the viewport's height, to three quarters on a short screen. Long card text steps down a size or two, multiple choice a step sooner; its result is one line beside Continue, which sits above the source on wide screens. Review fits a 14-inch 1920×1080 laptop at Windows' default 150% scaling (a 1280×590 viewport) (supersedes keeping the larger base size from the Phase 1 session) | On the tester's 16:9 laptop the interface felt zoomed in, though the text was fine; buttons under long cards were cut off by up to 360px. Scaling everything with the screen also fit, but changed the side margins, which were fine |
 | 64  | Ask opens with no explanation; the field's placeholder names the course                   | A tester found the intro wordy and said no explanation would be better                                       |
 | 65  | A citation in Ask opens its passage as text, with the quoted words marked, the book, section and page, and a link to the PDF at that page; the page image isn't shown in Ask | The page image made the answer harder to follow on a laptop and was illegible on a phone |
 | 66  | The chapter picker leads with chapters already covered, offers a from–to range, and keeps the full list one step away | A 47-chapter textbook made picking a test's few chapters a long scan; tests cover what has been taught |

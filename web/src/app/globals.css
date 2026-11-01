@@ -139,6 +139,14 @@
 html {
   /* Slightly larger base text for long reading sessions; everything is sized in rem from it. */
   font-size: 112.5%;
+  /*
+   * Text keeps that size, but the one Tailwind spacing unit (padding, gaps, margins, control
+   * heights) follows the viewport height, down to three quarters on a short screen (D63). A 14-inch
+   * 1920x1080 laptop at the Windows default 150% scaling leaves a viewport of about 1280x590, and
+   * review must fit there without scrolling; taller screens keep the full unit.
+   * No quotes or apostrophes in comments here: the dev build drops the rules after one.
+   */
+  --spacing: clamp(0.1875rem, calc(1px + 0.41vh), 0.25rem);
 }
 
 body {

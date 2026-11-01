@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { choiceRating, comesBackToday, passageParts, requeue, whenLabel, type ReviewCard } from "./review";
+import {
+  answerText,
+  choiceRating,
+  comesBackToday,
+  passageParts,
+  requeue,
+  textStep,
+  whenLabel,
+  type ReviewCard,
+} from "./review";
 
 const now = new Date("2026-10-27T12:00:00Z");
 const later = (ms: number) => new Date(now.getTime() + ms).toISOString();
@@ -35,7 +44,13 @@ describe("choiceRating", () => {
 
 describe("passageParts", () => {
   it("splits the passage around the quote", () => {
-    const source = { book: "b", heading_path: [], page: 1, passage: "One. Two three. Four.", highlight: [5, 15] as [number, number] };
+    const source = {
+      book: "b",
+      heading_path: [],
+      page: 1,
+      passage: "One. Two three. Four.",
+      highlight: [5, 15] as [number, number],
+    };
     expect(passageParts(source)).toEqual({ before: "One. ", marked: "Two three.", after: " Four." });
     expect(passageParts({ ...source, highlight: null })).toEqual({ before: source.passage, marked: "", after: "" });
   });
@@ -53,5 +68,27 @@ describe("requeue", () => {
 
   it("otherwise puts it at the end", () => {
     expect(ids(requeue(queue, card("c1", "cloze"), "mixed"))).toEqual(["b1", "m1", "m2", "c1"]);
+  });
+});
+
+describe("textStep", () => {
+  it("steps long text down, up to two sizes", () => {
+    expect(textStep("x".repeat(90))).toBe(0);
+    expect(textStep("x".repeat(91))).toBe(1);
+    expect(textStep("x".repeat(161))).toBe(2);
+  });
+
+  it("starts multiple choice a step down", () => {
+    expect(textStep("Short question?", true)).toBe(1);
+    expect(textStep("x".repeat(161), true)).toBe(2);
+  });
+});
+
+describe("answerText", () => {
+  it("drops a trailing full stop", () => {
+    expect(answerText("The patient takes the lead role in the therapy session.")).toBe(
+      "The patient takes the lead role in the therapy session",
+    );
+    expect(answerText("Structuralism")).toBe("Structuralism");
   });
 });

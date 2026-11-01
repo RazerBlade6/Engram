@@ -21,12 +21,14 @@ import { cx } from "@/lib/cx";
 import { useProfile } from "@/lib/profile";
 import { msSince } from "@/lib/usage";
 import {
+  answerText,
   choiceRating,
   comesBackToday,
   FLAG_REASONS,
   passageParts,
   RATINGS,
   requeue,
+  textStep,
   whenLabel,
   type Rating,
   type ReviewCard,
@@ -194,6 +196,7 @@ export function ReviewView() {
   if (!queue) return <ReviewLoading />;
 
   const total = answers + queue.length;
+  const mcqAnswered = card?.kind === "mcq" && picked !== null;
   return (
     <main className="mx-auto max-w-6xl px-6 py-6 max-sm:px-4 max-sm:pb-40 sm:py-8">
       <div className="flex items-center gap-4">
@@ -253,6 +256,7 @@ export function ReviewView() {
                 // Multiple choice is answered on the card itself, so until then there's nothing to pin.
                 !(card.kind === "mcq" && picked === null) &&
                   "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:border-t max-sm:border-border max-sm:bg-desk/95 max-sm:px-4 max-sm:pt-3 max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-sm:backdrop-blur-sm",
+                mcqAnswered && "lg:hidden",
               )}
             >
               <CardActions
@@ -264,7 +268,16 @@ export function ReviewView() {
               />
             </div>
           </div>
-          <SourcePanel card={card} answered={answered} />
+          <div className="flex flex-col gap-4">
+            {/* A long multiple-choice card fills a short laptop screen on its own, so beside it the
+                result and Continue sit above the source, where they're always in view (D63). */}
+            {mcqAnswered && (
+              <div className="max-lg:hidden">
+                <CardActions card={card} answered={answered} picked={picked} onReveal={() => {}} onRate={rate} />
+              </div>
+            )}
+            <SourcePanel card={card} answered={answered} />
+          </div>
         </div>
       ) : (
         <section className="rise-in mt-16 max-w-2xl">
@@ -340,28 +353,30 @@ function CardMeta({ card }: { card: ReviewCard }) {
   );
 }
 
-const PROMPT = "font-read text-2xl leading-snug sm:text-[1.75rem]";
+/** Card text, a size smaller for each step down (see `textStep`). */
+const STEP = ["text-2xl sm:text-[1.75rem]", "text-2xl", "text-xl sm:text-[1.375rem]"];
+const prompt = (text: string, quiz = false) => cx("font-read leading-snug", STEP[textStep(text, quiz)]);
 
 function Front({ card }: { card: ReviewCard }) {
-  if (card.kind === "cloze") return <Cloze prompt={card.prompt} filled={false} />;
-  return <p className={PROMPT}>{card.prompt}</p>;
+  if (card.kind === "cloze") return <Cloze text={card.prompt} filled={false} />;
+  return <p className={prompt(card.prompt)}>{card.prompt}</p>;
 }
 
 /** The back repeats the question, smaller, above the answer. */
 function Back({ card }: { card: ReviewCard }) {
-  if (card.kind === "cloze") return <Cloze prompt={card.prompt} filled />;
+  if (card.kind === "cloze") return <Cloze text={card.prompt} filled />;
   return (
     <>
       <p className="font-read text-lg leading-snug text-muted">{card.prompt}</p>
-      <p className="mt-5 font-read text-2xl leading-snug font-semibold">{card.answer}</p>
+      <p className={cx("mt-5 font-semibold", prompt(card.answer))}>{card.answer}</p>
     </>
   );
 }
 
-function Cloze({ prompt, filled }: { prompt: string; filled: boolean }) {
+function Cloze({ text, filled }: { text: string; filled: boolean }) {
   return (
-    <p className={PROMPT}>
-      {clozeParts(prompt).map((part, i) =>
+    <p className={prompt(text)}>
+      {clozeParts(text).map((part, i) =>
         !part.hidden ? (
           <span key={i}>{part.text}</span>
         ) : filled ? (
@@ -398,7 +413,7 @@ function Choices({
   const answered = picked !== null;
   return (
     <>
-      <p className={PROMPT}>{card.prompt}</p>
+      <p className={prompt(card.prompt, true)}>{card.prompt}</p>
       <div className="mt-6 flex flex-col gap-2.5">
         {card.choices.map((choice, i) => {
           const ink = answered && choice === card.answer ? "right" : answered && choice === picked ? "wrong" : null;
@@ -446,18 +461,17 @@ function CardActions({
     const rating = choiceRating(card, picked);
     const when = whenLabel(card.next[rating], now);
     return (
-      <div className="flex flex-col items-center gap-4 max-sm:gap-2">
-        <p
-          role="status"
-          className="text-center font-semibold sm:text-lg"
-          style={{ color: rating === 3 ? "var(--rate-3)" : "var(--wrong)" }}
-        >
-          {rating === 3 ? "Correct." : `Not quite. It's ${card.answer}.`}{" "}
+      // One line beside Continue: the colors on the answers already show which was right (D63).
+      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+        <p role="status" className="font-semibold" style={{ color: rating === 3 ? "var(--rate-3)" : "var(--wrong)" }}>
+          {rating === 3 ? "Correct" : "Not quite"}
           <span className="font-normal text-muted">
-            {when === "see it again soon" ? "You'll see this one again soon." : `You'll see it again ${when}.`}
+            {" · "}
+            {when === "see it again soon" ? "see it again soon" : `see it again ${when}`}
           </span>
+          {rating !== 3 && <span className="sr-only">. The answer is: {answerText(card.answer)}.</span>}
         </p>
-        <Button size="lg" hint="Space" onClick={() => onRate(rating)} className="max-sm:w-full">
+        <Button size="lg" hint="Space" onClick={() => onRate(rating)}>
           Continue
         </Button>
       </div>

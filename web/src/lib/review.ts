@@ -59,6 +59,21 @@ export const FLAG_REASONS = [
 const LEARN_AHEAD_MS = 20 * 60 * 1000;
 
 /** "see it again soon", "tomorrow", "in 3 days": when a rating brings the card back. */
+/**
+ * How many sizes a card's text steps down from the largest: long text is set smaller, so a long
+ * card still fits a short laptop screen with its buttons (D63). A multiple-choice question starts
+ * a step down, since its four answers follow it.
+ */
+export function textStep(text: string, quiz = false): 0 | 1 | 2 {
+  const step = (text.length > 160 ? 2 : text.length > 90 ? 1 : 0) + (quiz ? 1 : 0);
+  return Math.min(step, 2) as 0 | 1 | 2;
+}
+
+/** An answer as a phrase of its own, for reading out: no trailing full stop to double up. */
+export function answerText(answer: string): string {
+  return answer.trim().replace(/[.\s]+$/, "");
+}
+
 export function whenLabel(due: string, now: Date): string {
   const ms = new Date(due).getTime() - now.getTime();
   if (ms < 60 * 60 * 1000) return "see it again soon";
