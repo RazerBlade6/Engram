@@ -14,8 +14,8 @@ export function Toast({
 }: {
   toast: ToastMessage | null;
   onDone: () => void;
-  /** How far up the screen it sits, to clear anything fixed at the bottom. */
-  above?: "bottom-6" | "bottom-28";
+  /** How far up the screen it sits, to clear anything fixed at the bottom (review pins its actions there on a phone). */
+  above?: "bottom-6" | "bottom-28" | "bottom-6 max-sm:bottom-40";
 }) {
   useEffect(() => {
     if (!toast) return;

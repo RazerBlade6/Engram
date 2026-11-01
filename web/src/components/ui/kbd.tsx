@@ -8,6 +8,8 @@ export function Kbd({ children, tone = "default" }: { children: ReactNode; tone?
     <kbd
       className={cx(
         "inline-grid min-w-6 place-items-center rounded-md border px-1.5 font-sans text-xs leading-5 font-medium",
+        // No keyboard to press on a phone or tablet.
+        "pointer-coarse:hidden",
         tone === "inverse" ? "border-on-accent/40 text-on-accent/90" : "border-current/30 text-current opacity-80",
       )}
     >

@@ -195,7 +195,7 @@ export function ReviewView() {
 
   const total = answers + queue.length;
   return (
-    <main className="mx-auto max-w-6xl px-6 py-6 sm:py-8">
+    <main className="mx-auto max-w-6xl px-6 py-6 max-sm:px-4 max-sm:pb-40 sm:py-8">
       <div className="flex items-center gap-4">
         <ButtonLink href="/" variant="secondary" className="shrink-0">
           {card ? "Stop for now" : "Back to Today"}
@@ -246,13 +246,23 @@ export function ReviewView() {
               )}
             </div>
             {flagOpen && <ReportPanel onFlag={flag} onCancel={() => setFlagOpen(false)} />}
-            <CardActions
-              card={card}
-              answered={answered}
-              picked={picked}
-              onReveal={() => setRevealed(true)}
-              onRate={rate}
-            />
+            {/* On a phone the actions are pinned to the bottom of the screen, so the source can follow
+                the card directly and both stay in reach while reading (D68). */}
+            <div
+              className={cx(
+                // Multiple choice is answered on the card itself, so until then there's nothing to pin.
+                !(card.kind === "mcq" && picked === null) &&
+                  "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-20 max-sm:border-t max-sm:border-border max-sm:bg-desk/95 max-sm:px-4 max-sm:pt-3 max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-sm:backdrop-blur-sm",
+              )}
+            >
+              <CardActions
+                card={card}
+                answered={answered}
+                picked={picked}
+                onReveal={() => setRevealed(true)}
+                onRate={rate}
+              />
+            </div>
           </div>
           <SourcePanel card={card} answered={answered} />
         </div>
@@ -269,7 +279,7 @@ export function ReviewView() {
         </section>
       )}
 
-      <Toast key={toast?.id} toast={toast} onDone={hideToast} />
+      <Toast key={toast?.id} toast={toast} onDone={hideToast} above="bottom-6 max-sm:bottom-40" />
     </main>
   );
 }
@@ -431,14 +441,15 @@ function CardActions({
 }) {
   const now = new Date();
   if (card.kind === "mcq") {
-    if (picked === null) return <p className="text-center text-muted">Pick an answer, or press 1–4</p>;
+    // On a phone the choices on the card are the action; there's nothing to pin.
+    if (picked === null) return <p className="text-center text-muted max-sm:hidden">Pick an answer, or press 1–4</p>;
     const rating = choiceRating(card, picked);
     const when = whenLabel(card.next[rating], now);
     return (
-      <div className="flex flex-col items-center gap-4">
+      <div className="flex flex-col items-center gap-4 max-sm:gap-2">
         <p
           role="status"
-          className="text-center text-lg font-semibold"
+          className="text-center font-semibold sm:text-lg"
           style={{ color: rating === 3 ? "var(--rate-3)" : "var(--wrong)" }}
         >
           {rating === 3 ? "Correct." : `Not quite. It's ${card.answer}.`}{" "}
@@ -446,7 +457,7 @@ function CardActions({
             {when === "see it again soon" ? "You'll see this one again soon." : `You'll see it again ${when}.`}
           </span>
         </p>
-        <Button size="lg" hint="Space" onClick={() => onRate(rating)}>
+        <Button size="lg" hint="Space" onClick={() => onRate(rating)} className="max-sm:w-full">
           Continue
         </Button>
       </div>
@@ -455,16 +466,16 @@ function CardActions({
   if (!answered) {
     return (
       <div className="flex justify-center">
-        <Button size="lg" hint="Space" onClick={onReveal}>
+        <Button size="lg" hint="Space" onClick={onReveal} className="max-sm:w-full">
           Show answer
         </Button>
       </div>
     );
   }
   return (
-    <div className="flex flex-col gap-3">
-      <p className="text-center text-muted">How well did you remember it?</p>
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+    <div className="flex flex-col gap-3 max-sm:gap-2">
+      <p className="text-center text-muted max-sm:text-sm">How well did you remember it?</p>
+      <div className="grid grid-cols-4 gap-1.5 sm:gap-2.5">
         {RATINGS.map(({ rating, label }) => (
           <RatingButton
             key={rating}

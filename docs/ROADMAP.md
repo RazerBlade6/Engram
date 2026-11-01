@@ -277,7 +277,7 @@ Designed directly in the app and reviewed on the local dev server, without a sep
   - [x] Ask without the intro text (D64)
   - [x] Citations in Ask open the passage as text (D65)
   - [x] Chapter picker: covered chapters first, a range, the full list one step away; placed above Add (D66)
-  - [ ] Sidebar menu on phones (D67)
+  - [x] Sidebar menu on phones (D67)
   - [ ] Review on phones: ratings pinned to the bottom, source directly under the card (D68)
   - [ ] Week-by-week calendar on phones (D69)
   - [x] Ask answers sized for phones; a send icon inside the question field and Clear above the conversation (D70)

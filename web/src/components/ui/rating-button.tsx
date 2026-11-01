@@ -27,13 +27,13 @@ export function RatingButton({
         background: `var(--rate-${rating}-soft)`,
         borderColor: `var(--rate-${rating}-line)`,
       }}
-      className="flex min-h-18 flex-col items-center justify-center gap-0.5 rounded-control border px-2 py-2.5 transition-[filter,translate] duration-150 ease-quiet hover:brightness-[0.96] active:translate-y-0.5"
+      className="flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-control border px-1 py-2 transition-[filter,translate] duration-150 ease-quiet hover:brightness-[0.96] active:translate-y-0.5 sm:min-h-18 sm:px-2 sm:py-2.5"
     >
-      <span className="flex items-center gap-2 text-lg font-semibold">
+      <span className="flex items-center gap-2 font-semibold sm:text-lg">
         <Kbd>{rating}</Kbd>
         {label}
       </span>
-      <small className="text-sm opacity-85">{when}</small>
+      <small className="text-xs opacity-85 sm:text-sm">{when}</small>
     </button>
   );
 }
