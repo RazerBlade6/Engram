@@ -9,7 +9,7 @@ Students bring textbooks, lecture slides, notes and readings. Engram parses them
 ## What it does
 
 - **Review**: a daily queue of flashcards, fill-in-the-blank and multiple-choice questions, scheduled by FSRS. Keyboard-first: Space shows the answer, 1–4 rates it.
-- **Cited sources**: every card and every answer links back to the passage it came from, highlighted on the original page.
+- **Cited sources**: every card and every answer links back to the passage it came from, with the quoted words highlighted and a link to the original page.
 - **Chapter-driven**: mark a chapter as covered in class, and Engram generates its cards.
 - **Ask**: chat that answers from course material first, and labels anything that comes from general knowledge.
 - **Calendar**: exams, quizzes and deadlines across courses, in one place.

@@ -56,7 +56,7 @@ Course
 1. **Ingest.** The admin uploads a textbook. Students drop slides, notes and article links into a per-course drop zone. Everything is indexed for search and chat immediately.
 2. **Mark covered.** The course view shows the material's table of contents. Ticking "covered" on a chapter generates its cards and adds them to the student's reviews. This is the only trigger for card generation, which keeps cost proportional to use and keeps the deck matched to the syllabus.
 3. **Review.** The home screen shows what is due today and roughly how long it will take. Review is keyboard-first: Space flips the card, 1–4 rates it. The source passage sits beside the card.
-4. **Get unstuck.** Chat answers from course material first, with citations that open the source page with the passage highlighted. If the material doesn't cover the question, the answer falls back to general knowledge and is clearly labeled _not from your course materials_.
+4. **Get unstuck.** Chat answers from course material first, with citations that open the cited passage, quoted words highlighted, and link to its page in the PDF. If the material doesn't cover the question, the answer falls back to general knowledge and is clearly labeled _not from your course materials_.
 
 ### Card types
 
@@ -275,7 +275,7 @@ Designed directly in the app and reviewed on the local dev server, without a sep
 - [ ] Changes from the second round of testing ([findings](UserObservations.md#findings-1)):
   - [ ] A less zoomed-in interface at the same text size; review fits a 1366×768 screen without scrolling (D63)
   - [ ] Ask without the intro text (D64)
-  - [ ] Citations in Ask open the passage as text (D65)
+  - [x] Citations in Ask open the passage as text (D65)
   - [ ] Chapter picker: covered chapters first, a range, the full list one step away; placed above Add (D66)
   - [ ] Sidebar menu on phones (D67)
   - [ ] Review on phones: ratings pinned to the bottom, source directly under the card (D68)
