@@ -279,7 +279,7 @@ Designed directly in the app and reviewed on the local dev server, without a sep
   - [x] Chapter picker: covered chapters first, a range, the full list one step away; placed above Add (D66)
   - [x] Sidebar menu on phones (D67)
   - [x] Review on phones: ratings pinned to the bottom, source directly under the card (D68)
-  - [ ] Week-by-week calendar on phones (D69)
+  - [x] Week-by-week calendar on phones (D69)
   - [x] Ask answers sized for phones; a send icon inside the question field and Clear above the conversation (D70)
 - [x] Welcome tour on the first visit: a few cards walking through Today, courses, review, Calendar and Ask, with back, next and skip, ending on "Start your first review" (D60)
 - [ ] Empty states, loading states, error states, including a stalled or failed upload

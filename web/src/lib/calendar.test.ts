@@ -11,6 +11,8 @@ import {
   typedDay,
   untilLabel,
   upcoming,
+  weekLabel,
+  weekOf,
   type CourseDate,
 } from "./calendar";
 
@@ -121,5 +123,33 @@ describe("dates are written day first", () => {
   it("writes a day back the way it's typed", () => {
     expect(typedDay("2026-11-05")).toBe("05/11/2026");
     expect(parseTypedDay(typedDay("2026-11-05"))).toBe("2026-11-05");
+  });
+});
+
+describe("weekOf", () => {
+  it("finds the week a day falls in, from Monday by default", () => {
+    // 1 November 2026 is a Sunday: the last day of a Monday week.
+    expect(weekOf("2026-11-01")).toEqual([
+      "2026-10-26",
+      "2026-10-27",
+      "2026-10-28",
+      "2026-10-29",
+      "2026-10-30",
+      "2026-10-31",
+      "2026-11-01",
+    ]);
+  });
+
+  it("starts on Sunday where the locale does", () => {
+    expect(weekOf("2026-11-01", 0)[0]).toBe("2026-11-01");
+    expect(weekOf("2026-11-07", 0)[6]).toBe("2026-11-07");
+  });
+});
+
+describe("weekLabel", () => {
+  it("names the span, with the month once when it doesn't change", () => {
+    expect(weekLabel(weekOf("2026-11-04"))).toBe("2–8 November 2026");
+    expect(weekLabel(weekOf("2026-11-01"))).toBe("26 October – 1 November 2026");
+    expect(weekLabel(weekOf("2026-12-30"))).toBe("28 Dec 2026 – 3 Jan 2027");
   });
 });

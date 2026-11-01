@@ -134,6 +134,29 @@ export function monthWeeks(year: number, month: number, firstDay = 1): string[][
   );
 }
 
+/** The seven days of the week that `iso` falls in, starting on `firstDay` (0 is Sunday). */
+export function weekOf(iso: string, firstDay = 1): string[] {
+  const day = parseDay(iso);
+  const back = (day.getDay() - (firstDay % 7) + 7) % 7;
+  return Array.from({ length: 7 }, (_, i) =>
+    isoDay(new Date(day.getFullYear(), day.getMonth(), day.getDate() - back + i)),
+  );
+}
+
+/** A week's span: "2–8 November 2026", "26 October – 1 November 2026", "28 Dec 2026 – 3 Jan 2027". */
+export function weekLabel(week: string[]): string {
+  const [a, b] = [parseDay(week[0]), parseDay(week[week.length - 1])];
+  const month = (d: Date) => new Intl.DateTimeFormat("en-GB", { month: "long" }).format(d);
+  if (a.getFullYear() !== b.getFullYear()) {
+    const short = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" });
+    return `${short.format(a)} – ${short.format(b)}`;
+  }
+  if (a.getMonth() !== b.getMonth()) {
+    return `${a.getDate()} ${month(a)} – ${b.getDate()} ${month(b)} ${b.getFullYear()}`;
+  }
+  return `${a.getDate()}–${b.getDate()} ${month(b)} ${b.getFullYear()}`;
+}
+
 /** The locale's first day of the week, where the browser says; Monday otherwise. */
 export function localFirstDay(): number {
   try {

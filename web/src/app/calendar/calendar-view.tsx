@@ -23,6 +23,8 @@ import {
   monthWeeks,
   parseDay,
   upcoming,
+  weekLabel,
+  weekOf,
   type CourseDate,
   type DateKind,
   type NewDate,
@@ -76,6 +78,8 @@ function Calendar({ courses, initial }: { courses: CourseSummary[]; initial: Cou
   const [today] = useState(() => isoDay(new Date()));
   const [firstDay] = useState(localFirstDay);
   const [month, setMonth] = useState<Month>(() => monthOf(today));
+  // Phones show a week at a time, kept by its first day (D69).
+  const [week, setWeek] = useState(() => weekOf(today, firstDay)[0]);
   const [day, setDay] = useState(today);
   const [editing, setEditing] = useState<CourseDate | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -93,11 +97,13 @@ function Calendar({ courses, initial }: { courses: CourseSummary[]; initial: Cou
   function added(date: CourseDate) {
     setDates((ds) => [...ds, date].sort(byDay));
     setMonth(monthOf(date.on));
+    setWeek(weekOf(date.on, firstDay)[0]);
   }
 
   function changed(date: CourseDate) {
     setDates((ds) => ds.map((d) => (d.id === date.id ? date : d)).sort(byDay));
     setMonth(monthOf(date.on));
+    setWeek(weekOf(date.on, firstDay)[0]);
     setEditing(null);
     notify(`Saved ${date.title}, ${dayLabel(date.on, today)}`);
   }
@@ -157,6 +163,17 @@ function Calendar({ courses, initial }: { courses: CourseSummary[]; initial: Cou
       />
 
       <div className="mt-10 grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        {/* A month is too much for a phone: there it's a week at a time (D69). */}
+        <WeekList
+          week={weekOf(week, firstDay)}
+          onWeek={setWeek}
+          thisWeek={weekOf(today, firstDay)[0]}
+          dates={dates}
+          colors={colors}
+          today={today}
+          onPickDay={pickDay}
+          onOpen={setEditing}
+        />
         <MonthGrid
           month={month}
           onMonth={setMonth}
@@ -374,7 +391,7 @@ function MonthGrid({
   const isThisMonth = month.year === thisMonth.year && month.month === thisMonth.month;
 
   return (
-    <section aria-labelledby="month-heading" className="min-w-0">
+    <section aria-labelledby="month-heading" className="min-w-0 max-sm:hidden">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 id="month-heading" className="text-xl font-semibold" aria-live="polite">
           {title}
@@ -458,6 +475,109 @@ function MonthGrid({
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+/** One week as a list of its days, each with what's due on it: the phone's calendar (D69). */
+function WeekList({
+  week,
+  onWeek,
+  thisWeek,
+  dates,
+  colors,
+  today,
+  onPickDay,
+  onOpen,
+}: {
+  week: string[];
+  onWeek: (firstDay: string) => void;
+  thisWeek: string;
+  dates: CourseDate[];
+  colors: Map<string, string>;
+  today: string;
+  onPickDay: (day: string) => void;
+  onOpen: (date: CourseDate) => void;
+}) {
+  const onDay = Map.groupBy(dates, (d) => d.on);
+  const shift = (by: number) => {
+    const d = parseDay(week[0]);
+    onWeek(isoDay(new Date(d.getFullYear(), d.getMonth(), d.getDate() + by * 7)));
+  };
+  const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "short" });
+
+  return (
+    <section aria-labelledby="week-heading" className="min-w-0 sm:hidden">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 id="week-heading" className="font-semibold" aria-live="polite">
+            {week[0] === thisWeek ? "This week" : weekLabel(week)}
+          </h2>
+          {week[0] === thisWeek && <p className="text-sm text-muted">{weekLabel(week)}</p>}
+        </div>
+        <div className="flex shrink-0 gap-2">
+          {week[0] !== thisWeek && (
+            <Button variant="secondary" onClick={() => onWeek(thisWeek)}>
+              Today
+            </Button>
+          )}
+          <Button variant="secondary" onClick={() => shift(-1)} aria-label="Previous week">
+            ←
+          </Button>
+          <Button variant="secondary" onClick={() => shift(1)} aria-label="Next week">
+            →
+          </Button>
+        </div>
+      </div>
+
+      <ol className="mt-3 rounded-card bg-paper shadow-card">
+        {week.map((d) => {
+          const items = onDay.get(d) ?? [];
+          const isToday = d === today;
+          return (
+            <li key={d} className="flex items-start gap-3 border-b border-border/70 px-3 py-2 last:border-b-0">
+              <button
+                type="button"
+                onClick={() => onPickDay(d)}
+                aria-label={`Add a date on ${dayLabel(d, today)}`}
+                aria-current={isToday ? "date" : undefined}
+                className={cx(
+                  "flex w-12 shrink-0 flex-col items-center rounded-control py-1 leading-tight transition-colors duration-150",
+                  isToday ? "bg-accent text-on-accent" : "hover:bg-accent-soft",
+                )}
+              >
+                <span className={cx("text-xs", !isToday && "text-muted")}>{weekday.format(parseDay(d))}</span>
+                <span className="font-semibold tabular-nums">{parseDay(d).getDate()}</span>
+              </button>
+              {items.length > 0 ? (
+                <ul className="min-w-0 flex-1 space-y-1 py-0.5">
+                  {items.map((item) => (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        onClick={() => onOpen(item)}
+                        aria-label={`${item.title}, ${item.course}, ${dayLabel(d, today)}`}
+                        className="block w-full rounded-sm border-l-[3px] px-2 py-1 text-left transition-[filter] duration-150 hover:brightness-95"
+                        style={{
+                          borderColor: colors.get(item.course_id),
+                          background: tint(colors.get(item.course_id)),
+                        }}
+                      >
+                        <span className="block truncate font-semibold">{item.title}</span>
+                        <span className="block truncate text-sm text-muted">
+                          {item.course} · {KIND_LABEL[item.kind]}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <span className="flex-1 self-center text-sm text-muted/70">Nothing due</span>
+              )}
+            </li>
+          );
+        })}
+      </ol>
     </section>
   );
 }
