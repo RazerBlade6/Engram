@@ -8,7 +8,7 @@ import { ProgressBar } from "@/components/ui/progress";
 import { RowList } from "@/components/ui/row-list";
 import { ApiError, api, apiFetch } from "@/lib/api";
 import { cx } from "@/lib/cx";
-import type { Material } from "@/lib/courses";
+import { failureText, type Material } from "@/lib/courses";
 import { ACCEPT, addMaterial, uploadProblem, type MaterialKind } from "@/lib/uploads";
 import { track } from "@/lib/usage";
 
@@ -225,7 +225,7 @@ function materialStatus(m: Material): string {
     case "ready":
       return kind;
     case "failed":
-      return "This file couldn't be read. Remove it and try a PDF version.";
+      return failureText(m);
     case "uploading":
       // Left behind when a page is closed mid-upload.
       return "This upload didn't finish. Remove it and add the file again.";

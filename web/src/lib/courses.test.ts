@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { chapterNote, pageRange, splitChapterTitle, type Chapter } from "./courses";
+import { chapterNote, failureText, pageRange, splitChapterTitle, type Chapter } from "./courses";
 
 describe("splitChapterTitle", () => {
   it("separates the chapter number from its title", () => {
@@ -62,5 +62,19 @@ describe("chapterNote", () => {
     );
     expect(chapterNote({ ...covered, cards_status: "ready", cards: 24 }, on)).toBe("Covered on 27 October · 24 cards");
     expect(chapterNote({ ...covered, cards_status: "failed" }, on)).toMatch(/couldn't be made/);
+  });
+});
+
+describe("failureText", () => {
+  it("explains each reason", () => {
+    expect(failureText({ failure: "no_text", viewable: true })).toMatch(/select the text/);
+    expect(failureText({ failure: "protected", viewable: true })).toMatch(/password/);
+    expect(failureText({ failure: "damaged", viewable: false })).toMatch(/damaged/);
+    expect(failureText({ failure: "stalled", viewable: true })).toMatch(/smaller files/);
+  });
+
+  it("suggests a PDF only for a PowerPoint that failed for no known reason", () => {
+    expect(failureText({ failure: "unknown", viewable: false })).toMatch(/PDF version/);
+    expect(failureText({ failure: null, viewable: true })).not.toMatch(/PDF version/);
   });
 });

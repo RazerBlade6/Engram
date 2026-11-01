@@ -15,6 +15,7 @@ from engram.config import Settings
 from engram.embeddings import Embedder, get_embedder
 from engram.ingest import store
 from engram.ingest.describe import describe_figures, figure_text
+from engram.ingest.failures import Unreadable
 from engram.ingest.model import Chunk, ParsedMaterial
 from engram.llm import Job as LLMJob
 from engram.llm import Router, Usage
@@ -55,14 +56,22 @@ def make_handler(
                 files = storage
             # On failure the material stays 'processing' while the job is retried; once it
             # fails for good, the database marks it failed (migration job_failed_marks_work).
-            await ingest(
-                conn,
-                material_id,
-                router=router or Router(settings),
-                storage=files,
-                embedder=embedder or get_embedder(settings.embedding_model),
-                parser=parser,
-            )
+            try:
+                await ingest(
+                    conn,
+                    material_id,
+                    router=router or Router(settings),
+                    storage=files,
+                    embedder=embedder or get_embedder(settings.embedding_model),
+                    parser=parser,
+                )
+            except Unreadable as exc:
+                # Permanent, so the job fails at once and the trigger keeps this reason.
+                await conn.execute(
+                    "update public.materials set failure = %s where id = %s",
+                    (exc.reason, material_id),
+                )
+                raise
 
     return handle
 
@@ -77,7 +86,8 @@ async def ingest(
     parser: Parser,
 ) -> None:
     cur = await conn.execute(
-        "update public.materials set status = 'processing', error = null where id = %s"
+        "update public.materials set status = 'processing', error = null, failure = null"
+        " where id = %s"
         " returning storage_path, kind::text",
         (material_id,),
     )
@@ -92,6 +102,9 @@ async def ingest(
         data = await storage.download(storage_path)
         await asyncio.to_thread(path.write_bytes, data)
         parsed = await asyncio.to_thread(parser, path, slides)
+    if not parsed.figures and not any(c.text.strip() for c in parsed.chunks):
+        # Slides of nothing but blank pages, or a presentation without a word in it.
+        raise Unreadable("no_text", f"no text or figures in {parsed.page_count} pages")
     logger.info(
         "material %s: %s pages, %s sections, %s figures, %s chunks",
         material_id,

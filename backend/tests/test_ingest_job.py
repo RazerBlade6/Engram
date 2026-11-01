@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from engram.config import Settings
 from engram.ingest import job as ingest_job
 from engram.ingest.describe import FigureDescription
+from engram.ingest.failures import Unreadable
 from engram.ingest.model import Chunk, Figure, Location, ParsedMaterial, Section
 from engram.llm import ProviderError, Router, Usage
 from engram.worker import queue
@@ -357,6 +358,70 @@ async def test_the_job_failing_for_good_marks_the_material_failed(
             ) == [("failed", "ValueError: corrupt PDF")]
         finally:
             await conn.execute("delete from public.jobs where id = %s", (job,))
+
+
+async def fail_for_good(database_url: str, material_id: str, error: str) -> None:
+    """Fail the material's job permanently, as the worker does."""
+    async with await AsyncConnection.connect(database_url, autocommit=True) as conn:
+        job = await queue.enqueue(conn, ingest_job.KIND, {"material_id": material_id})
+        try:
+            await conn.execute(
+                "update public.jobs set status = 'running', locked_by = 'w' where id = %s", (job,)
+            )
+            claimed = Job(job, ingest_job.KIND, {"material_id": material_id}, 1, 3)
+            await queue.fail(conn, claimed, "w", error, permanent=True)
+        finally:
+            await conn.execute("delete from public.jobs where id = %s", (job,))
+
+
+def failure(database_url: str, material_id: str) -> list[tuple[Any, ...]]:
+    return rows(
+        database_url,
+        "select status::text, failure::text from public.materials where id = %s",
+        material_id,
+    )
+
+
+async def test_an_unreadable_file_keeps_its_reason(
+    database_url: str, material: dict[str, str]
+) -> None:
+    def locked(path: Path, slides: bool) -> ParsedMaterial:
+        raise Unreadable("protected", "Incorrect password error")
+
+    with pytest.raises(Unreadable):
+        await handler(Settings(database_url=database_url), FakeStorage(), locked)(
+            Job(1, ingest_job.KIND, {"material_id": material["id"]}, 1, 3)
+        )
+    await fail_for_good(database_url, material["id"], "Unreadable: Incorrect password error")
+    assert failure(database_url, material["id"]) == [("failed", "protected")]
+
+
+async def test_a_file_with_nothing_in_it_has_no_text(
+    database_url: str, material: dict[str, str]
+) -> None:
+    def blank(path: Path, slides: bool) -> ParsedMaterial:
+        return ParsedMaterial(page_count=2, sections=[], figures=[], chunks=[])
+
+    with pytest.raises(Unreadable) as raised:
+        await handler(Settings(database_url=database_url), FakeStorage(), blank)(
+            Job(1, ingest_job.KIND, {"material_id": material["id"]}, 1, 3)
+        )
+    assert raised.value.reason == "no_text"
+
+
+async def test_other_failures_are_unknown_or_stalled(
+    database_url: str, material: dict[str, str], make_user: Callable[..., str]
+) -> None:
+    await fail_for_good(database_url, material["id"], "ValueError: boom")
+    assert failure(database_url, material["id"]) == [("failed", "unknown")]
+
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute(
+            "update public.materials set status = 'processing', failure = null where id = %s",
+            (material["id"],),
+        )
+    await fail_for_good(database_url, material["id"], queue.GAVE_UP)
+    assert failure(database_url, material["id"]) == [("failed", "stalled")]
 
 
 async def test_parsed_content_follows_course_access(

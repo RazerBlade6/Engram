@@ -30,9 +30,29 @@ export type Material = {
   title: string;
   kind: "textbook" | "slides";
   status: "uploading" | "queued" | "processing" | "ready" | "failed";
+  /** Why it couldn't be read, once failed. */
+  failure?: "no_text" | "protected" | "damaged" | "stalled" | "unknown" | null;
   /** A PDF, which opens in the browser. PowerPoint files can't. */
   viewable: boolean;
 };
+
+/** What went wrong reading a failed material, and what to do about it. */
+export function failureText(material: Pick<Material, "failure" | "viewable">): string {
+  switch (material.failure) {
+    case "no_text":
+      return "Engram couldn't find any text in this file. If it's scanned pages or photos, add a copy where you can select the text.";
+    case "protected":
+      return "This file is password-protected. Save a copy without the password and add that instead.";
+    case "damaged":
+      return "This file seems to be damaged, or isn't really a PDF or PowerPoint. Open it, save a new copy and add that.";
+    case "stalled":
+      return "This file took too long to read. Try splitting it into smaller files.";
+    default:
+      return material.viewable
+        ? "Something went wrong reading this file. Remove it and add it again."
+        : "Something went wrong reading this file. Remove it and try a PDF version.";
+  }
+}
 
 export type Course = { id: string; title: string; textbooks: Textbook[]; materials: Material[] };
 
