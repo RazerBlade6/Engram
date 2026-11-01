@@ -272,6 +272,15 @@ Designed directly in the app and reviewed on the local dev server, without a sep
   - [x] Report control moved to the card's corner (D52)
   - [x] Card generation shows its progress (D53)
   - [x] Blocked review order as the default (D55)
+- [ ] Changes from the second round of testing ([findings](UserObservations.md#findings-1)):
+  - [ ] A less zoomed-in interface at the same text size; review fits a 1366×768 screen without scrolling (D63)
+  - [ ] Ask without the intro text (D64)
+  - [ ] Citations in Ask open the passage as text (D65)
+  - [ ] Chapter picker: covered chapters first, a range, the full list one step away; placed above Add (D66)
+  - [ ] Sidebar menu on phones (D67)
+  - [ ] Review on phones: ratings pinned to the bottom, source directly under the card (D68)
+  - [ ] Week-by-week calendar on phones (D69)
+  - [ ] Ask answers sized for phones; a send icon inside the question field and Clear above the conversation (D70)
 - [x] Welcome tour on the first visit: a few cards walking through Today, courses, review, Calendar and Ask, with back, next and skip, ending on "Start your first review" (D60)
 - [ ] Empty states, loading states, error states, including a stalled or failed upload
 - [ ] Mobile pass for review
@@ -366,3 +375,11 @@ Designed directly in the app and reviewed on the local dev server, without a sep
 | 60  | The welcome is a short tour of index cards, one per page, with back, next and skip; seen once per account | A single welcome line explained Engram but not where things are; skip on every card and arrow keys keep it from standing between a student and their first review |
 | 61  | Removing a material cancels its jobs in the database; a running job stops within a minute, when its lock no longer renews | A removed textbook was read to the end, paying for every figure description |
 | 62  | A section's heading is only matched within a page of its outline page; a chapter with no text fails card generation instead of making none | Docling missed a heading, the search matched the same title in the references, and the whole book landed in one section, so chapters got 0 cards without an error |
+| 63  | Text keeps its size; the rest of the interface (spacing, padding, controls, the card's frame) is scaled down, which means sizing it apart from the text rather than from the root size, and is tuned on the dev server until review fits a 1366×768 screen (supersedes keeping the larger base size from the Phase 1 session) | On the tester's own laptop the whole interface felt zoomed in, though the text itself was fine, and the buttons under the card often needed scrolling |
+| 64  | Ask opens with no explanation; the field's placeholder names the course                   | A tester found the intro wordy and said no explanation would be better                                       |
+| 65  | A citation in Ask opens its passage as text, with the quoted words marked, the book, section and page, and a link to the PDF at that page; the page image isn't shown in Ask | The page image made the answer harder to follow on a laptop and was illegible on a phone |
+| 66  | The chapter picker leads with chapters already covered, offers a from–to range, and keeps the full list one step away | A 47-chapter textbook made picking a test's few chapters a long scan; tests cover what has been taught |
+| 67  | On phones the top bar is the Engram name and a menu button that opens a sidebar with every page and Sign out; wider screens keep the top bar (refines D50) | The top bar wrapped to two or three rows on a phone, and a menu is what people expect on a mobile site |
+| 68  | On phones the four ratings are one compact row pinned to the bottom, and the source follows the card directly; on wide screens the source sits beside the card | The source sat below the ratings, so reading it meant losing sight of the card |
+| 69  | On phones the calendar shows one week at a time, as a list of days with what's due on each; the month grid stays on wider screens | A month grid was too much for a phone: spread out, taller than its contents and scrolling sideways on its own |
+| 70  | Ask's send button is an icon inside the question field (Enter still sends), the field grows with the question, and Clear sits above the conversation as "New question" | The Ask and Clear buttons squeezed the field until its placeholder was cut off |
