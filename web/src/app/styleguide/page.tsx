@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { AdminOnly } from "@/components/admin-only";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Toast, type ToastMessage } from "@/components/toast";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { DateField } from "@/components/ui/date-field";
@@ -37,6 +38,7 @@ const INK = [
   "border-strong",
   "accent",
   "accent-soft",
+  "on-accent",
   "highlight",
   "highlight-edge",
   "card-rule",
@@ -48,6 +50,8 @@ const RATING_INKS = [1, 2, 3, 4].flatMap((n) => [`rate-${n}`, `rate-${n}-soft`])
 // A wrong multiple-choice pick, which really is wrong: soft pink, still not a harsh red.
 const WRONG = ["wrong", "wrong-soft", "wrong-line"];
 const COURSES = [1, 2, 3, 4, 5, 6].map((n) => `course-${n}`);
+// Dimming behind a dialog, and text set straight on it (the welcome tour's Skip).
+const DIALOG = ["scrim", "on-scrim"];
 const WHEN = ["see it again soon", "tomorrow", "in 3 days", "in 8 days"];
 
 function Styleguide() {
@@ -77,12 +81,22 @@ function Styleguide() {
       </p>
 
       <Section title="Color">
+        <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <p className="max-w-prose text-muted">
+            Every color below has a light and a dark value. Switch themes here, with the button in the bottom-left
+            corner, or from the menu on a phone.
+          </p>
+          <div className="w-fit rounded-control border border-border bg-surface">
+            <ThemeToggle inline />
+          </div>
+        </div>
         <Swatches label="Surfaces, back to front" names={SURFACES} />
         <Swatches label="Text, lines and accent" names={INK} />
         <Swatches label="Status" names={STATUS} />
         <Swatches label="Rating inks" names={RATING_INKS} />
         <Swatches label="A wrong multiple-choice answer" names={WRONG} />
         <Swatches label="Courses" names={COURSES} />
+        <Swatches label="Behind a dialog" names={DIALOG} />
       </Section>
 
       <Section title="Type">

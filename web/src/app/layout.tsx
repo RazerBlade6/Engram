@@ -3,7 +3,10 @@ import { Caveat, Figtree, Literata } from "next/font/google";
 import { Suspense } from "react";
 
 import { SiteNav } from "@/components/site-nav";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { UsageTracker } from "@/components/usage-tracker";
+
+import { THEME_SCRIPT } from "@/lib/theme";
 
 import "./globals.css";
 
@@ -20,7 +23,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${figtree.variable} ${literata.variable} ${caveat.variable}`}>
+    // The theme script sets data-theme on <html> before React hydrates, so the server's
+    // markup can differ from the browser's there.
+    <html lang="en" className={`${figtree.variable} ${literata.variable} ${caveat.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>
         {/* These read the URL, which some routes know only at request time. */}
         <Suspense>
@@ -29,6 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {children}
         <Suspense>
           <UsageTracker />
+          <ThemeToggle />
         </Suspense>
       </body>
     </html>

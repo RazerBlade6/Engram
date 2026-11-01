@@ -36,13 +36,13 @@ A dedicated pass on design and friction. Daily use by users starts at the end of
 Designed directly in the app and reviewed on the local dev server, without a separate prototype (D56).
 
 - [x] Visual direction: palette, type, and the overall look (D57–D59)
-- [ ] Design system: tokens, components, light theme (tokens structured so a dark theme can be added without a redesign)
-- [ ] Redesign the core flows from the Phase 1 session findings ([findings](OBSERVATIONS.md#phase-1-findings)):
+- [x] Design system: tokens, components, light theme, and a dark theme from the same tokens, all shown live at `/styleguide` (D75)
+- [x] Redesign the core flows from the Phase 1 session findings ([findings](OBSERVATIONS.md#phase-1-findings)):
   - [x] Dates written out and entered day/month/year (D54)
   - [x] Report control moved to the card's corner (D52)
   - [x] Card generation shows its progress (D53)
   - [x] Blocked review order as the default (D55)
-- [ ] Changes from the second round of testing ([findings](OBSERVATIONS.md#second-round-findings)):
+- [x] Changes from the second round of testing ([findings](OBSERVATIONS.md#second-round-findings)):
   - [x] A less zoomed-in interface at the same text size; review fits a 14-inch 1920×1080 laptop (a 1280×590 viewport) without scrolling (D63)
   - [x] Ask without the intro text (D64)
   - [x] Citations in Ask open the passage as text (D65)
@@ -80,6 +80,6 @@ Designed directly in the app and reviewed on the local dev server, without a sep
 - [ ] Model benchmark and benchmark-driven routing
 - [ ] Public demo account on OpenStax courses, including CS and STEM titles
 - [ ] Polished ingestion inspector
-- [ ] Dark theme as an option; light stays the default
+- [x] Dark theme as an option; light stays the default (done in Phase 2, D75)
 - [ ] Published aggregate usage statistics
 - [ ] Fitted learner model compared against the FSRS baseline

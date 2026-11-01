@@ -157,7 +157,7 @@ export function WelcomeTour({
   }, [go, step, finish]);
 
   return (
-    <div className="fade-in fixed inset-0 z-40 grid place-items-center overflow-y-auto bg-foreground/60 p-4 backdrop-blur-[2px]">
+    <div className="fade-in fixed inset-0 z-40 grid place-items-center overflow-y-auto bg-scrim/60 p-4 backdrop-blur-[2px]">
       <div
         role="dialog"
         aria-modal="true"
@@ -187,9 +187,9 @@ export function WelcomeTour({
             <button
               type="button"
               onClick={finish}
-              className="flex min-h-11 items-center gap-2 rounded-control px-3 font-semibold text-paper/90 transition-colors duration-150 hover:bg-paper/10 hover:text-paper"
+              className="flex min-h-11 items-center gap-2 rounded-control px-3 font-semibold text-on-scrim/90 transition-colors duration-150 hover:bg-on-scrim/10 hover:text-on-scrim"
             >
-              Skip the tour <Kbd tone="inverse">Esc</Kbd>
+              Skip the tour <Kbd>Esc</Kbd>
             </button>
           )}
           <Dots step={step} count={steps.length} />
@@ -251,7 +251,10 @@ function Dots({ step, count }: { step: number; count: number }) {
         <span
           key={i}
           aria-hidden
-          className={cx("size-2 rounded-full transition-colors duration-200", i === step ? "bg-paper" : "bg-paper/35")}
+          className={cx(
+            "size-2 rounded-full transition-colors duration-200",
+            i === step ? "bg-on-scrim" : "bg-on-scrim/35",
+          )}
         />
       ))}
     </p>

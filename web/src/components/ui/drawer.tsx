@@ -16,7 +16,7 @@ export function Drawer({ title, onClose, children }: { title: string; onClose: (
   }, [onClose]);
 
   return (
-    <div className="fade-in fixed inset-0 z-40 bg-foreground/30" onClick={onClose}>
+    <div className="fade-in fixed inset-0 z-40 bg-scrim/30" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"

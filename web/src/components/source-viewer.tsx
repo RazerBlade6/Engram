@@ -91,7 +91,7 @@ export function SourceViewer({
   }
 
   return (
-    <div className="fade-in fixed inset-0 z-40 flex justify-center bg-foreground/40 p-4 sm:p-8" onClick={onClose}>
+    <div className="fade-in fixed inset-0 z-40 flex justify-center bg-scrim/40 p-4 sm:p-8" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"

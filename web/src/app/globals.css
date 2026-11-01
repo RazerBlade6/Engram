@@ -3,7 +3,7 @@
 /*
  * Design tokens. The look is "Desk": the things a student studies are ruled index cards
  * resting on a cool grey desk, and everything around them stays plain. Tokens are named by
- * role, never by color, so a dark theme later only redefines this block.
+ * role, never by color, so the dark theme below only redefines them.
  */
 :root {
   /* Surfaces, from back to front */
@@ -77,6 +77,10 @@
   --course-5: #a8325e;
   --course-6: #6b6416;
 
+  /* Dimming behind a dialog, and the text set directly on it */
+  --scrim: #22252a;
+  --on-scrim: #fffef9;
+
   /* Depth */
   --shadow-card: 0 1px 1px rgb(30 40 60 / 0.08), 0 4px 10px rgb(30 40 60 / 0.08);
   --shadow-lifted: 0 2px 4px rgb(30 40 60 / 0.08), 0 14px 32px rgb(30 40 60 / 0.16);
@@ -93,6 +97,78 @@
   --duration-leave: 300ms;
   --ease-quiet: cubic-bezier(0.2, 0.7, 0.2, 1);
   --ease-flip: cubic-bezier(0.34, 1.36, 0.5, 1);
+}
+
+/*
+ * Dark theme: the same desk at night. Cards become dim, warm paper rather than white, inks
+ * lighten so they read on it, and the accent turns to a lighter blue with dark text on its
+ * buttons. Chosen with the toggle in the corner and kept per browser (components/theme-toggle).
+ * The inspector overlays keep their light values: they sit on rendered PDF pages, which stay
+ * white.
+ */
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  --desk: #15181c;
+  --bar: #1c2025;
+  --surface: #22272d;
+  --paper: #29282a;
+  --paper-under: #1f1e20;
+
+  --foreground: #e6e8eb;
+  --muted: #a3acb7;
+  --border: #353c45;
+  --border-strong: #4f5863;
+
+  --accent: #7c9ff0;
+  --accent-strong: #98b5f5;
+  --accent-deep: #4a6cc0;
+  --accent-soft: #1f2c4a;
+  --on-accent: #0f1729;
+
+  --card-rule: #b9554c;
+  --card-line: #33393f;
+  --highlight: #574812;
+  --highlight-edge: #a8892a;
+
+  --wrong: #f2a0bd;
+  --wrong-soft: #3c1726;
+  --wrong-line: #6e2a45;
+
+  --caution: #e8b56c;
+  --caution-soft: #372812;
+  --caution-line: #6b4e1f;
+
+  --danger: #f29191;
+  --danger-soft: #3a1b1b;
+  --success: #82cc92;
+  --success-soft: #16301d;
+
+  --rate-1: #cba8e8;
+  --rate-1-soft: #2d1f3a;
+  --rate-1-line: #4f3866;
+  --rate-2: #e8b56c;
+  --rate-2-soft: #372812;
+  --rate-2-line: #6b4e1f;
+  --rate-3: #72d0c6;
+  --rate-3-soft: #12302d;
+  --rate-3-line: #245a54;
+  --rate-4: #98b5f5;
+  --rate-4-soft: #1b2747;
+  --rate-4-line: #34497f;
+
+  --course-1: #7c9ff0;
+  --course-2: #e8975e;
+  --course-3: #6fc995;
+  --course-4: #bb98d8;
+  --course-5: #e683aa;
+  --course-6: #cbc05e;
+
+  --scrim: #000000;
+  --on-scrim: #e6e8eb;
+
+  --shadow-card: 0 1px 1px rgb(0 0 0 / 0.4), 0 4px 10px rgb(0 0 0 / 0.3);
+  --shadow-lifted: 0 2px 4px rgb(0 0 0 / 0.4), 0 14px 32px rgb(0 0 0 / 0.5);
 }
 
 @theme inline {
@@ -119,6 +195,8 @@
   --color-caution: var(--caution);
   --color-caution-soft: var(--caution-soft);
   --color-caution-line: var(--caution-line);
+  --color-scrim: var(--scrim);
+  --color-on-scrim: var(--on-scrim);
 
   /* Figtree for the interface; Literata only for what a student reads (cards, sources). */
   --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;

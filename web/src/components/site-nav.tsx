@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { cx } from "@/lib/cx";
 import { useProfile } from "@/lib/profile";
@@ -107,7 +108,7 @@ function Menu({
   }, [onClose]);
 
   return (
-    <div className="fade-in fixed inset-0 z-40 bg-foreground/30 md:hidden" onClick={onClose}>
+    <div className="fade-in fixed inset-0 z-40 bg-scrim/30 md:hidden" onClick={onClose}>
       <div
         id="site-menu"
         role="dialog"
@@ -142,6 +143,7 @@ function Menu({
           ))}
         </ul>
         <div className="mt-auto border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <ThemeToggle inline />
           <Button variant="quiet" onClick={onSignOut} className="w-full justify-start px-4">
             Sign out
           </Button>
