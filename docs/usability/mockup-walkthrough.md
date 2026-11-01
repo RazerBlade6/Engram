@@ -48,4 +48,4 @@ Have a PDF and an image file on the desktop for task 6.
 
 ## Findings
 
-Record findings in [`docs/ROADMAP.md`](../ROADMAP.md) under Phase 0, with each one turned into a decision or a change to the mockups.
+Record findings in [`docs/OBSERVATIONS.md`](../OBSERVATIONS.md#phase-0-prototype-walkthrough), with each one turned into a decision or a change to the mockups.

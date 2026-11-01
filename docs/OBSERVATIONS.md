@@ -1,12 +1,37 @@
-# User observations (Phase 1 exit)
+# Observations
 
-A moderated session with a target user on the deployed app (https://engramstudy.app), on
-their own laptop and account. Its findings drive Phase 2's redesign of the core flows.
+Usability sessions with target users, oldest first: what happened, and what each finding led to.
 
 Record behaviour and quotes about the product only. No names, schools or anything else that
 identifies the participant: this file is public.
 
-## Running the session
+## Phase 0: prototype walkthrough
+
+A walkthrough of the clickable prototype ([script](usability/mockup-walkthrough.md)) with a target user. Overall the layout and flows held up; detailed polish was left to Phase 2.
+
+### Phase 0 findings
+
+| Finding                                                                                                     | Outcome                                                            |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| The first load was the most confusing moment: about 20 s to get oriented, and about 10 s to find the review | One-time welcome screen, with a "first action under 5 s" bar (D21) |
+| Understood the four rating buttons and, when asked, preferred them to a simple two                          | Keep four ratings (D16)                                            |
+| Found the source panel as soon as prompted, and called it very helpful                                      | Keep as designed                                                   |
+| Found the report option when prompted; the three reasons were clear                                         | Keep as designed                                                   |
+| Marked a chapter as covered without any friction                                                            | Keep as designed                                                   |
+| On the upload task, mistook the link field for the upload area; understood once explained                   | Separate upload and link controls (D22)                            |
+| Found and used chat in about 15 s                                                                           | Keep as designed                                                   |
+| Noticed the exam date immediately on landing                                                                | Keep upcoming dates on Today (D18)                                 |
+| Firmly declined a daily reminder                                                                            | Reminders dropped entirely (D6)                                    |
+| Found mixed flashcards and multiple choice acceptable, but would prefer clearer separation                  | Review-order experiment (D20)                                      |
+| Asked for a calendar of all upcoming tests and dates per course                                             | Calendar (D17–D19)                                                 |
+| Light theme and larger text preferred for reading                                                           | Light theme by default, dark theme later (D23)                     |
+
+## Phase 1 exit session
+
+A moderated session with a target user on the deployed app (https://engramstudy.app), on
+their own laptop and account. Its findings drive Phase 2's redesign of the core flows.
+
+### Running the session
 
 - Think aloud; then stay quiet. Don't explain the UI, point, or rescue. After a minute
   stuck, note it and move on.
@@ -14,7 +39,7 @@ identifies the participant: this file is public.
 - Note every hesitation, wrong click, "what does this mean?", and anything they like.
 - Have one chapter's worth of real course material ready (textbook PDF or lecture slides).
 
-## Tasks
+### Tasks
 
 | #   | Read this to the participant                                      | Watch for                                                                             |
 | --- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
@@ -27,7 +52,7 @@ identifies the participant: this file is public.
 | 7   | "Something from the chapter confused you. Get some help with it." | Do they find Ask? Do they click citations? Reaction to "not in your materials"        |
 | 8   | "You have a test coming up. Add it, with the chapters it covers." | Quick-add, picking a day, the chapter picker; is the date then visible on Today?      |
 
-## Debrief questions
+### Debrief questions
 
 1. What was the most confusing moment?
 2. Was anything missing that you expected to be there?
@@ -35,7 +60,7 @@ identifies the participant: this file is public.
 4. Would you use this every day instead of what you do now? What would stop you?
 5. How did it feel on your laptop: text size, speed, the wait after uploading?
 
-## Observations
+### Observations
 
 | Task | What happened                                             | Quote or note                                                                                                                                 |
 | ---- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -48,7 +73,7 @@ identifies the participant: this file is public.
 | 7    | Ask was found without an issue with the new navbar        | Tester preferred a topbar rather than the sidebar used in the demo.                                                                           |
 | 8    | Hesitated on the calendar; got confused with mm/dd/yyyy   | Change to dd/mm/yyyy (We should have done that from the start). Once selected date was visible.                                               |
 
-## Debrief answers
+### Debrief answers
 
 1. "Nothing really."
 2. "Nothing. I like the new calendar." Mentioned that some way to set the "goal" of a session could be nice (general revision/for a quiz/project). We can consider how that might work, I'm not sure.
@@ -56,9 +81,9 @@ identifies the participant: this file is public.
 4. "Maybe. I'd have to use it more and decide how useful it is."
 5. We have only done Tasks 3-8 on this computer, so this question is still open. The screen is a bit smaller and much lower resolution than mine, and I find this a little big, so we can probably go ahead assuming that this is fine. If something changes we can adjust in phase 2
 
-## Findings
+### Phase 1 findings
 
-Each finding becomes a decision or a Phase 2 change in [`ROADMAP.md`](ROADMAP.md).
+Each finding becomes a decision ([DECISIONS.md](DECISIONS.md)) or a Phase 2 change ([ROADMAP.md](ROADMAP.md)).
 
 | Finding                                                                                    | Outcome                                                                                                                  |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
@@ -73,13 +98,13 @@ Each finding becomes a decision or a Phase 2 change in [`ROADMAP.md`](ROADMAP.md
 | Text size fine on the tester's laptop, a little large on a higher-resolution screen        | Keep the larger base size; everything is sized relative to it, so a later change is one line                             |
 | Sources, review, chat and marking chapters covered all went smoothly                       | Keep as built                                                                                                            |
 
-# Second Round
+## Phase 2: second round
 
-## Observations
+### Observations
 
 In this round, tests were conducted on the user's machine in the actual app, rather than localhost. Another round was conducted on mobile phone.
 
-### Computer
+#### Computer
 
 - UI elements rendered a too large, especially in the review (the 4 options frequently needed scrolling to see)
 - Tester mentioned the text describing the Ask page was annoying: "Stuck on something in Biology? Ask in your own words. Answers come from your textbook, slides and notes, with a link to the exact page." was too wordy
@@ -87,7 +112,7 @@ In this round, tests were conducted on the user's machine in the actual app, rat
 - Tester disliked the citations in the Ask section. Mentioned that opening the relevant textbook page like that didn't help and just made the text harder to read. Re: this, I agree, we should go back to normal citations rather than displaying the textbook page
 - There were too many options in the "choose your subjects" in the calendar. For the Biology course, there were 47 chapters, too many to easily pick out a few to choose for a quiz/midterm/etc.
 
-### Mobile (Lower priority but still worth considering)
+#### Mobile (Lower priority but still worth considering)
 
 - On mobile, the topbar wraps around into two rows.
 - Card review is hard to do on mobile and the sources become pretty much useless, as you need to scroll down past the 4 options, meaning you can't see what the original card said.
@@ -96,9 +121,9 @@ In this round, tests were conducted on the user's machine in the actual app, rat
 - The calendar was useless, it was spaced too much and needed separate scrolling.
 - Responses in chat were too large, became hard to read as so much space was being taken up by the response.
 
-## Findings
+### Second round findings
 
-Each finding becomes a decision or a Phase 2 change in [`ROADMAP.md`](ROADMAP.md). Rows marked _(screenshots)_ were seen in the mobile screenshots rather than noted during the session.
+Each finding becomes a decision ([DECISIONS.md](DECISIONS.md)) or a Phase 2 change ([ROADMAP.md](ROADMAP.md)). Rows marked _(screenshots)_ were seen in the mobile screenshots rather than noted during the session.
 
 | Finding                                                                                                                | Outcome                                                                                                                                                                    |
 | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
