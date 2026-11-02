@@ -80,11 +80,10 @@ Daily use has begun. Findings from it and from the Phase 2 exit session are coll
 
 ## Phase 4: UI/UX after daily use
 
-A second design pass, after about two weeks of regular use.
+A second design pass, after about two weeks of regular use. From here Engram is treated as a released app: users report what they dislike themselves, and there are no more moderated sessions (D85).
 
 - [ ] Findings from the Phase 2 exit session and the first weeks of daily use, written up in [OBSERVATIONS.md](OBSERVATIONS.md)
 - [ ] Changes from those findings, including the screens added in Phase 3
-- [ ] **Exit:** a moderated session on the changed flows
 
 ## Phase 5: Showcase depth
 

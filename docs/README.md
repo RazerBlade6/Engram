@@ -210,7 +210,7 @@ Friction is the main risk: a study tool only helps if people open it. These are 
 4. **Keyboard-first review on desktop** (Space to flip, 1–4 to rate) and large tap targets on mobile. A light theme by default, with large, high-contrast reading text. A dark theme is available as an option (D75).
 5. **Every wait is visible and non-blocking.** "Reading your textbook… you can leave, it'll be ready when you're back."
 
-UX is validated with **real users before and during development**. Clickable mockups are tested before any app code is written, and moderated usability sessions close Phases 1, 2 and 4.
+UX is validated with **real users before and during development**. Clickable mockups are tested before any app code is written, and moderated usability sessions close Phases 1 and 2. After that, users report what they dislike themselves, as with any released app (D85).
 
 ## Privacy and data
 
