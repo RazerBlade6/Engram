@@ -95,6 +95,7 @@ A second design pass, after about two weeks of regular use. From here Engram is 
 
 - [ ] Findings from the Phase 2 exit session and the first weeks of daily use, written up in [OBSERVATIONS.md](OBSERVATIONS.md)
 - [ ] Changes from those findings, including the screens added in Phase 3
+- [ ] Icons in place of words where an icon is clearer, such as a check mark for a chapter already covered, each with its words kept as a tooltip and for screen readers
 
 ## Phase 5: Showcase depth
 
