@@ -71,7 +71,10 @@ Daily use has begun. Findings from it and from the Phase 2 exit session are coll
 - [ ] Flagged cards: a list where a flag can be undone or the card removed (D3, D81)
 - [ ] Subject lock: study only one course's cards for the day; every course by default (D77)
 - [ ] Progress and mastery: how well each chapter is known on the course page, then concepts taken from chapter and heading structure, then the weak-spots view
-- [ ] Uploaded materials belong to chapters: each upload is placed in the chapter it most resembles, and each chapter expands to list its textbook chapter and the materials placed in it, each with a View button (a textbook chapter opens at its first page) and every upload movable to another chapter. A chapter's cards are made from all of its materials, without paying twice for ideas the slides and the textbook share ([sketch](../design/courses-ui-mockup.png), D87)
+- [ ] Uploaded materials belong to chapters: each upload is placed in the chapter it most resembles, and each chapter expands to list its textbook chapter and the materials placed in it, each with a View button (a textbook chapter opens at its first page) and every upload movable to another chapter. A chapter's cards are made from all of its materials ([sketch](../design/courses-ui-mockup.png), D87), without paying twice for what they share (D88):
+  - [ ] Slides the textbook already covers, by embedding closeness to the chapter's passages, aren't sent for cards; the threshold is set on real decks
+  - [ ] The slides that are sent come with the chapter's existing card questions, and the model is told not to repeat them
+  - [ ] Repeated cards are found by meaning (card embeddings) rather than shared words, catching paraphrases from any source
 - [ ] More sources in the drop zone: photographed and typed notes, web articles via URL ("Add a link instead")
 - [ ] Short-answer cards with LLM grading, checked by the grading eval
 - [ ] Syllabus upload with date extraction, confirmed in one click
