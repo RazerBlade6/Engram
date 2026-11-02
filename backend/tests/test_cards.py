@@ -21,6 +21,7 @@ from engram.cards.generate import (
     accept,
     batches,
     distinct,
+    supported,
 )
 from engram.config import Settings
 from engram.errors import PermanentError
@@ -81,6 +82,23 @@ def test_cards_the_passages_do_not_support_are_dropped() -> None:
     assert accept([invented, missing, tiny], BATCH) == ([], {"unsupported": 3})
 
 
+def test_a_card_whose_answer_is_not_in_its_source_is_dropped() -> None:
+    """D93: a real quote is not enough; the answer itself must be in what the card cites."""
+    wrong = card(prompt="Q1", answer="RNA")
+    hidden = card("cloze", prompt="The nucleus stores {{genetic code}}.")
+    choice = card("mcq", prompt="Q3", answer="Lysosomes", distractors=["DNA", "RNA", "ATP"])
+    kept, dropped = accept([wrong, hidden, choice], BATCH)
+    assert kept == [] and dropped == {"answer not in source": 3}
+
+
+def test_most_of_an_answer_is_enough_except_for_a_cloze() -> None:
+    assert supported("basic", "Ribosomes make the proteins", ["Ribosomes make proteins."])
+    assert supported("mcq", "Na+ (sodium)", ["Na+ is more concentrated outside the cell."])
+    assert not supported("basic", "Golgi apparatus packages proteins", ["Ribosomes."])
+    assert supported("cloze", "long-term potentiation", ["Long term potentiation, or LTP"])
+    assert not supported("cloze", "long-term memory", ["Long term potentiation"])
+
+
 def test_cloze_needs_exactly_one_hidden_span_and_answers_with_it() -> None:
     good = card("cloze", prompt="The nucleus stores {{DNA}}.", answer="dna!")
     none = card("cloze", prompt="The nucleus stores DNA.")
@@ -102,7 +120,8 @@ def test_multiple_choice_needs_three_distinct_distractors() -> None:
 
 
 def test_cards_far_longer_than_asked_for_are_dropped() -> None:
-    words = lambda n: " ".join(["word"] * n)  # noqa: E731
+    # A word the passage has, so only length decides.
+    words = lambda n: " ".join(["DNA"] * n)  # noqa: E731
     long_question = card(prompt=words(46) + "?")
     long_answer = card(prompt="Q2", answer=words(51))
     long_choice = card("mcq", prompt="Q3", distractors=["RNA", "Proteins", words(21)])

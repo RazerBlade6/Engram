@@ -1,8 +1,9 @@
 """Generates a chapter's cards from its passages, and keeps only the ones its sources support.
 
 Cards are strictly grounded (D2): each must cite at least one passage and quote the words in
-it that support the card. A card whose quotes can't be found in the passages it cites is
-dropped rather than kept on trust, because a wrong card is worse than none.
+it that support the card, and its answer must be in what it cites (D93). A card whose quotes
+or answer can't be found in the passages it cites is dropped rather than kept on trust,
+because a wrong card is worse than none.
 """
 
 import random
@@ -170,6 +171,33 @@ def _too_long(text: str, words: int) -> bool:
     return len(text.split()) > words
 
 
+# Of a basic or multiple-choice answer's words (common ones aside), at least this share must be
+# in the passages the card cites (D93). Every card generated so far has at least half; the
+# lowest was "Na+ (sodium)", from a passage that says only "Na+".
+ANSWER_SUPPORT = 0.5
+
+
+def _stem(word: str) -> str:
+    """Crude, but enough to match "proteins" with "protein" and "migrated" with "migrate"."""
+    for ending in ("ies", "es", "s", "ed", "ing", "ly"):
+        if len(word) > len(ending) + 3 and word.endswith(ending):
+            return word[: -len(ending)]
+    return word
+
+
+def supported(kind: str, answer: str, passages: list[str]) -> bool:
+    """Whether a card's answer is in the passages it cites: a cloze's hidden words exactly
+    (ignoring case, spacing and punctuation), most of any other answer's words."""
+    text = " ".join(passages)
+    if kind == "cloze":
+        return _normal(answer) in _normal(text)
+    words = {_stem(w) for w in _words(answer)}
+    if not words:
+        return _normal(answer) in _normal(text)
+    found = words & {_stem(w) for w in _words(text)}
+    return len(found) / len(words) >= ANSWER_SUPPORT
+
+
 def accept(
     generated: list[GeneratedCard], batch: list[Passage]
 ) -> tuple[list[Card], dict[str, int]]:
@@ -182,6 +210,7 @@ def accept(
 
     for g in generated:
         sources: list[dict[str, Any]] = []
+        cited: list[str] = []
         for s in g.sources:
             if not 1 <= s.passage <= len(batch):
                 continue
@@ -202,6 +231,7 @@ def accept(
                     "passage": body(passage.content, passage.heading_path),
                 }
             )
+            cited.append(passage.content)
         if not sources:
             drop("unsupported")
             continue
@@ -226,6 +256,10 @@ def accept(
             # Shuffled the same way every time for the same question.
             random.Random(prompt).shuffle(options)
             choices = options
+
+        if not supported(g.kind, answer, cited):
+            drop("answer not in source")
+            continue
 
         if (
             _too_long(prompt, MAX_PROMPT_WORDS)
