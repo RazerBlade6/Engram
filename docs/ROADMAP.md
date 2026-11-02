@@ -84,7 +84,15 @@ Daily use has begun. Findings from it and from the Phase 2 exit session are coll
   - [x] A daily limit per user on chapters marked for cards and on questions in Ask, and figure descriptions reused by image so a re-upload or retry costs nothing (D96)
   - [x] Review ignores held-down keys, and a card is rated at most once each time it is shown (D97)
 - [ ] Review-order experiment in the first weeks of daily use: blocked against separate, then fix the preferred one (D55)
-- [ ] Eval suites in CI, on an OpenStax corpus: retrieval and card quality first, grading with short-answer cards; the same corpus later seeds the demo account (D80). Includes the Sonnet trial for Ask
+- [ ] Eval suites in CI, on an OpenStax corpus that later seeds the demo account (D80, D100–D103). Code in `backend/evals/`, each suite also runnable locally:
+  - [ ] Corpus: Psychology 2e, Biology 2e and Principles of Data Science, about nine chapters each for retrieval and three each for cards, read by the real pipeline and published as a versioned snapshot on a GitHub Release, with a committed manifest (D100)
+  - [ ] Retrieval suite on every backend push: about 150 questions labelled with gold quotes, recall@8, recall@30 and MRR, failing the build below the committed baseline (D101)
+  - [ ] Hand review (admin): check the model-drafted questions and gold quotes (about 1–2 hours), then label about 100 generated cards as good, wrong, confusing or not useful (about 1 hour), each with clear instructions
+  - [ ] Card quality suite: cards for the nine eval chapters judged for faithfulness, correctness, one clear answer, making sense alone, worth remembering and, for multiple choice, plausible distractors; drop rates from the existing checks reported too (D102)
+  - [ ] Judge calibrated against the hand labels, with Opus and Sonnet both tried as the judge; reported, not gated, until it agrees (D102)
+  - [ ] Ask suite: the labelled questions through Ask with Opus and with Sonnet, judged for answering the question, every claim supported by its citation and the "not from your course materials" label used when it should be, with time to first words and in total: decides the Sonnet trial
+  - [ ] Full runs by hand at the end of Phase 3 and of Phase 5, through the Batch API, on a separate Anthropic workspace ($50 limit the month it's built, $25 after); about $25 a run, about $50 in all (D103)
+  - [ ] Grading suite, built with short-answer cards: hand-graded answers and the grader's agreement with them
 - [ ] Flagged cards: a list where a flag can be undone or the card removed; a card flagged before it was ever studied comes back as new, within the day's new cards (D3, D81)
 - [ ] Send feedback: a small link in the menu (or on the settings page) where users report what they dislike in a few words, with the page they were on attached, and admins read it in the app (D86)
 - [ ] Subject lock: study only one course's cards for the day; every course by default (D77)

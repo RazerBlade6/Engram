@@ -78,7 +78,7 @@ Generated cards are **strictly grounded**: no fallback to general knowledge.
 
 ### Card quality
 
-Generated cards go directly into the deck, because a mandatory review step is a chore that stands between the user and studying. During review, a one-tap **flag** marks a card as _wrong_, _confusing_ or _not useful_, and the card is suspended. An optional triage view lets users curate when they want to. Flags are stored as labeled examples and feed the [evaluation suite](#evaluation).
+Generated cards go directly into the deck, because a mandatory review step is a chore that stands between the user and studying. During review, a one-tap **flag** marks a card as _wrong_, _confusing_ or _not useful_, and the card is suspended. An optional triage view lets users curate when they want to. Flags are stored, and their rates per model and prompt version feed the [evaluation suite](#evaluation); the flagged cards themselves stay out of it, since they come from users' uploads (D102).
 
 ### Calendar and exams
 
@@ -191,12 +191,13 @@ Other source types use the same output format: slides become one chunk per slide
 
 ## Evaluation
 
-The eval corpus is built from openly licensed [OpenStax](https://openstax.org) textbooks, and the same books later make up the demo account. The suite runs in CI.
+The eval corpus is built from openly licensed [OpenStax](https://openstax.org) textbooks (Psychology 2e, Biology 2e and Principles of Data Science), and the same books later make up the demo account (D100). The retrieval suite runs in CI on every push and makes no model calls; the suites that call models run by hand at phase boundaries, through the Batch API on a workspace of their own (D101, D103).
 
 | Suite               | Measures                                                                   | Ground truth                                                                   |
 | ------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | **Retrieval**       | recall@k, MRR                                                              | Hand-labeled question → passage pairs                                          |
-| **Card quality**    | Faithfulness to source, single unambiguous answer, distractor plausibility | LLM judge, calibrated against user flag labels                                 |
+| **Card quality**    | Faithfulness to source, single unambiguous answer, distractor plausibility | LLM judge, calibrated against hand-labeled cards                               |
+| **Ask answers**     | Answers the question, claims supported by citations, latency               | LLM judge, the same calibration; the retrieval questions                       |
 | **Grading**         | Agreement between the LLM grader and humans                                | Hand-graded short answers                                                      |
 | **Model benchmark** | Quality vs. cost per job                                                   | Output of the suites above, per model. Drives [model routing](#model-routing). |
 
