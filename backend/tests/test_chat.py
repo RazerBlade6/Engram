@@ -1,4 +1,5 @@
 import json
+import random
 from collections.abc import AsyncIterator, Callable, Iterator
 from typing import Any
 
@@ -201,6 +202,50 @@ async def test_search_finds_passages_by_meaning_and_by_rare_terms(
         name = "Who was Titchener?"
         found = await search(db, course["id"], name, embedder.query(name))
         assert found[0].heading_path == ["History"]
+
+
+async def test_search_stays_within_a_small_course_beside_a_large_one(
+    course: dict[str, Any], database_url: str, make_user: Callable[..., str]
+) -> None:
+    """D94: another course full of passages nearer the question than anything in this one
+    must not crowd this course's passages out, whatever plan the database picks."""
+    embedder = get_embedder(get_settings().embedding_model)
+    # No word in common with any passage, so only the vector search can find it.
+    question = "Which organelle powers living things by burning sugar?"
+    vector = embedder.query(question)
+    with psycopg.connect(database_url, autocommit=True) as c:
+        row = c.execute(
+            "insert into public.courses (owner_id, title) values (%s, 'Other') returning id",
+            (make_user(),),
+        ).fetchone()
+        assert row
+        row = c.execute(
+            "insert into public.materials (course_id, kind, title, storage_path, status)"
+            " values (%s, 'slides', 'Other', 'x/y/o.pptx', 'ready') returning id",
+            (row[0],),
+        ).fetchone()
+        assert row
+        # Distinct passages, each a little off the question's vector: all nearer than this
+        # course's own.
+        rng = random.Random(94)
+        near = [[x + rng.gauss(0, 0.005) for x in vector] for _ in range(500)]
+        with c.cursor() as cur:
+            cur.executemany(
+                "insert into public.chunks (material_id, ordinal, kind, content, embedding,"
+                " embedding_model) values (%s, %s, 'text', 'unrelated filler',"
+                " %s::extensions.vector, 'test')",
+                [(row[0], i, str(v)) for i, v in enumerate(near)],
+            )
+    async with await psycopg.AsyncConnection.connect(database_url) as db:
+        # As the planner may choose on large tables: any index that could order the search is
+        # used. An approximate one would return this course nothing.
+        await db.execute("set enable_seqscan = off")
+        await db.execute("set enable_sort = off")
+        found = await search(db, course["id"], question, vector)
+    # Every passage of the course is a candidate, nearest first.
+    assert found[0].heading_path == ["Cells"]
+    assert len(found) == len(PASSAGES)
+    assert {str(p.material_id) for p in found} == {course["material"]}
 
 
 # The API ------------------------------------------------------------------------------

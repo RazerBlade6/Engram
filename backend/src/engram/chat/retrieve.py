@@ -1,9 +1,10 @@
 """Hybrid retrieval over a course's chunks: vector similarity and full-text search, each
 ranked separately and merged by reciprocal rank fusion.
 
-Vectors find passages that mean the same thing in other words; keywords find exact terms
-(names, jargon) that small embedding models blur. Fusing ranks rather than scores avoids
-calibrating two incomparable scales. Queries run as the student, so RLS limits them to
+Vectors find passages that mean the same thing in other words, measured against every
+passage of the course: exact, and fast at a few thousand passages a course. Keywords find
+exact terms (names, jargon) that small embedding models blur. Fusing ranks rather than
+scores avoids calibrating two incomparable scales. Queries run as the student, so RLS limits them to
 materials they can read.
 """
 
@@ -29,11 +30,18 @@ with q as (
 scope as (
   select id from public.materials where course_id = %(course)s and status = 'ready'
 ),
-vec as (
-  select k.id, row_number() over (order by k.embedding <=> q.v) as rank
+-- Exact: every chunk of the course is measured (D94). An approximate index would find the
+-- nearest chunks across all courses first and filter to this one after, so a small course
+-- could get none. Materialized, so the planner can't turn it into an index scan.
+distances as materialized (
+  select k.id, k.embedding <=> q.v as distance
     from public.chunks k, q
    where k.material_id in (select id from scope) and k.embedding is not null
-   order by k.embedding <=> q.v
+),
+vec as (
+  select id, row_number() over (order by distance) as rank
+    from distances
+   order by distance
    limit %(candidates)s
 ),
 kw as (
