@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from engram.api.auth import get_verifier
 from engram.api.main import create_app
+from engram.api.routes import chat as chat_route
 from engram.api.routes.chat import get_llm
 from engram.chat.answer import MARKER, Cited, Outside, Text, answer, search_text
 from engram.chat.retrieve import Passage, search
@@ -376,3 +377,29 @@ def test_a_source_opens_on_its_passage(
     assert body["passage"] == PASSAGES["Memory"]
     assert body["page"] == 11 and body["boxes"] == [{"page": 11, "bbox": [10, 20, 300, 80]}]
     assert (body["width"], body["height"]) == (None, None)  # not a PDF: no page image
+
+
+def test_a_student_asks_a_limited_number_of_questions_a_day(
+    make_client: Callable[[FakeProvider], TestClient],
+    course: dict[str, Any],
+    database_url: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """D96, with a limit of two."""
+    monkeypatch.setattr(chat_route, "DAILY_QUESTIONS", 2)
+    client = make_client(FakeProvider(cite=["Memory"]))
+    headers = {**auth(token_for(course["owner"])), "X-Timezone": "Asia/Kolkata"}
+    url = f"/courses/{course['id']}/ask"
+    asked = [client.post(url, json={"question": "Q?"}, headers=headers) for _ in range(3)]
+    assert [r.status_code for r in asked] == [200, 200, 429]
+    assert "You can ask more tomorrow" in asked[-1].json()["detail"]
+    with psycopg.connect(database_url) as c:
+        counted = c.execute(
+            "select questions from public.daily_questions where user_id = %s", (course["owner"],)
+        ).fetchall()
+    assert counted == [(2,)]
+
+    # Admins have no limit, and nothing of theirs is counted.
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute("update public.profiles set role = 'admin' where id = %s", (course["owner"],))
+    assert client.post(url, json={"question": "Q?"}, headers=headers).status_code == 200

@@ -7,7 +7,7 @@ new cards are introduced a few at a time each day, and a card in its first short
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -140,9 +140,13 @@ class Day:
     now: datetime
     start: datetime
     end: datetime
+    # The date where the student is.
+    date: date
 
     @classmethod
     def of(cls, now: datetime, tz: ZoneInfo) -> "Day":
         local = now.astimezone(tz)
         start = datetime.combine(local.date(), time(), tz)
-        return cls(now, start.astimezone(UTC), (start + timedelta(days=1)).astimezone(UTC))
+        return cls(
+            now, start.astimezone(UTC), (start + timedelta(days=1)).astimezone(UTC), local.date()
+        )

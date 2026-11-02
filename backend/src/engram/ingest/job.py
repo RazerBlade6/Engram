@@ -14,7 +14,7 @@ from psycopg import AsyncConnection
 from engram.config import Settings
 from engram.embeddings import Embedder, get_embedder
 from engram.ingest import store
-from engram.ingest.describe import describe_figures, figure_text
+from engram.ingest.describe import describe_reusing, figure_text
 from engram.ingest.failures import Unreadable
 from engram.ingest.model import Chunk, ParsedMaterial
 from engram.llm import Job as LLMJob
@@ -123,7 +123,7 @@ async def ingest(
     await _stage(conn, material_id, "describing" if parsed.figures else "indexing")
     usage = Usage()
     try:
-        descriptions = await describe_figures(parsed.figures, router, usage)
+        descriptions = await describe_reusing(conn, parsed.figures, router, usage)
     finally:
         await record(conn, "describe_figures", usage, material_id=material_id)
     figure_prefix = f"{Path(storage_path).parent}/figures"

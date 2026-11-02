@@ -258,6 +258,11 @@ async def get_course(course_id: UUID, db: UserDb) -> Course:
     return Course(id=course_id, title=row[0], textbooks=textbooks, materials=materials)
 
 
+# Chapters a student may mark covered in 24 hours (D96), set in the daily_limits migration.
+DAILY_CHAPTERS = 10
+OVER_DAILY_LIMIT = "EG429"
+
+
 @router.put("/sections/{section_id}/covered")
 async def mark_covered(section_id: UUID, db: UserDb, visit: Visit) -> Coverage:
     try:
@@ -269,6 +274,14 @@ async def mark_covered(section_id: UUID, db: UserDb, visit: Visit) -> Coverage:
     except (psycopg.errors.InsufficientPrivilege, psycopg.errors.ForeignKeyViolation):
         # Someone else's section, or none at all: the same answer for both.
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Section not found") from None
+    except psycopg.Error as exc:
+        if exc.sqlstate != OVER_DAILY_LIMIT:
+            raise
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"You've marked {DAILY_CHAPTERS} chapters today, the most for one day."
+            " You can mark more tomorrow.",
+        ) from None
     cur = await db.execute(
         "select covered_at from public.covered_sections where section_id = %s", (section_id,)
     )

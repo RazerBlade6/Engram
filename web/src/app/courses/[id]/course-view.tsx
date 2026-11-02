@@ -8,7 +8,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Notice } from "@/components/ui/notice";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api, apiFetch } from "@/lib/api";
+import { api, apiFetch, ApiError } from "@/lib/api";
 import { chapterNote, splitChapterTitle, type Chapter, type Coverage, type Course } from "@/lib/courses";
 import { cx } from "@/lib/cx";
 import { useProfile } from "@/lib/profile";
@@ -132,9 +132,11 @@ export function CourseView() {
       const saved = await api<Coverage>(`/sections/${chapter.id}/covered`, { method: "PUT" });
       setCovered(chapter.id, saved.covered_at);
       show(`${name} marked as covered.`, () => uncover({ ...chapter, covered_at: saved.covered_at }, true));
-    } catch {
+    } catch (error) {
       setCovered(chapter.id, null);
-      show(`Couldn't mark ${name} as covered. Please try again.`);
+      // The daily limit (D96) says when more can be marked; anything else is worth a retry.
+      const limited = error instanceof ApiError && error.status === 429;
+      show(limited ? error.message : `Couldn't mark ${name} as covered. Please try again.`);
     }
   }
 

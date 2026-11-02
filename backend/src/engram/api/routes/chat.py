@@ -29,15 +29,18 @@ from psycopg import AsyncConnection
 from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel, Field
 
+from engram.api.auth import CurrentUser
 from engram.api.db import UserDbUntilStreaming, get_pool
 from engram.api.errors import describe
 from engram.api.errors import record as record_error
+from engram.api.routes.review import Today
 from engram.chat.answer import Cited, Outside, Text, answer, search_text
 from engram.chat.retrieve import search
 from engram.config import Settings, get_settings
 from engram.embeddings import get_embedder
 from engram.llm import Job, Router, Usage
 from engram.llm.base import Turn
+from engram.review import Day
 from engram.usage import record
 
 logger = logging.getLogger(__name__)
@@ -73,6 +76,8 @@ def _event(name: str, data: dict[str, Any]) -> str:
 
 
 ROUTE = "/courses/{course_id}/ask"
+# Questions a student may ask a day (D96); admins have no limit.
+DAILY_QUESTIONS = 100
 
 
 @router.post(ROUTE, response_class=StreamingResponse)
@@ -83,10 +88,21 @@ async def ask(
     request: Request,
     llm: Llm,
     settings: Annotated[Settings, Depends(get_settings)],
+    user: CurrentUser,
+    day: Today,
 ) -> StreamingResponse:
-    cur = await db.execute("select 1 from public.courses where id = %s", (course_id,))
-    if await cur.fetchone() is None:
+    cur = await db.execute(
+        "select public.is_admin() from public.courses where id = %s", (course_id,)
+    )
+    found = await cur.fetchone()
+    if found is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found")
+    if not found[0] and not await _count_question(get_pool(request), user.id, day):
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"You've asked {DAILY_QUESTIONS} questions today, the most for one day."
+            " You can ask more tomorrow.",
+        )
     started = time.perf_counter()
     history = [Turn(t.role, t.text) for t in body.history]
     query = search_text(body.question, history)
@@ -165,6 +181,22 @@ async def ask(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+async def _count_question(
+    pool: AsyncConnectionPool[AsyncConnection[Any]], user_id: str, day: Day
+) -> bool:
+    """Count a question against the student's day; False if they've reached the limit."""
+    async with pool.connection() as conn:
+        cur = await conn.execute(
+            "insert into public.daily_questions (user_id, day, questions) values (%s, %s, 1)"
+            " on conflict (user_id, day) do update"
+            " set questions = daily_questions.questions + 1"
+            " where daily_questions.questions < %s"
+            " returning questions",
+            (user_id, day.date, DAILY_QUESTIONS),
+        )
+        return await cur.fetchone() is not None
 
 
 def _ms(start: float, end: float) -> int:

@@ -1,6 +1,6 @@
 import json
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -32,7 +32,8 @@ def parsed_material() -> ParsedMaterial:
         ],
         figures=[
             Figure(0, here, PNG, "Figure 1.1 A cell.", 1, ["Chapter 1 Cells", "1.1 Structure"]),
-            Figure(1, Location(4, (0, 0, 100, 100)), PNG, None, 2, ["Chapter 2 Genetics"]),
+            # A different image: the same one would share its description (D96).
+            Figure(1, Location(4, (0, 0, 100, 100)), PNG + b"\0", None, 2, ["Chapter 2 Genetics"]),
         ],
         chunks=[
             Chunk(0, "text", "Cells are small.", ["Chapter 1 Cells"], [here], 0),
@@ -54,6 +55,7 @@ class FakeProvider:
 
     def __init__(self, decline: set[str] | None = None) -> None:
         self.decline = decline or set()
+        self.calls = 0
 
     async def structured(
         self,
@@ -66,6 +68,7 @@ class FakeProvider:
         usage: Usage | None = None,
     ) -> Any:
         prompt = parts[-1].text
+        self.calls += 1
         if usage is not None:
             usage.add(Usage(1, 100, 10, models={model}))
         if any(word in prompt for word in self.decline):
@@ -95,6 +98,19 @@ class FakeEmbedder:
 
     def passages(self, texts: list[str]) -> list[list[float]]:
         return [[(i + 1) / 1000] * 384 for i, _ in enumerate(texts)]
+
+
+@pytest.fixture(autouse=True)
+def no_reused_descriptions(database_url: str) -> Iterator[None]:
+    """Each test describes its figures afresh: the test images are all alike."""
+
+    def forget() -> None:
+        with psycopg.connect(database_url, autocommit=True) as c:
+            c.execute("delete from public.figure_descriptions where model like 'fake:%'")
+
+    forget()
+    yield
+    forget()
 
 
 @pytest.fixture
@@ -317,6 +333,46 @@ async def test_a_ready_material_is_not_read_again(
     assert rows(
         database_url, "select status::text from public.materials where id = %s", material["id"]
     ) == [("ready",)]
+
+
+async def test_figures_already_described_are_not_paid_for_again(
+    database_url: str, material: dict[str, str], make_user: Callable[..., str]
+) -> None:
+    """D96: the same file uploaded again, here to another course, reuses its descriptions."""
+    settings = Settings(database_url=database_url)
+    first = FakeProvider()
+    job = Job(1, ingest_job.KIND, {"material_id": material["id"]}, 1, 3)
+    await handler(settings, FakeStorage(), lambda p, s: parsed_material(), first)(job)
+    assert first.calls == 2
+
+    again = FakeProvider()
+    with psycopg.connect(database_url, autocommit=True) as c:
+        course = c.execute(
+            "insert into public.courses (owner_id, title) values (%s, 'Bio') returning id",
+            (make_user(),),
+        ).fetchone()
+        assert course
+        other = str(uuid.uuid4())
+        c.execute(
+            "insert into public.materials (id, course_id, kind, title, storage_path, status)"
+            " values (%s, %s, 'textbook', 'Biology', %s, 'queued')",
+            (other, course[0], f"{course[0]}/{other}/biology.pdf"),
+        )
+    job = Job(2, ingest_job.KIND, {"material_id": other}, 1, 3)
+    await handler(settings, FakeStorage(), lambda p, s: parsed_material(), again)(job)
+    assert again.calls == 0
+    assert (
+        rows(
+            database_url,
+            "select description, labels from public.figures where material_id = %s order by ordinal",
+            other,
+        )
+        == [("A cell with a nucleus.", ["Nucleus", "Membrane"])] * 2
+    )
+    # Nothing was paid for, so nothing is recorded as spent.
+    assert rows(
+        database_url, "select count(*) from public.llm_usage where material_id = %s", other
+    ) == [(0,)]
 
 
 async def test_declined_figure_keeps_its_caption(

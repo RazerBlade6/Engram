@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { CONTROL } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
 import { Loading, Skeleton } from "@/components/ui/skeleton";
-import { api, apiFetch } from "@/lib/api";
+import { api, apiFetch, ApiError } from "@/lib/api";
 import {
   applyEvent,
   emptyAnswer,
@@ -140,9 +140,12 @@ function Conversation({ course, courses }: { course: CourseSummary; courses: Cou
           if (events.length) update((a) => events.reduce(applyEvent, a));
         }
         update((a) => (a.status === "streaming" ? { ...a, status: "done" } : a));
-      } catch {
+      } catch (error) {
         outcome.failed = true;
-        update((a) => ({ ...a, status: "error", error: "That question couldn't be answered. Please try again." }));
+        // The daily limit (D96) says when more can be asked; anything else is worth a retry.
+        const limited = error instanceof ApiError && error.status === 429;
+        const message = limited ? error.message : "That question couldn't be answered. Please try again.";
+        update((a) => ({ ...a, status: "error", error: message }));
       }
       track({
         name: "chat_question",

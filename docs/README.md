@@ -216,4 +216,5 @@ UX is validated with **real users before and during development**. Clickable moc
 
 - Uploaded materials are stored in private buckets and are visible only to the account that owns the course.
 - User uploads are never used for the demo account or the eval corpus. Both use OpenStax content (CC BY).
+- To keep inference costs bounded, each user may mark 10 chapters and ask 100 questions a day (D96). Ask keeps only a count of each user's questions for the day, never the questions, and deletes it after two days.
 - Usage events (reviews, ratings, flags, sessions) are logged only with each user's consent, which an admin records after asking. Events hold ids, counts, ratings and timings, never text a user wrote or read. Only **aggregate, anonymized** statistics are ever published, never content or answers, and only once enough users have agreed to logging that no one can be picked out from them (D83).

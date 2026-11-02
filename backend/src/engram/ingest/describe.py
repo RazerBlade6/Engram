@@ -1,10 +1,13 @@
 """Describes figures with a vision model, so diagrams become searchable and their labels can
-drive image-occlusion cards later."""
+drive image-occlusion cards later. Descriptions are kept by image, so a figure is paid for
+once however often its material is uploaded or read (D96)."""
 
 import asyncio
+import hashlib
 import logging
-from typing import Literal
+from typing import Any, Literal
 
+from psycopg import AsyncConnection
 from pydantic import BaseModel, Field
 
 from engram.ingest.model import Figure
@@ -60,6 +63,44 @@ async def describe_figures(
                 return None
 
     return list(await asyncio.gather(*(one(f) for f in figures)))
+
+
+async def describe_reusing(
+    conn: AsyncConnection[Any], figures: list[Figure], router: Router, usage: Usage | None = None
+) -> list[FigureDescription | None]:
+    """As `describe_figures`, but a figure whose image the same model has described before
+    reuses that description, and an image that appears twice is described once."""
+    model = str(router.model_for(Job.FIGURE_DESCRIPTION))
+    hashes = [hashlib.sha256(f.image_png).hexdigest() for f in figures]
+    cur = await conn.execute(
+        "select image_sha256, kind, description, labels from public.figure_descriptions"
+        " where model = %s and image_sha256 = any(%s)",
+        (model, sorted(set(hashes))),
+    )
+    known: dict[str, FigureDescription | None] = {
+        sha: FigureDescription(kind=kind, description=description, labels=labels)
+        for sha, kind, description, labels in await cur.fetchall()
+    }
+    # The first figure with each image not described yet.
+    new = {sha: figure for sha, figure in zip(hashes, figures, strict=True) if sha not in known}
+    if new:
+        logger.info("describing %s figures; %s reused", len(new), len(figures) - len(new))
+        described = await describe_figures(list(new.values()), router, usage)
+        fresh = dict(zip(new, described, strict=True))
+        async with conn.cursor() as icur:
+            await icur.executemany(
+                "insert into public.figure_descriptions"
+                " (image_sha256, model, kind, description, labels) values (%s, %s, %s, %s, %s)"
+                " on conflict do nothing",
+                [
+                    (sha, model, d.kind, d.description, d.labels)
+                    for sha, d in fresh.items()
+                    # A figure the model declined is asked about again next time.
+                    if d is not None
+                ],
+            )
+        known |= fresh
+    return [known[sha] for sha in hashes]
 
 
 def figure_text(figure: Figure, description: FigureDescription | None) -> str:

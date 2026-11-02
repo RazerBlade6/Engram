@@ -263,6 +263,8 @@ async def check(
     now = now or datetime.now(UTC)
     await conn.execute("delete from public.api_errors where created_at < %s", (now - KEEP,))
     await conn.execute("delete from public.alerts_sent where sent_at < %s", (now - KEEP,))
+    # Ask's daily counts (D96) are only needed for the day they count.
+    await conn.execute("delete from public.daily_questions where day < current_date - 2")
     alerts = await collect(conn, settings, now)
     if not alerts:
         return 0

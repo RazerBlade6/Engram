@@ -208,3 +208,53 @@ def test_a_course_needs_a_name(client: TestClient, make_user: Callable[..., str]
     headers = auth(token_for(make_user()))
     assert client.post("/courses", headers=headers, json={"title": "   "}).status_code == 422
     assert client.post("/courses", headers=headers, json={"title": ""}).status_code == 422
+
+
+def test_a_student_marks_at_most_ten_chapters_a_day(
+    client: TestClient, database_url: str, make_user: Callable[..., str]
+) -> None:
+    """D96: marking a whole textbook is one click a chapter, and each one costs money."""
+    student, admin = make_user(), make_user("admin")
+    with psycopg.connect(database_url, autocommit=True) as c:
+        last_job = c.execute("select coalesce(max(id), 0) from public.jobs").fetchone()
+        assert last_job
+        sections: dict[str, list[str]] = {}
+        for owner in (student, admin):
+            row = c.execute(
+                "insert into public.courses (owner_id, title) values (%s, 'Big') returning id",
+                (owner,),
+            ).fetchone()
+            assert row
+            material = c.execute(
+                "insert into public.materials (course_id, kind, title, storage_path, status)"
+                " values (%s, 'textbook', 'Book', %s, 'ready') returning id",
+                (row[0], f"{row[0]}/book.pdf"),
+            ).fetchone()
+            assert material
+            sections[owner] = [
+                str(s[0])
+                for s in c.execute(
+                    "insert into public.sections (material_id, ordinal, level, title)"
+                    " select %s, n, 1, 'Chapter ' || n from generate_series(1, 11) n returning id",
+                    (material[0],),
+                ).fetchall()
+            ]
+    try:
+        headers = auth(token_for(student))
+        marked = [client.put(f"/sections/{s}/covered", headers=headers) for s in sections[student]]
+        assert [r.status_code for r in marked] == [200] * 10 + [429]
+        assert "You can mark more tomorrow" in marked[-1].json()["detail"]
+        # A mark taken back frees its place: unmarking stops that chapter's cards, and marking
+        # it again later makes no second set.
+        client.delete(f"/sections/{sections[student][0]}/covered", headers=headers)
+        again = client.put(f"/sections/{sections[student][10]}/covered", headers=headers)
+        assert again.status_code == 200
+        # Admins have no limit.
+        headers = auth(token_for(admin))
+        assert all(
+            client.put(f"/sections/{s}/covered", headers=headers).status_code == 200
+            for s in sections[admin]
+        )
+    finally:
+        with psycopg.connect(database_url, autocommit=True) as c:
+            c.execute("delete from public.jobs where id > %s", last_job)
