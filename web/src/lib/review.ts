@@ -22,6 +22,8 @@ export type ReviewCard = {
   new: boolean;
   /** When the card would next be due for each rating. */
   next: Record<Rating, string>;
+  /** When it was last rated (null if new); sent back with the rating, so a showing is rated once. */
+  reviewed_at: string | null;
   source: ReviewSource | null;
 };
 
@@ -40,7 +42,7 @@ export const ORDER_LABEL: Record<ReviewOrder, string> = {
   separate: "Separate: a Review and a Quiz session",
 };
 
-export type Reviewed = { due: string; next: Record<Rating, string> };
+export type Reviewed = { due: string; next: Record<Rating, string>; reviewed_at: string };
 
 export const RATINGS: { rating: Rating; label: string; tone: string }[] = [
   { rating: 1, label: "Forgot", tone: "text-danger" },

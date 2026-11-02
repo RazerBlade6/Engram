@@ -13,7 +13,7 @@ import { ProgressBar } from "@/components/ui/progress";
 import { RatingButton } from "@/components/ui/rating-button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Highlight, SourceBox } from "@/components/ui/source-box";
-import { api, apiFetch } from "@/lib/api";
+import { api, apiFetch, ApiError } from "@/lib/api";
 import { courseColors } from "@/lib/calendar";
 import { clozeParts, KIND_LABEL } from "@/lib/cards";
 import { splitChapterTitle, type CourseSummary } from "@/lib/courses";
@@ -92,6 +92,20 @@ export function ReviewView() {
     shownAt.current = performance.now();
   }, [card?.id, answers]);
 
+  // Each showing of a card takes one rating or flag (D97). A second press before the next card
+  // renders would still find this card in its handler, so the showing is counted here, before
+  // paint, and an action records the showing it used.
+  const showing = useRef(0);
+  const actedOn = useRef(-1);
+  useLayoutEffect(() => {
+    showing.current += 1;
+  }, [card?.id, answers]);
+  const firstAction = useCallback(() => {
+    if (actedOn.current === showing.current) return false;
+    actedOn.current = showing.current;
+    return true;
+  }, []);
+
   const next = useCallback(() => {
     if (card) {
       leavingId.current += 1;
@@ -104,7 +118,7 @@ export function ReviewView() {
 
   const rate = useCallback(
     async (rating: Rating) => {
-      if (!card) return;
+      if (!card || !firstAction()) return;
       // Move on at once; the rating is saved in the background.
       setQueue((q) => q && q.slice(1));
       setAnswers((n) => n + 1);
@@ -112,26 +126,29 @@ export function ReviewView() {
       try {
         const saved = await api<Reviewed>(`/cards/${card.id}/review`, {
           method: "POST",
-          body: JSON.stringify({ rating, ms: msSince(shownAt.current) }),
+          body: JSON.stringify({ rating, ms: msSince(shownAt.current), seen: card.reviewed_at }),
         });
         if (comesBackToday(saved.due, new Date())) {
           // Still being learned: it comes back later in this session.
-          setQueue((q) => q && requeue(q, { ...card, new: false, next: saved.next }, order));
+          const again = { ...card, new: false, next: saved.next, reviewed_at: saved.reviewed_at };
+          setQueue((q) => q && requeue(q, again, order));
         } else {
           setFinished((n) => n + 1);
         }
-      } catch {
+      } catch (error) {
+        // Already rated, in another tab: that rating stands, and the card stays out of this one.
+        if (error instanceof ApiError && error.status === 409) return;
         setQueue((q) => q && [card, ...q]);
         setAnswers((n) => n - 1);
         show("That rating couldn't be saved. Please try again.");
       }
     },
-    [card, next, show, order],
+    [card, next, show, order, firstAction],
   );
 
   const flag = useCallback(
     async (reason: string) => {
-      if (!card) return;
+      if (!card || !firstAction()) return;
       setQueue((q) => q && q.slice(1));
       next();
       try {
@@ -145,12 +162,13 @@ export function ReviewView() {
         show("That card couldn't be reported. Please try again.");
       }
     },
-    [card, next, show],
+    [card, next, show, firstAction],
   );
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (!card || event.metaKey || event.ctrlKey || event.altKey) return;
+      // A held key repeats: holding Space past a rating would reveal the next card (D97).
+      if (!card || event.repeat || event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.target instanceof HTMLElement && event.target.matches("input, textarea")) return;
       if (event.key === "Escape") {
         setFlagOpen(false);

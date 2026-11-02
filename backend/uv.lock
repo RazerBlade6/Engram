@@ -718,7 +718,7 @@ requires-dist = [
     { name = "docling", marker = "extra == 'ingest'", specifier = ">=2.142.1" },
     { name = "fastapi", specifier = ">=0.162.0" },
     { name = "fastembed", specifier = ">=0.9.1" },
-    { name = "fsrs", specifier = ">=6.3.2" },
+    { name = "fsrs", specifier = ">=6.3.2,<7" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "pillow", specifier = ">=13.0.0" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.3.6" },

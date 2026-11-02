@@ -64,6 +64,7 @@ def test_nothing_is_logged_until_an_admin_records_consent(
     # Rated once before consent: a learning card, seen moments ago.
     assert review["state_before"] == "learning" and review["elapsed_days"] < 0.01
     assert review["scheduled_days"] > 0
+    assert review["scheduler"] == "fsrs6-v1"
 
     consent(client, admin, student, False)
     client.post("/events", json=page, headers=headers)

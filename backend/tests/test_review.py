@@ -197,6 +197,48 @@ def test_rating_schedules_the_card(
     assert bad.status_code == 422
 
 
+def test_a_showing_is_rated_once(
+    client: TestClient, deck: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(scheduling, "NEW_PER_DAY", 1)
+    headers = auth(token_for(deck["owner"]))
+    [shown] = client.get("/review/queue", headers=headers).json()["cards"]
+    assert shown["reviewed_at"] is None
+    url = f"/cards/{shown['id']}/review"
+
+    first = client.post(url, json={"rating": 3, "seen": None}, headers=headers)
+    assert first.status_code == 200
+    # A second press for the same showing, or the same card rated in another tab.
+    again = client.post(url, json={"rating": 1, "seen": None}, headers=headers)
+    assert again.status_code == 409
+    [back] = client.get("/review/queue", headers=headers).json()["cards"]
+    # The second rating changed nothing.
+    assert back["reviewed_at"] == first.json()["reviewed_at"]
+
+    # Its next showing is rated with the time it was last rated.
+    seen = first.json()["reviewed_at"]
+    assert client.post(url, json={"rating": 3, "seen": seen}, headers=headers).status_code == 200
+    assert client.post(url, json={"rating": 3, "seen": seen}, headers=headers).status_code == 409
+    # Pages loaded before the check existed send no `seen`, and are let through.
+    assert client.post(url, json={"rating": 3}, headers=headers).status_code == 200
+
+
+def test_the_scheduler_settings_are_fixed() -> None:
+    """Changing a setting changes every interval: give the settings a new SCHEDULER name, so
+    reviews record which settings produced them (D95), then update this test."""
+    assert scheduling.SCHEDULER == "fsrs6-v1"
+    assert scheduling._scheduler.to_dict() == {
+        "parameters": list(scheduling.PARAMETERS),
+        "desired_retention": 0.9,
+        "learning_steps": [60, 600],
+        "relearning_steps": [600],
+        "maximum_interval": 36500,
+        "enable_fuzzing": True,
+    }
+    assert scheduling.PARAMETERS[:3] == (0.212, 1.2931, 2.3065)
+    assert len(scheduling.PARAMETERS) == 21
+
+
 def test_flagging_takes_a_card_out_until_unflagged(
     client: TestClient, deck: dict[str, Any], database_url: str
 ) -> None:

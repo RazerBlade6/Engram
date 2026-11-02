@@ -30,9 +30,38 @@ Order = Literal["mixed", "blocked", "separate"]
 # other orders, "review" is everything.
 Session = Literal["review", "quiz"]
 
-_scheduler = fsrs.Scheduler()
+# The scheduler's settings are fixed here rather than taken from the library, whose defaults
+# can change with an update and would quietly change every interval (D95). These are FSRS-6's
+# published defaults, as in fsrs 6.3.2. Every review records SCHEDULER, so a learner model
+# knows which settings produced its data: changing any setting means a new name.
+SCHEDULER = "fsrs6-v1"
+PARAMETERS = (
+    0.212, 1.2931, 2.3065, 8.2956, 6.4133, 0.8334, 3.0194, 0.001, 1.8722, 0.1666, 0.796,
+    1.4835, 0.0614, 0.2629, 1.6483, 0.6014, 1.8729, 0.5425, 0.0912, 0.0658, 0.1542,
+)  # fmt: skip
+# The chance of recalling a card when it comes due.
+DESIRED_RETENTION = 0.9
+# Steps a new card goes through before its first interval in days, and a forgotten card
+# before it goes back to days.
+LEARNING_STEPS = (timedelta(minutes=1), timedelta(minutes=10))
+RELEARNING_STEPS = (timedelta(minutes=10),)
+MAXIMUM_INTERVAL_DAYS = 36500
+
+
+def _scheduler_with(*, fuzzing: bool) -> fsrs.Scheduler:
+    return fsrs.Scheduler(
+        parameters=PARAMETERS,
+        desired_retention=DESIRED_RETENTION,
+        learning_steps=LEARNING_STEPS,
+        relearning_steps=RELEARNING_STEPS,
+        maximum_interval=MAXIMUM_INTERVAL_DAYS,
+        enable_fuzzing=fuzzing,
+    )
+
+
+_scheduler = _scheduler_with(fuzzing=True)
 # Without fuzzing, so the "when you'll see it again" labels are stable.
-_preview = fsrs.Scheduler(enable_fuzzing=False)
+_preview = _scheduler_with(fuzzing=False)
 
 
 @dataclass(frozen=True)

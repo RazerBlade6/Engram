@@ -27,6 +27,7 @@ from engram.review import Day, Order, Progress, Session
 router = APIRouter()
 
 QUEUE_LIMIT = 500
+ALREADY_RATED = "This card was already rated"
 
 
 def get_day(x_timezone: Annotated[str | None, Header()] = None) -> Day:
@@ -59,6 +60,8 @@ class ReviewCard(BaseModel):
     new: bool
     # When the card would next be due for each rating, 1 (forgot) to 4 (easy).
     next: dict[int, datetime]
+    # When it was last rated (none if new); sent back with the rating, see `Rating.seen`.
+    reviewed_at: datetime | None
     source: Source | None
 
 
@@ -84,11 +87,16 @@ class Rating(BaseModel):
     rating: int = Field(ge=1, le=4)
     # From showing the card to rating it, for the usage log.
     ms: int | None = Field(default=None, ge=0, le=3_600_000)
+    # The card's `reviewed_at` when it was shown (null for a new card). A rating whose showing
+    # was already rated, by a double press or from another tab, is refused (D97). Optional
+    # only for pages loaded before it was added.
+    seen: datetime | None = None
 
 
 class Reviewed(BaseModel):
     due: datetime
     next: dict[int, datetime]
+    reviewed_at: datetime
 
 
 class Flag(BaseModel):
@@ -200,6 +208,7 @@ def _card(row: dict[str, Any], now: datetime) -> ReviewCard:
         chapter=row["chapter"],
         new=progress is None,
         next=scheduling.preview(progress, now),
+        reviewed_at=progress.last_review if progress else None,
         source=_source(row),
     )
 
@@ -261,30 +270,44 @@ async def _current(db: UserDb, card_id: UUID) -> dict[str, Any]:
 async def rate(card_id: UUID, body: Rating, db: UserDb, day: Today, visit: Visit) -> Reviewed:
     row = await _current(db, card_id)
     progress = _progress(row)
+    checked = "seen" in body.model_fields_set
+    if checked and row["last_review"] != body.seen:
+        raise HTTPException(status.HTTP_409_CONFLICT, ALREADY_RATED)
     after = scheduling.review(progress, body.rating, day.now)
     try:
-        await db.execute(
+        cur = await db.execute(
             "insert into public.card_progress"
             " (card_id, state, step, stability, difficulty, due, last_review)"
-            " values (%s, %s, %s, %s, %s, %s, %s)"
+            " values (%(card)s, %(state)s, %(step)s, %(stability)s, %(difficulty)s, %(due)s,"
+            " %(last_review)s)"
             " on conflict (card_id, user_id) do update set state = excluded.state,"
             " step = excluded.step, stability = excluded.stability,"
             " difficulty = excluded.difficulty, due = excluded.due,"
-            " last_review = excluded.last_review",
-            (
-                card_id,
-                after.state,
-                after.step,
-                after.stability,
-                after.difficulty,
-                after.due,
-                after.last_review,
-            ),
+            " last_review = excluded.last_review"
+            # Checked again as the row is written, so of two ratings sent at once only the
+            # first counts.
+            " where not %(checked)s or card_progress.last_review is not distinct from %(seen)s",
+            {
+                "card": card_id,
+                "state": after.state,
+                "step": after.step,
+                "stability": after.stability,
+                "difficulty": after.difficulty,
+                "due": after.due,
+                "last_review": after.last_review,
+                "checked": checked,
+                "seen": body.seen,
+            },
         )
     except psycopg.errors.InsufficientPrivilege:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Card not found") from None
+    if cur.rowcount == 0:
+        raise HTTPException(status.HTTP_409_CONFLICT, ALREADY_RATED)
+    assert after.last_review is not None
     await usage.log(db, visit, "review", **_review_event(card_id, row, body, progress, after, day))
-    return Reviewed(due=after.due, next=scheduling.preview(after, day.now))
+    return Reviewed(
+        due=after.due, next=scheduling.preview(after, day.now), reviewed_at=after.last_review
+    )
 
 
 def _days(later: datetime, earlier: datetime) -> float:
@@ -315,6 +338,8 @@ def _review_event(
         "stability_after": after.stability,
         "difficulty_after": after.difficulty,
         "scheduled_days": _days(after.due, day.now),
+        # Which scheduler settings produced the intervals (D95).
+        "scheduler": scheduling.SCHEDULER,
     }
 
 

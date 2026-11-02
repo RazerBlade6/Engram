@@ -80,9 +80,9 @@ Daily use has begun. Findings from it and from the Phase 2 exit session are coll
   - [ ] Card jobs run alongside a textbook being read instead of queuing behind it, each job with its own time limit (D92)
   - [ ] A card is kept only if its answer appears in the passages it cites (a cloze's hidden words exactly, most of a basic or multiple-choice answer's words), before any cheaper model is tried (D93)
   - [ ] Ask's vector search stays exact within a course as more courses are added, with a test across two courses (D94)
-  - [ ] FSRS parameters, desired retention and learning steps set in code rather than taken from the library's defaults, and recorded with each review (D95)
+  - [x] FSRS parameters, desired retention and learning steps set in code rather than taken from the library's defaults, and recorded with each review (D95)
   - [ ] A daily limit per user on chapters marked for cards and on questions in Ask, and figure descriptions reused by image so a re-upload or retry costs nothing (D96)
-  - [ ] Review ignores held-down keys, and a card is rated at most once each time it is shown (D97)
+  - [x] Review ignores held-down keys, and a card is rated at most once each time it is shown (D97)
 - [ ] Review-order experiment in the first weeks of daily use: blocked against separate, then fix the preferred one (D55)
 - [ ] Eval suites in CI, on an OpenStax corpus: retrieval and card quality first, grading with short-answer cards; the same corpus later seeds the demo account (D80). Includes the Sonnet trial for Ask
 - [ ] Flagged cards: a list where a flag can be undone or the card removed; a card flagged before it was ever studied comes back as new, within the day's new cards (D3, D81)

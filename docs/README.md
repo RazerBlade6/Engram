@@ -185,7 +185,7 @@ Other source types use the same output format: slides become one chunk per slide
 
 ## Learning model
 
-- **Scheduling:** [FSRS](https://github.com/open-spaced-repetition/awesome-fsrs/wiki/The-Algorithm), the current state-of-the-art open spaced-repetition scheduler.
+- **Scheduling:** [FSRS](https://github.com/open-spaced-repetition/awesome-fsrs/wiki/The-Algorithm), the current state-of-the-art open spaced-repetition scheduler. Its parameters, desired retention (90%) and learning steps are fixed in code, and each review records which settings scheduled it (D95).
 - **Mastery (Phase 3):** concept mastery is derived from the FSRS recall probability of each concept's cards, weighted by quiz and short-answer results. This powers a weak-spots view and "quiz me on my weakest concepts in Ch. 4–7".
 - **Learner model (Phase 5):** fit a dedicated learner model (e.g. Bayesian knowledge tracing) on a public spaced-repetition review dataset, since a few users won't produce enough reviews on their own, then check it against users' reviews and compare it with the FSRS-derived baseline (D84).
 
