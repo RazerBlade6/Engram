@@ -72,21 +72,28 @@ Daily use has begun. Findings from it and from the Phase 2 exit session are coll
   - [x] The sign-in page wakes the API, so it's running by the time the user is signed in
   - [ ] Try Sonnet against Opus for Ask in the eval suite: faster to start and to write, if its answers hold up
   - [ ] Only if these aren't enough: keep one API instance running, or move the API to a host without cold starts, within the cost ceiling (D90)
+- [ ] Hardening: things that work today but break easily (D91–D97)
+  - [ ] A card keeps the text of its source passage, and an ingest skips a material that is already ready, so reading a material again never strips its cards' sources (D91)
+  - [ ] Card jobs run alongside a textbook being read instead of queuing behind it, each job with its own time limit (D92)
+  - [ ] A card is kept only if its answer appears in the passages it cites (a cloze's hidden words exactly, most of a basic or multiple-choice answer's words), before any cheaper model is tried (D93)
+  - [ ] Ask's vector search stays exact within a course as more courses are added, with a test across two courses (D94)
+  - [ ] FSRS parameters, desired retention and learning steps set in code rather than taken from the library's defaults, and recorded with each review (D95)
+  - [ ] A daily limit per user on chapters marked for cards and on questions in Ask, and figure descriptions reused by image so a re-upload or retry costs nothing (D96)
+  - [ ] Review ignores held-down keys, and a card is rated at most once each time it is shown (D97)
 - [ ] Review-order experiment in the first weeks of daily use: blocked against separate, then fix the preferred one (D55)
-- [ ] Eval suites in CI, on an OpenStax corpus: retrieval and card quality first, grading with short-answer cards; the same corpus later seeds the demo account (D80)
-- [ ] Flagged cards: a list where a flag can be undone or the card removed (D3, D81)
+- [ ] Eval suites in CI, on an OpenStax corpus: retrieval and card quality first, grading with short-answer cards; the same corpus later seeds the demo account (D80). Includes the Sonnet trial for Ask
+- [ ] Flagged cards: a list where a flag can be undone or the card removed; a card flagged before it was ever studied comes back as new, within the day's new cards (D3, D81)
+- [ ] Send feedback: a small link in the menu (or on the settings page) where users report what they dislike in a few words, with the page they were on attached, and admins read it in the app (D86)
 - [ ] Subject lock: study only one course's cards for the day; every course by default (D77)
-- [ ] Progress and mastery: how well each chapter is known on the course page, then concepts taken from chapter and heading structure, then the weak-spots view
 - [ ] Uploaded materials belong to chapters: each upload is placed in the chapter it most resembles, and each chapter expands to list its textbook chapter and the materials placed in it, each with a View button (a textbook chapter opens at its first page) and every upload movable to another chapter. A chapter's cards are made from all of its materials ([sketch](../design/courses-ui-mockup.png), D87), without paying twice for what they share (D88):
   - [ ] Slides the textbook already covers, by embedding closeness to the chapter's passages, aren't sent for cards; the threshold is set on real decks
   - [ ] The slides that are sent come with the chapter's existing card questions, and the model is told not to repeat them
   - [ ] Repeated cards are found by meaning (card embeddings) rather than shared words, catching paraphrases from any source
+- [ ] Progress and mastery: how well each chapter is known on the course page, then concepts taken from chapter and heading structure, then the weak-spots view
 - [ ] More sources in the drop zone: photographed and typed notes, web articles via URL ("Add a link instead")
 - [ ] Short-answer cards with LLM grading, checked by the grading eval
-- [ ] Syllabus upload with date extraction, confirmed in one click
 - [ ] Exam focus mode: chapters mapped to exams, prioritized ahead of the date
 - [ ] Installable on phones: a web app manifest and icon, so Engram can be added to the home screen
-- [ ] Send feedback: a small link in the menu (or on the settings page) where users report what they dislike in a few words, with the page they were on attached, and admins read it in the app (D86)
 - [ ] Possibly a settings page: optional, unobtrusive, every setting with a default that works; what goes in it is decided when it's built (D78)
 
 ## Phase 4: UI/UX after daily use
@@ -99,6 +106,7 @@ A second design pass, after about two weeks of regular use. From here Engram is 
 
 ## Phase 5: Showcase depth
 
+- [ ] Syllabus upload with date extraction, confirmed in one click (moved from Phase 3, D98)
 - [ ] Image occlusion cards for diagrams
 - [ ] Rubric-graded essay prompts
 - [ ] Model benchmark and benchmark-driven routing

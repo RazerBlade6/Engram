@@ -87,7 +87,7 @@ A **Calendar** page shows every important date across courses: exams, quizzes, a
 Dates get in two ways:
 
 - **Quick-add** (Phase 1): a one-line form with course, type (exam, quiz or deadline), what and date. Clicking a day in the month grid fills in the date.
-- **Syllabus extraction** (Phase 3): upload a course syllabus, Engram extracts every date, and the user confirms them in one click.
+- **Syllabus extraction** (Phase 5): upload a course syllabus, Engram extracts every date, and the user confirms them in one click.
 
 A subscribable calendar feed is not planned. It sits close to the reminders users turned down, and will only be added if users ask for it.
 
