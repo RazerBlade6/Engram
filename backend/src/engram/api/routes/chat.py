@@ -30,6 +30,8 @@ from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel, Field
 
 from engram.api.db import UserDbUntilStreaming, get_pool
+from engram.api.errors import describe
+from engram.api.errors import record as record_error
 from engram.chat.answer import Cited, Outside, Text, answer, search_text
 from engram.chat.retrieve import search
 from engram.config import Settings, get_settings
@@ -70,7 +72,10 @@ def _event(name: str, data: dict[str, Any]) -> str:
     return f"event: {name}\ndata: {json.dumps(data, default=str)}\n\n"
 
 
-@router.post("/courses/{course_id}/ask", response_class=StreamingResponse)
+ROUTE = "/courses/{course_id}/ask"
+
+
+@router.post(ROUTE, response_class=StreamingResponse)
 async def ask(
     course_id: UUID,
     body: Ask,
@@ -97,6 +102,8 @@ async def ask(
         usage = Usage()
         cited = outside = False
         first_text: float | None = None
+        # The response has started with 200, so the error middleware can't see a failure.
+        failure: str | None = None
         try:
             async for event in answer(provider, model, body.question, history, passages, usage):
                 match event:
@@ -126,9 +133,10 @@ async def ask(
                             "cite", {"block": block, "source": source.number, "quote": quote}
                         )
             yield _event("done", {"grounded": cited and not outside})
-        except Exception:
+        except Exception as exc:
             # Whatever went wrong (refusal, overload, credentials), the student sees one message.
             logger.exception("chat answer failed")
+            failure = describe(exc)
             yield _event("error", {"message": "The answer couldn't be finished. Please ask again."})
         finally:
             # Where the time went, for finding what makes an answer slow. Timings and sizes
@@ -147,6 +155,10 @@ async def ask(
             )
             # Shielded, so it's still recorded if the student leaves mid-answer.
             await asyncio.shield(_record(get_pool(request), usage))
+            if failure is not None:
+                await asyncio.shield(
+                    record_error(get_pool(request), "POST", ROUTE, failure, status=None)
+                )
 
     return StreamingResponse(
         events(),

@@ -279,7 +279,7 @@ def test_an_answer_streams_with_its_sources(
 
 
 def test_an_uncited_answer_is_not_grounded_and_a_failure_is_reported(
-    make_client: Callable[[FakeProvider], TestClient], course: dict[str, Any]
+    make_client: Callable[[FakeProvider], TestClient], course: dict[str, Any], database_url: str
 ) -> None:
     headers = auth(token_for(course["owner"]))
     url = f"/courses/{course['id']}/ask"
@@ -289,8 +289,20 @@ def test_an_uncited_answer_is_not_grounded_and_a_failure_is_reported(
     assert got[-1] == ("done", {"grounded": False})
 
     failing = FakeProvider(cite=[], fail=RuntimeError("overloaded"))
+    with psycopg.connect(database_url) as c:
+        last = c.execute("select coalesce(max(id), 0) from public.api_errors").fetchone()
     got = events(make_client(failing).post(url, json={"question": "Q?"}, headers=headers))
     assert got[-1][0] == "error"
+    # Recorded for the operator's alerts, though the response itself was a 200.
+    with psycopg.connect(database_url, autocommit=True) as c:
+        assert last is not None
+        rows = c.execute(
+            "delete from public.api_errors where id > %s returning method, route, error",
+            (last[0],),
+        ).fetchall()
+    [(method, route, error)] = rows
+    assert (method, route) == ("POST", "/courses/{course_id}/ask")
+    assert error.startswith("RuntimeError at engram/") and "overloaded" not in error
 
 
 def test_others_cannot_ask_about_or_open_a_course(

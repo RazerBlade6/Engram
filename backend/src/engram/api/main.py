@@ -9,6 +9,7 @@ from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel
 
 from engram import __version__
+from engram.api.errors import RecordErrors
 from engram.api.pages import PdfPages
 from engram.api.routes import (
     admin,
@@ -77,6 +78,8 @@ def create_app() -> FastAPI:
             await asyncio.gather(warm, return_exceptions=True)
 
     app = FastAPI(title="Engram API", version=__version__, lifespan=lifespan)
+    # Inside CORS, so it sees an unhandled error before the server turns it into a 500.
+    app.add_middleware(RecordErrors)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

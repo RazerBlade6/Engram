@@ -65,7 +65,10 @@ Designed directly in the app and reviewed on the local dev server, without a sep
 
 Daily use has begun. Findings from it and from the Phase 2 exit session are collected for Phase 4 rather than fixed one at a time, unless something stops users studying, which is fixed at once (D76).
 
-- [ ] Ready for daily use: alerts when jobs fail or the API errors, an alert on inference spend, Supabase backups confirmed, and each user's consent to usage logging confirmed before the experiment starts (D79)
+- [ ] Ready for daily use (D79):
+  - [ ] Email alerts, sent by the worker's sweep every 15 minutes: a job that failed or hasn't started within an hour, an error in the API, and estimated inference spend over $5 in a day or $30 in a month (D99)
+  - [x] Supabase backups confirmed
+  - [x] Each user's consent to usage logging confirmed, before the review-order experiment starts
 - [ ] Faster answers in Ask, which took 15–20 s to start on the first question after the API started (D89):
   - [x] Each answer logs how long each step took (embedding, search, first words, total) and its size, never its text
   - [x] The embedding model loads while the API starts, from the copy in the image, without first asking Hugging Face for a newer one

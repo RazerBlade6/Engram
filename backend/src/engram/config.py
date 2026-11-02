@@ -36,6 +36,24 @@ class Settings(BaseSettings):
     # Local embedding model (ONNX, in-process). Its dimension is fixed in the schema.
     embedding_model: str = "BAAI/bge-small-en-v1.5"
 
+    # Alerts for the operator, emailed by the worker's sweep (D99). Without an address and an
+    # SMTP host they are only logged, as in local development.
+    alert_email: str | None = None
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: SecretStr = SecretStr("")
+    # The sender; defaults to alert_email. Must be an address the SMTP service may send from.
+    smtp_from: str | None = None
+    # STARTTLS on a plain connection; port 465 always uses TLS from the start instead.
+    smtp_starttls: bool = True
+    # Estimated inference spend, in US dollars, above which an alert is sent once a day or
+    # month. Expected spend is $20-25 a month (D90).
+    alert_daily_spend_usd: float = 5.0
+    alert_monthly_spend_usd: float = 30.0
+    # A job still waiting this long means the worker isn't being woken.
+    alert_job_wait_minutes: int = 60
+
 
 @lru_cache
 def get_settings() -> Settings:

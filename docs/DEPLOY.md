@@ -35,6 +35,27 @@ runs at a time.
 The wake URL and its token live in the database's Vault (`worker_wake_url`,
 `worker_wake_token`). Without them, as in local development, the trigger does nothing.
 
+## Alerts
+
+The sweep also emails the operator (D99, `backend/src/engram/alerts.py`) about:
+
+- a job that failed for good, with its error;
+- a job still waiting to start an hour after it was due: the worker isn't being woken, or a
+  long job is holding it up;
+- a request the API failed with a server error, including an Ask answer cut off midway. The
+  API records the route, the exception's type and the line it came from in `api_errors`, never
+  the message; the traceback is in Cloud Run's logs;
+- estimated inference spend over $5 in a UTC day or $30 in a UTC month, from the tokens in
+  `llm_usage` at list prices. The Anthropic console has the actual bill.
+
+Everything new goes out in one email, and each alert is sent once (`alerts_sent`). An email
+that fails to send is tried again at the next sweep. Without `ENGRAM_ALERT_EMAIL` and
+`ENGRAM_SMTP_HOST` the alerts are only logged. To run a check by hand:
+`cd backend && uv run python -m engram.alerts`.
+
+What it can't see: an API so broken that requests never reach it, and a sweep that isn't
+running at all (a failed Modal deploy). Both would show as no alerts.
+
 ## Configuration
 
 Nothing secret is in the repository.
@@ -43,7 +64,12 @@ Nothing secret is in the repository.
   `ANTHROPIC_API_KEY` from Secret Manager (`engram-database-url`,
   `engram-supabase-secret-key`, `engram-anthropic-api-key`), and plain settings from its
   environment. The deploy workflow changes only the image.
-- **Modal** reads everything from the secret `engram`, including `ENGRAM_WORKER_WAKE_TOKEN`.
+- **Modal** reads everything from the secret `engram`, including `ENGRAM_WORKER_WAKE_TOKEN`
+  and the alert email settings: `ENGRAM_ALERT_EMAIL` (where alerts go), `ENGRAM_SMTP_HOST`,
+  `ENGRAM_SMTP_PORT` (587 with STARTTLS, or 465), `ENGRAM_SMTP_USERNAME`,
+  `ENGRAM_SMTP_PASSWORD` and `ENGRAM_SMTP_FROM` (the sender, if not the alert address). The
+  same SMTP account as Supabase Auth's emails works. The spend levels can be changed with
+  `ENGRAM_ALERT_DAILY_SPEND_USD` and `ENGRAM_ALERT_MONTHLY_SPEND_USD`.
 - **Vercel** has `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and
   `NEXT_PUBLIC_API_URL`.
 - **GitHub Actions** has `SUPABASE_DB_PASSWORD` (migrations connect through the session

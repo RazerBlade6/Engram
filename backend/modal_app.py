@@ -1,9 +1,10 @@
 """The worker on Modal (D35), scaling to zero between jobs.
 
 A new job wakes it: the database posts to `wake` (migration `wake_worker`), which starts
-`drain`. A sweep every 15 minutes catches retries whose backoff has passed and jobs left by a
-worker that died or was preempted: a running job's lock is renewed every minute, so one
-unrenewed for five is abandoned. Only one `drain` runs at a time.
+`drain`. A sweep every 15 minutes emails any new alerts (`engram.alerts`), and catches
+retries whose backoff has passed and jobs left by a worker that died or was preempted: a
+running job's lock is renewed every minute, so one unrenewed for five is abandoned. Only one
+`drain` runs at a time.
 
 Deploy from backend/ with `uv run --with modal modal deploy modal_app.py`. Settings come
 from the Modal secret `engram`; see docs/DEPLOY.md.
@@ -68,6 +69,16 @@ async def _ready() -> bool:
 
 @app.function(schedule=modal.Period(minutes=15), cpu=0.25, memory=512)
 async def sweep() -> None:
+    import logging
+
+    from engram import alerts
+    from engram.config import get_settings
+
+    try:
+        await alerts.run(get_settings())
+    except Exception:
+        # Never in the way of the jobs; Modal's logs keep the traceback.
+        logging.getLogger("engram.alerts").exception("alert check failed")
     if await _ready():
         await drain.spawn.aio()
 
