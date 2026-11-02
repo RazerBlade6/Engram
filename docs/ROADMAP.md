@@ -76,6 +76,7 @@ Daily use has begun. Findings from it and from the Phase 2 exit session are coll
 - [ ] Syllabus upload with date extraction, confirmed in one click
 - [ ] Exam focus mode: chapters mapped to exams, prioritized ahead of the date
 - [ ] Installable on phones: a web app manifest and icon, so Engram can be added to the home screen
+- [ ] Send feedback: a small link in the menu (or on the settings page) where users report what they dislike in a few words, with the page they were on attached, and admins read it in the app (D86)
 - [ ] Possibly a settings page: optional, unobtrusive, every setting with a default that works; what goes in it is decided when it's built (D78)
 
 ## Phase 4: UI/UX after daily use
