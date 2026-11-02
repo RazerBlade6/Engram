@@ -71,8 +71,8 @@ Course
 | Cloze deletion  | 1     |                                                                  |
 | Multiple choice | 1     | Distractors generated from related concepts                      |
 | Short answer    | 3     | Free-text answer graded by an LLM against the source             |
-| Image occlusion | 4     | Mask labels on diagrams, using labels extracted during ingestion |
-| Essay prompts   | 4     | Compare-and-contrast prompts graded against a rubric             |
+| Image occlusion | 5     | Mask labels on diagrams, using labels extracted during ingestion |
+| Essay prompts   | 5     | Compare-and-contrast prompts graded against a rubric             |
 
 Generated cards are **strictly grounded**: no fallback to general knowledge.
 
@@ -103,13 +103,15 @@ Whether flashcards and multiple-choice questions are interleaved or separated is
 
 Blocked is the default, since a tester liked having the multiple choice at the end. Users try blocked and separate for a few days each in their first weeks of daily study, and the preferred one becomes the fixed default (D55). It is never a user-facing setting.
 
+A **subject lock** lets a user study one course for the day: only that course's cards are shown. By default every course's cards are (D77).
+
 ### Engagement
 
 Using Engram should feel optional. There are **no streaks, badges or gamification**. Skipping a week costs nothing: FSRS reschedules gracefully, and the app shows due counts and per-chapter progress ("you know 80% of Ch. 4 well") without guilt. There are **no reminders or notifications**: users said a firm no in testing.
 
 ### Interop
 
-Decks export to **Anki (.apkg)**, so users are never locked in.
+Decks export to **Anki (.apkg)** (Phase 5), so users are never locked in.
 
 ## Architecture
 
@@ -185,11 +187,11 @@ Other source types use the same output format: slides become one chunk per slide
 
 - **Scheduling:** [FSRS](https://github.com/open-spaced-repetition/awesome-fsrs/wiki/The-Algorithm), the current state-of-the-art open spaced-repetition scheduler.
 - **Mastery (Phase 3):** concept mastery is derived from the FSRS recall probability of each concept's cards, weighted by quiz and short-answer results. This powers a weak-spots view and "quiz me on my weakest concepts in Ch. 4–7".
-- **Learner model (Phase 4):** once there is enough real review data, fit a dedicated learner model (e.g. Bayesian knowledge tracing) and compare it with the FSRS-derived baseline.
+- **Learner model (Phase 5):** fit a dedicated learner model (e.g. Bayesian knowledge tracing) on a public spaced-repetition review dataset, since a few users won't produce enough reviews on their own, then check it against users' reviews and compare it with the FSRS-derived baseline (D84).
 
 ## Evaluation
 
-The eval corpus is built from openly licensed [OpenStax](https://openstax.org) textbooks. The suite runs in CI.
+The eval corpus is built from openly licensed [OpenStax](https://openstax.org) textbooks, and the same books later make up the demo account. The suite runs in CI.
 
 | Suite               | Measures                                                                   | Ground truth                                                                   |
 | ------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
@@ -204,14 +206,14 @@ Friction is the main risk: a study tool only helps if people open it. These are 
 
 1. **One obvious action per screen.** The home screen is "Review 23 cards · ~8 min", and everything else is secondary.
 2. **Zero jargon.** No "FSRS", "chunks", "embeddings" or "ease factor". Use "due today", "you know this well", "shaky".
-3. **Zero required configuration.** Chapters are auto-detected and defaults are sensible. No settings screen anyone has to visit.
-4. **Keyboard-first review on desktop** (Space to flip, 1–4 to rate) and large tap targets on mobile. A light theme by default, with large, high-contrast reading text. A dark theme follows later as an option.
+3. **Zero required configuration.** Chapters are auto-detected and defaults are sensible. No settings screen anyone has to visit. An optional settings page may hold preferences, each with a default that works (D78).
+4. **Keyboard-first review on desktop** (Space to flip, 1–4 to rate) and large tap targets on mobile. A light theme by default, with large, high-contrast reading text. A dark theme is available as an option (D75).
 5. **Every wait is visible and non-blocking.** "Reading your textbook… you can leave, it'll be ready when you're back."
 
-UX is validated with **real users before and during development**. Clickable mockups are tested before any app code is written, and moderated usability sessions close Phases 1 and 2.
+UX is validated with **real users before and during development**. Clickable mockups are tested before any app code is written, and moderated usability sessions close Phases 1, 2 and 4.
 
 ## Privacy and data
 
 - Uploaded materials are stored in private buckets and are visible only to the account that owns the course.
 - User uploads are never used for the demo account or the eval corpus. Both use OpenStax content (CC BY).
-- Usage events (reviews, ratings, flags, sessions) are logged only with each user's consent, which an admin records after asking. Events hold ids, counts, ratings and timings, never text a user wrote or read. Only **aggregate, anonymized** statistics are ever published; never content or answers.
+- Usage events (reviews, ratings, flags, sessions) are logged only with each user's consent, which an admin records after asking. Events hold ids, counts, ratings and timings, never text a user wrote or read. Only **aggregate, anonymized** statistics are ever published, never content or answers, and only once enough users have agreed to logging that no one can be picked out from them (D83).

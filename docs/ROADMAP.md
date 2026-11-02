@@ -63,23 +63,36 @@ Designed directly in the app and reviewed on the local dev server, without a sep
 
 ## Phase 3: Depth for studying
 
+Daily use has begun. Findings from it and from the Phase 2 exit session are collected for Phase 4 rather than fixed one at a time, unless something stops users studying, which is fixed at once (D76).
+
+- [ ] Ready for daily use: alerts when jobs fail or the API errors, an alert on inference spend, Supabase backups confirmed, and each user's consent to usage logging confirmed before the experiment starts (D79)
 - [ ] Review-order experiment in the first weeks of daily use: blocked against separate, then fix the preferred one (D55)
-- [ ] Session goals (general revision, a quiz, a project), explored alongside exam focus mode
+- [ ] Eval suites in CI, on an OpenStax corpus: retrieval and card quality first, grading with short-answer cards; the same corpus later seeds the demo account (D80)
+- [ ] Flagged cards: a list where a flag can be undone or the card removed (D3, D81)
+- [ ] Subject lock: study only one course's cards for the day; every course by default (D77)
+- [ ] Progress and mastery: how well each chapter is known on the course page, then concepts taken from chapter and heading structure, then the weak-spots view
 - [ ] More sources in the drop zone: photographed and typed notes, web articles via URL ("Add a link instead")
-- [ ] Short-answer cards with LLM grading
-- [ ] Concepts, mastery and the weak-spots view
+- [ ] Short-answer cards with LLM grading, checked by the grading eval
 - [ ] Syllabus upload with date extraction, confirmed in one click
 - [ ] Exam focus mode: chapters mapped to exams, prioritized ahead of the date
-- [ ] Anki export
-- [ ] Eval suites in CI: retrieval, card quality, grading
+- [ ] Installable on phones: a web app manifest and icon, so Engram can be added to the home screen
+- [ ] Possibly a settings page: optional, unobtrusive, every setting with a default that works; what goes in it is decided when it's built (D78)
 
-## Phase 4: Showcase depth
+## Phase 4: UI/UX after daily use
+
+A second design pass, after about two weeks of regular use.
+
+- [ ] Findings from the Phase 2 exit session and the first weeks of daily use, written up in [OBSERVATIONS.md](OBSERVATIONS.md)
+- [ ] Changes from those findings, including the screens added in Phase 3
+- [ ] **Exit:** a moderated session on the changed flows
+
+## Phase 5: Showcase depth
 
 - [ ] Image occlusion cards for diagrams
 - [ ] Rubric-graded essay prompts
 - [ ] Model benchmark and benchmark-driven routing
 - [ ] Public demo account on OpenStax courses, including CS and STEM titles
 - [ ] Polished ingestion inspector
-- [x] Dark theme as an option; light stays the default (done in Phase 2, D75)
-- [ ] Published aggregate usage statistics
-- [ ] Fitted learner model compared against the FSRS baseline
+- [ ] Anki export (D82)
+- [ ] Published aggregate usage statistics, once enough users have agreed to logging that no one can be picked out; until then only eval and benchmark results are published (D83)
+- [ ] Fitted learner model compared against the FSRS baseline, fitted on a public review dataset and checked against users' reviews (D84)
