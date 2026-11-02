@@ -29,7 +29,7 @@ The smallest end-to-end product, live at https://engramstudy.app (invite-only). 
 - [x] Deploy: web on Vercel, API on Cloud Run, worker on Modal (woken by new jobs, with a periodic sweep for retries), deployed from `main` by CI, so users can use Engram on their own devices
 - [x] **Exit:** a moderated usability session with a target user, on the deployed app ([script and observations](OBSERVATIONS.md#phase-1-exit-session))
 
-## Phase 2: UI/UX
+## Phase 2: UI/UX ✓
 
 A dedicated pass on design and friction. Daily use by users starts at the end of this phase.
 
@@ -59,7 +59,7 @@ Designed directly in the app and reviewed on the local dev server, without a sep
   - [x] A chapter whose cards couldn't be made has a Try again button, and a file being read shows its step: waiting, reading, looking at figures, almost ready (D73)
   - [x] A card batch that fails is sent again, a chapter whose cards are all dropped shows as failed rather than ready with none, an interrupted upload has Try again, and an ended session goes to sign-in with a note saying so (D74)
 - [x] Mobile pass for review: ratings pinned to the bottom, the source under the card, and a fit for short laptop screens (D63, D68)
-- [ ] **Exit:** a second moderated session where a user on a fresh account takes their first meaningful action within 5 seconds, then users begin daily study
+- [x] **Exit:** a second moderated session where a user on a fresh account takes their first meaningful action within 5 seconds, then users begin daily study (findings being written up in [OBSERVATIONS.md](OBSERVATIONS.md))
 
 ## Phase 3: Depth for studying
 
