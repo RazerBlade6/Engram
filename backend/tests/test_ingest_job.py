@@ -364,7 +364,8 @@ async def test_figures_already_described_are_not_paid_for_again(
     assert (
         rows(
             database_url,
-            "select description, labels from public.figures where material_id = %s order by ordinal",
+            "select description, labels from public.figures"
+            " where material_id = %s order by ordinal",
             other,
         )
         == [("A cell with a nucleus.", ["Nucleus", "Membrane"])] * 2
