@@ -77,7 +77,7 @@ Daily use has begun. Findings from it and from the Phase 2 exit session are coll
   - [ ] Only if these aren't enough: keep one API instance running, or move the API to a host without cold starts, within the cost ceiling (D90)
 - [ ] Hardening: things that work today but break easily (D91–D97)
   - [x] A card keeps the text of its source passage, and an ingest skips a material that is already ready, so reading a material again never strips its cards' sources (D91)
-  - [ ] Card jobs run alongside a textbook being read instead of queuing behind it, each job with its own time limit (D92)
+  - [x] Card jobs run alongside a textbook being read instead of queuing behind it, each job with its own time limit (D92)
   - [ ] A card is kept only if its answer appears in the passages it cites (a cloze's hidden words exactly, most of a basic or multiple-choice answer's words), before any cheaper model is tried (D93)
   - [x] Ask's vector search stays exact within a course as more courses are added, with a test across two courses (D94)
   - [x] FSRS parameters, desired retention and learning steps set in code rather than taken from the library's defaults, and recorded with each review (D95)

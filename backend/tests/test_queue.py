@@ -183,3 +183,16 @@ async def test_removing_a_material_cancels_its_jobs(
             assert statuses == ["cancelled", "cancelled", "queued"]
         finally:
             await c.execute("delete from public.jobs where id = any(%s)", (jobs,))
+
+
+async def test_a_worker_claims_only_its_kinds(conn: AsyncConnection[Any]) -> None:
+    """D92: the card worker never takes a textbook, so cards don't queue behind one."""
+    book = await queue.enqueue(conn, "ingest_material")
+    cards = await queue.enqueue(conn, "generate_cards")
+    assert await queue.has_ready(conn, ["generate_cards"])
+    job = await queue.claim(conn, "cards-worker", ["generate_cards"])
+    assert job is not None and job.id == cards
+    assert await queue.claim(conn, "cards-worker", ["generate_cards"]) is None
+    assert not await queue.has_ready(conn, ["generate_cards"])
+    job = await queue.claim(conn, "any-worker")
+    assert job is not None and job.id == book

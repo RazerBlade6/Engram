@@ -8,9 +8,12 @@ unless it has used up its attempts: then it is marked failed, so a job that kill
 every time (a book too large for its memory) doesn't loop forever.
 A job whose work was removed is marked 'cancelled' by the database (see the cancel_jobs
 migration); its worker finds out when the lock no longer renews, and stops.
+
+A worker may take only some kinds of job, so card generation runs in its own worker rather
+than waiting behind a textbook being read (D92).
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Collection
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
@@ -57,24 +60,33 @@ READY = f"""
     or ({ABANDONED} and attempts < max_attempts)
 """
 GAVE_UP = "Abandoned: the worker stopped while running it, on every attempt"
+# Limits a query to the kinds a worker takes; null for every kind.
+OF_KINDS = "(%(kinds)s::text[] is null or kind = any(%(kinds)s::text[]))"
+Kinds = Collection[str] | None
 
 
-async def has_ready(conn: AsyncConnection[Any]) -> bool:
+def _kinds(kinds: Kinds) -> list[str] | None:
+    return None if kinds is None else list(kinds)
+
+
+async def has_ready(conn: AsyncConnection[Any], kinds: Kinds = None) -> bool:
     """Whether a worker has anything to do, counting abandoned jobs out of attempts, which
     `claim` marks failed."""
     cur = await conn.execute(
-        f"select exists (select 1 from public.jobs where {READY} or ({ABANDONED}))",
-        {"stale": STALE_LOCK},
+        "select exists (select 1 from public.jobs"
+        f" where ({READY} or ({ABANDONED})) and {OF_KINDS})",
+        {"stale": STALE_LOCK, "kinds": _kinds(kinds)},
     )
     row = await cur.fetchone()
     return bool(row and row[0])
 
 
-async def claim(conn: AsyncConnection[Any], worker_id: str) -> Job | None:
+async def claim(conn: AsyncConnection[Any], worker_id: str, kinds: Kinds = None) -> Job | None:
     await conn.execute(
         "update public.jobs set status = 'failed', last_error = %(error)s,"
-        f" locked_at = null, locked_by = null where {ABANDONED} and attempts >= max_attempts",
-        {"stale": STALE_LOCK, "error": GAVE_UP},
+        f" locked_at = null, locked_by = null where {ABANDONED} and attempts >= max_attempts"
+        f" and {OF_KINDS}",
+        {"stale": STALE_LOCK, "error": GAVE_UP, "kinds": _kinds(kinds)},
     )
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
@@ -84,13 +96,13 @@ async def claim(conn: AsyncConnection[Any], worker_id: str) -> Job | None:
                    attempts = attempts + 1
              where id = (
                    select id from public.jobs
-                    where {READY}
+                    where ({READY}) and {OF_KINDS}
                     order by run_after, id
                     for update skip locked
                     limit 1)
             returning id, kind, payload, attempts, max_attempts
             """,
-            {"worker": worker_id, "stale": STALE_LOCK},
+            {"worker": worker_id, "stale": STALE_LOCK, "kinds": _kinds(kinds)},
         )
         row = await cur.fetchone()
     return Job(**row) if row else None

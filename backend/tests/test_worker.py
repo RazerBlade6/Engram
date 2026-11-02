@@ -155,3 +155,111 @@ async def test_a_cancelled_job_stops_within_a_heartbeat(
     assert stopped.is_set()
     cur = await conn.execute("select status::text from public.jobs where id = %s", (job_id,))
     assert await cur.fetchone() == ("cancelled",)
+
+
+async def test_each_worker_has_its_kinds() -> None:
+    from engram.cards import job as cards
+    from engram.ingest import job as ingest
+
+    assert main.WORKERS == {"ingest": (ingest.KIND,), "cards": (cards.KIND,)}
+
+
+async def test_a_job_past_its_time_limit_fails(
+    conn: AsyncConnection[Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D92: each job has its own limit; a kind that wouldn't do better next time isn't retried."""
+    monkeypatch.setattr(
+        main,
+        "TIME_LIMITS",
+        {
+            "slow-retry": main.Limit(timedelta(milliseconds=50), retry=True),
+            "slow-once": main.Limit(timedelta(milliseconds=50), retry=False),
+        },
+    )
+
+    async def slow(job: Job) -> None:
+        await asyncio.sleep(10)
+
+    await conn.execute("delete from public.jobs")
+    retried = await queue.enqueue(conn, "slow-retry")
+    given_up = await queue.enqueue(conn, "slow-once")
+    handlers = {"slow-retry": slow, "slow-once": slow}
+    assert await run_once(conn, "w", handlers)
+    assert await run_once(conn, "w", handlers)
+    cur = await conn.execute(
+        "select id, status::text, last_error from public.jobs where id = any(%s) order by id",
+        ([retried, given_up],),
+    )
+    limit = "TimedOut: ran longer than its limit of 0:00:00.050000"
+    assert await cur.fetchall() == [(retried, "queued", limit), (given_up, "failed", limit)]
+
+
+async def test_cards_are_made_while_a_textbook_is_read(database_url: str) -> None:
+    """D92: two workers, one per kind, as locally and on Modal."""
+    reading = asyncio.Event()
+    finish_reading = asyncio.Event()
+    made: list[int] = []
+
+    async def read(job: Job) -> None:
+        reading.set()
+        await finish_reading.wait()
+
+    async def make_cards(job: Job) -> None:
+        made.append(job.id)
+
+    kinds = {"book": ("test-book",), "cards": ("test-cards",)}
+    with psycopg.connect(database_url, autocommit=True) as c:
+        book = c.execute("insert into public.jobs (kind) values ('test-book') returning id")
+        book_row = book.fetchone()
+        cards = c.execute("insert into public.jobs (kind) values ('test-cards') returning id")
+        cards_row = cards.fetchone()
+    assert book_row and cards_row
+    stop = asyncio.Event()
+
+    def connect() -> Any:
+        return AsyncConnection.connect(database_url, autocommit=True)
+
+    handlers = {"test-book": read, "test-cards": make_cards}
+    loops = [
+        asyncio.create_task(serve(stop, connect, 0.02, handlers, kinds=k, name=n))
+        for n, k in kinds.items()
+    ]
+    try:
+        await asyncio.wait_for(reading.wait(), timeout=5)
+        for _ in range(100):
+            if made:
+                break
+            await asyncio.sleep(0.05)
+        # The book is still being read, and the chapter's cards are already made.
+        assert made == [cards_row[0]] and not finish_reading.is_set()
+    finally:
+        finish_reading.set()
+        stop.set()
+        await asyncio.wait_for(asyncio.gather(*loops), timeout=5)
+        with psycopg.connect(database_url, autocommit=True) as c:
+            c.execute("delete from public.jobs where kind in ('test-book', 'test-cards')")
+
+
+async def test_a_drain_claims_only_jobs_whose_limit_fits(
+    database_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ran: list[str] = []
+
+    async def handler(job: Job) -> None:
+        ran.append(job.kind)
+
+    monkeypatch.setattr(main, "build_handlers", lambda settings: {"test-drain": handler})
+    monkeypatch.setattr(
+        main, "TIME_LIMITS", {"test-drain": main.Limit(timedelta(minutes=10), retry=True)}
+    )
+    settings = main.Settings(database_url=database_url)
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute("insert into public.jobs (kind) values ('test-drain'), ('test-drain')")
+    try:
+        # Too little time left for a job that may take ten minutes: none is started.
+        assert await main.drain(settings, "w", ("test-drain",), timedelta(minutes=5)) == 0
+        assert await main.drain(settings, "w", ("test-drain",), timedelta(minutes=30)) == 2
+        assert ran == ["test-drain", "test-drain"]
+    finally:
+        with psycopg.connect(database_url, autocommit=True) as c:
+            c.execute("delete from public.jobs where kind = 'test-drain'")

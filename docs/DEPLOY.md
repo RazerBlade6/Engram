@@ -24,13 +24,21 @@ Vercel skips its build when nothing under `web/` changed (`ignoreCommand` in
 ## How the worker wakes
 
 The worker isn't running between jobs. When a job is queued, a trigger on `public.jobs`
-posts to the worker's `wake` endpoint, which starts `drain`: it runs jobs until none is
-ready, then stops. A sweep every 15 minutes picks up retries whose backoff has passed and
-jobs left behind by a worker that died. Modal can preempt a container mid-job, so the
-worker renews a running job's lock every minute, and a lock five minutes old marks the job
-as abandoned: a preempted job runs again within about 20 minutes. Removing a material
-marks its jobs cancelled, and a running one stops at its next renewal. Only one `drain`
-runs at a time.
+posts to the worker's `wake` endpoint, which starts a drain for the kind of job waiting:
+`drain_ingest` reads materials (4 CPUs, 8 GB) and `drain_cards` makes cards (1 CPU, 2 GB).
+Each runs jobs of its kind until none is ready, then stops, so cards are made while a
+textbook is read (D92). Only one of each runs at a time.
+
+Every job has its own time limit: 2 h 30 min to read a material, which isn't retried (the
+course page shows it as taking too long), and 30 min to make a chapter's cards, which is.
+A drain claims a job only while that job's limit still fits in its own (3 h and 2 h), and
+the next wake or sweep starts it again for the rest.
+
+A sweep every 15 minutes picks up retries whose backoff has passed and jobs left behind by
+a worker that died. Modal can preempt a container mid-job, so the worker renews a running
+job's lock every minute, and a lock five minutes old marks the job as abandoned: a
+preempted job runs again within about 20 minutes. Removing a material marks its jobs
+cancelled, and a running one stops at its next renewal.
 
 The wake URL and its token live in the database's Vault (`worker_wake_url`,
 `worker_wake_token`). Without them, as in local development, the trigger does nothing.

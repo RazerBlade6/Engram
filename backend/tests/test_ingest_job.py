@@ -15,7 +15,7 @@ from engram.ingest.describe import FigureDescription
 from engram.ingest.failures import Unreadable
 from engram.ingest.model import Chunk, Figure, Location, ParsedMaterial, Section
 from engram.llm import ProviderError, Router, Usage
-from engram.worker import queue
+from engram.worker import main, queue
 from engram.worker.queue import Job
 
 PNG = b"\x89PNG fake"
@@ -493,6 +493,16 @@ async def test_other_failures_are_unknown_or_stalled(
             (material["id"],),
         )
     await fail_for_good(database_url, material["id"], queue.GAVE_UP)
+    assert failure(database_url, material["id"]) == [("failed", "stalled")]
+
+    # Reading that ran past its time limit (D92) took too long too.
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute(
+            "update public.materials set status = 'processing', failure = null where id = %s",
+            (material["id"],),
+        )
+    timed_out = f"TimedOut: {main.TimedOut('ran longer than its limit of 2:30:00')}"
+    await fail_for_good(database_url, material["id"], timed_out)
     assert failure(database_url, material["id"]) == [("failed", "stalled")]
 
 

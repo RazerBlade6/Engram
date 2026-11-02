@@ -3,6 +3,9 @@
 Long-running jobs (ingesting a textbook, generating a chapter's cards) run here rather
 than in the API. The worker claims jobs from the Postgres queue in `engram.worker.queue`,
 runs the handler registered for the job's kind, and shuts down cleanly on SIGINT/SIGTERM.
+
+Reading textbooks and making cards run in separate workers, so a student's cards never wait
+behind a book that takes an hour to read, and every job has its own time limit (D92).
 """
 
 import asyncio
@@ -11,7 +14,10 @@ import logging
 import os
 import signal
 import socket
+import time
 from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any
 
 import psycopg
@@ -26,6 +32,35 @@ logger = logging.getLogger("engram.worker")
 
 # Seconds between attempts to reach the database after losing it.
 RECONNECT_AFTER = 5.0
+
+INGEST = "ingest_material"
+CARDS = "generate_cards"
+# The workers, by the kinds of job each takes: one reads materials, one makes cards.
+WORKERS: dict[str, tuple[str, ...]] = {"ingest": (INGEST,), "cards": (CARDS,)}
+
+
+@dataclass(frozen=True)
+class Limit:
+    time: timedelta
+    # Whether a job that runs out of time is tried again: a book too long to read in time
+    # will be too long again, while a chapter's cards may only have met a slow model.
+    retry: bool
+
+
+TIME_LIMITS = {
+    INGEST: Limit(timedelta(hours=2, minutes=30), retry=False),
+    CARDS: Limit(timedelta(minutes=30), retry=True),
+}
+DEFAULT_LIMIT = Limit(timedelta(minutes=30), retry=True)
+
+
+def limit_for(kind: str) -> Limit:
+    return TIME_LIMITS.get(kind, DEFAULT_LIMIT)
+
+
+class TimedOut(Exception):
+    """The job ran past its time limit. Its error text starts `TimedOut:`, which the database
+    shows on a material as 'stalled' (migration job_time_limits)."""
 
 
 def build_handlers(settings: Settings) -> dict[str, Handler]:
@@ -83,21 +118,32 @@ async def _renew(
 
 
 async def run_once(
-    conn: AsyncConnection[Any], worker_id: str, handlers: dict[str, Handler]
+    conn: AsyncConnection[Any],
+    worker_id: str,
+    handlers: dict[str, Handler],
+    kinds: queue.Kinds = None,
 ) -> bool:
-    """Claim and run at most one job. Returns True if a job ran."""
-    job = await queue.claim(conn, worker_id)
+    """Claim and run at most one job, of one of `kinds` (any kind if None). Returns True if a
+    job ran."""
+    job = await queue.claim(conn, worker_id, kinds)
     if job is None:
         return False
     handler = handlers.get(job.kind)
+    limit = limit_for(job.kind)
     try:
         if handler is None:
             raise LookupError(f"no handler for job kind {job.kind!r}")
-        await _run_held(conn, job, worker_id, handler)
+        try:
+            async with asyncio.timeout(limit.time.total_seconds()):
+                await _run_held(conn, job, worker_id, handler)
+        except TimeoutError:
+            raise TimedOut(f"ran longer than its limit of {limit.time}") from None
     except JobLost:
         logger.warning("job %s (%s) was cancelled or taken over; stopped it", job.id, job.kind)
     except Exception as exc:
-        permanent = isinstance(exc, PermanentError | LookupError)
+        permanent = isinstance(exc, PermanentError | LookupError) or (
+            isinstance(exc, TimedOut) and not limit.retry
+        )
         logger.exception(
             "job %s (%s) failed on attempt %s%s",
             job.id,
@@ -117,11 +163,13 @@ async def run(
     conn: AsyncConnection[Any],
     poll_interval: float,
     handlers: dict[str, Handler],
+    kinds: queue.Kinds = None,
+    name: str = "",
 ) -> None:
-    worker_id = f"{socket.gethostname()}:{os.getpid()}"
+    worker_id = f"{socket.gethostname()}:{os.getpid()}" + (f":{name}" if name else "")
     logger.info("worker %s started", worker_id)
     while not stop.is_set():
-        if await run_once(conn, worker_id, handlers):
+        if await run_once(conn, worker_id, handlers, kinds):
             continue
         with contextlib.suppress(TimeoutError):
             await asyncio.wait_for(stop.wait(), timeout=poll_interval)
@@ -134,6 +182,8 @@ async def serve(
     poll_interval: float,
     handlers: dict[str, Handler],
     *,
+    kinds: queue.Kinds = None,
+    name: str = "",
     reconnect_after: float = RECONNECT_AFTER,
 ) -> None:
     """`run` until stopped, reconnecting whenever the database drops the connection (a
@@ -141,20 +191,28 @@ async def serve(
     while not stop.is_set():
         try:
             async with await connect() as conn:
-                await run(stop, conn, poll_interval, handlers)
+                await run(stop, conn, poll_interval, handlers, kinds, name)
         except psycopg.OperationalError as exc:
             logger.warning("lost the database (%s); reconnecting in %ss", exc, reconnect_after)
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(stop.wait(), timeout=reconnect_after)
 
 
-async def drain(settings: Settings, worker_id: str) -> int:
-    """Run jobs until none is ready, then return how many ran. Used where the worker scales
-    to zero (Modal): it starts when woken, empties the queue and stops."""
+async def drain(
+    settings: Settings, worker_id: str, kinds: tuple[str, ...], budget: timedelta
+) -> int:
+    """Run jobs of `kinds` until none is ready, then return how many ran. Used where the worker
+    scales to zero (Modal): it starts when woken, empties the queue and stops. Within `budget`
+    (the function's own time limit), it claims a job only if that job's limit still fits, so
+    the platform never stops one midway; the next sweep starts a new drain for the rest."""
     handlers = build_handlers(settings)
+    needs = max(limit_for(kind).time for kind in kinds)
+    until = time.monotonic() + budget.total_seconds()
     ran = 0
     async with await AsyncConnection.connect(settings.database_url, autocommit=True) as conn:
-        while await run_once(conn, worker_id, handlers):
+        while time.monotonic() + needs.total_seconds() <= until:
+            if not await run_once(conn, worker_id, handlers, kinds):
+                break
             ran += 1
     return ran
 
@@ -165,11 +223,21 @@ async def _main() -> None:
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stop.set)
-    await serve(
-        stop,
-        lambda: AsyncConnection.connect(settings.database_url, autocommit=True),
-        settings.worker_poll_interval_seconds,
-        build_handlers(settings),
+    handlers = build_handlers(settings)
+    # One loop per worker, as in production: cards are made while a textbook is read. Reading
+    # runs in a thread, so it doesn't hold up the other loop.
+    await asyncio.gather(
+        *(
+            serve(
+                stop,
+                lambda: AsyncConnection.connect(settings.database_url, autocommit=True),
+                settings.worker_poll_interval_seconds,
+                handlers,
+                kinds=kinds,
+                name=name,
+            )
+            for name, kinds in WORKERS.items()
+        )
     )
 
 
@@ -178,7 +246,18 @@ def main() -> None:
     asyncio.run(_main())
 
 
-__all__ = ["Job", "build_handlers", "drain", "main", "run", "run_once", "serve"]
+__all__ = [
+    "WORKERS",
+    "Job",
+    "TimedOut",
+    "build_handlers",
+    "drain",
+    "limit_for",
+    "main",
+    "run",
+    "run_once",
+    "serve",
+]
 
 
 if __name__ == "__main__":
