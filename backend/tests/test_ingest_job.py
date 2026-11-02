@@ -132,6 +132,13 @@ def handler(
     )
 
 
+def read_again(database_url: str, material_id: str) -> None:
+    """Queue a ready material to be read again, as an admin would; a job that simply runs
+    again leaves a ready material alone (D91)."""
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute("update public.materials set status = 'queued' where id = %s", (material_id,))
+
+
 def rows(database_url: str, sql: str, *params: Any) -> list[tuple[Any, ...]]:
     with psycopg.connect(database_url) as c:
         return c.execute(sql, params).fetchall()
@@ -215,6 +222,7 @@ async def test_reingesting_replaces_previous_rows(
     await handler(settings, storage, lambda p, s: parsed_material())(job)
     smaller = parsed_material()
     smaller.figures = smaller.figures[:1]
+    read_again(database_url, material["id"])
     await handler(settings, storage, lambda p, s: smaller)(job)
     assert rows(
         database_url, "select count(*) from public.figures where material_id = %s", material["id"]
@@ -241,6 +249,7 @@ async def test_reingesting_keeps_coverage_of_matching_sections(
     # Chapter 2 is renamed by the new parse, so its mark has nothing to attach to.
     reparsed = parsed_material()
     reparsed.sections[2] = Section(2, 1, "Chapter 2 Heredity", 4, 4)
+    read_again(database_url, material["id"])
     await handler(settings, FakeStorage(), lambda p, s: reparsed)(job)
 
     covered = rows(
@@ -270,6 +279,7 @@ async def test_reingesting_keeps_cards_with_their_chapter(
 
     reparsed = parsed_material()
     reparsed.sections[2] = Section(2, 1, "Chapter 2 Heredity", 4, 4)
+    read_again(database_url, material["id"])
     await handler(settings, FakeStorage(), lambda p, s: reparsed)(job)
 
     cards = rows(
@@ -280,6 +290,33 @@ async def test_reingesting_keeps_cards_with_their_chapter(
     )
     # Chapter 2 was renamed: its card is kept, waiting for a chapter to belong to.
     assert cards == [("Chapter 1 Cells",), (None,)]
+
+
+async def test_a_ready_material_is_not_read_again(
+    database_url: str, material: dict[str, str]
+) -> None:
+    settings = Settings(database_url=database_url)
+    job = Job(1, ingest_job.KIND, {"material_id": material["id"]}, 1, 3)
+    await handler(settings, FakeStorage(), lambda p, s: parsed_material())(job)
+    before = rows(
+        database_url, "select id from public.chunks where material_id = %s", material["id"]
+    )
+    parses = []
+
+    def parser(path: Path, slides: bool) -> ParsedMaterial:
+        parses.append(path)
+        return parsed_material()
+
+    # The same job again, as after a lost connection just as the first run finished.
+    await handler(settings, FakeStorage(), parser)(job)
+    assert parses == []
+    assert (
+        rows(database_url, "select id from public.chunks where material_id = %s", material["id"])
+        == before
+    )
+    assert rows(
+        database_url, "select status::text from public.materials where id = %s", material["id"]
+    ) == [("ready",)]
 
 
 async def test_declined_figure_keeps_its_caption(

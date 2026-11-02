@@ -197,6 +197,33 @@ def test_rating_schedules_the_card(
     assert bad.status_code == 422
 
 
+def test_a_card_keeps_its_passage_when_its_material_is_read_again(
+    client: TestClient, deck: dict[str, Any], database_url: str
+) -> None:
+    """D91: a card shows the passage it keeps, not whatever its chunk says now."""
+    card = deck["cards"]["Chapter 2 Genes Q0"]
+    with psycopg.connect(database_url, autocommit=True) as c:
+        c.execute(
+            "update public.cards set sources = jsonb_set(sources, '{0,passage}', %s) where id = %s",
+            (json.dumps("Kept. The fact about Chapter 2 Genes is here."), card),
+        )
+        # Reading the material again replaces its chunks.
+        c.execute(
+            "delete from public.chunks where section_id = (select section_id from"
+            " public.cards where id = %s)",
+            (card,),
+        )
+    headers = auth(token_for(deck["owner"]))
+    shown = client.get("/review/queue", headers=headers).json()["cards"]
+    sources = {c["id"]: c["source"] for c in shown}
+    assert sources[card]["passage"] == "Kept. The fact about Chapter 2 Genes is here."
+    assert sources[card]["highlight"] == [6, 36]
+    assert sources[card]["page"] == 6
+    # An older card without a kept passage falls back to its quote.
+    other = deck["cards"]["Chapter 2 Genes Q1"]
+    assert sources[other]["passage"] == "the fact about Chapter 2 Genes"
+
+
 def test_a_showing_is_rated_once(
     client: TestClient, deck: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:

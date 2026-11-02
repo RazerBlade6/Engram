@@ -13,6 +13,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from engram.chat.retrieve import body
+
 PROMPT_VERSION = "cards-v3"
 
 # Passages are sent in batches of about this many words, a few subsections at a time, so a
@@ -195,6 +197,9 @@ def accept(
                     "quote": s.quote.strip(),
                     "heading_path": passage.heading_path,
                     "locations": passage.locations,
+                    # The passage itself, so the card keeps its source if the material is
+                    # read again and its chunks replaced (D91).
+                    "passage": body(passage.content, passage.heading_path),
                 }
             )
         if not sources:

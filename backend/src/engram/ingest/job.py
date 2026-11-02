@@ -87,13 +87,19 @@ async def ingest(
 ) -> None:
     cur = await conn.execute(
         "update public.materials set status = 'processing', stage = 'parsing', error = null,"
-        " failure = null where id = %s"
+        " failure = null where id = %s and status <> 'ready'"
         " returning storage_path, kind::text",
         (material_id,),
     )
     row = await cur.fetchone()
     if row is None:
-        raise LookupError(f"material {material_id} not found")
+        cur = await conn.execute("select 1 from public.materials where id = %s", (material_id,))
+        if await cur.fetchone() is None:
+            raise LookupError(f"material {material_id} not found")
+        # Already read: a job run again (after a lost connection, say) would replace every
+        # chunk and pay for every figure again (D91).
+        logger.info("material %s is already ready; not reading it again", material_id)
+        return
     storage_path, kind = row
     slides = kind == "slides"
 

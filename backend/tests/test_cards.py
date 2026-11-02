@@ -63,6 +63,8 @@ def test_a_card_is_kept_with_its_source_location() -> None:
             "quote": "The nucleus stores DNA.",
             "heading_path": ["Chapter 1 Cells"],
             "locations": HERE,
+            # The passage without its heading, kept in case its chunk is replaced (D91).
+            "passage": "The nucleus   stores DNA. Ribosomes make proteins.",
         }
     ]
 

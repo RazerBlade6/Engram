@@ -182,8 +182,9 @@ def _source(row: dict[str, Any]) -> Source | None:
     if not sources:
         return None
     first = sources[0]
-    passage = first["quote"]
-    if row["chunk"]:
+    # Kept with the card since D91; older cards still find it in their chunk, if it's there.
+    passage = first.get("passage") or first["quote"]
+    if "passage" not in first and row["chunk"]:
         passage = body(row["chunk"], row["chunk_heading_path"])
     locations = first.get("locations") or []
     return Source(
