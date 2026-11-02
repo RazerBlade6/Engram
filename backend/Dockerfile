@@ -28,6 +28,10 @@ ENV PATH="/app/.venv/bin:$PATH"
 RUN python -c "from engram.config import Settings; from fastembed import TextEmbedding; \
 TextEmbedding(Settings().embedding_model)"
 
+# The model is in the image now. Without this, every load first asks Hugging Face whether a
+# newer copy exists, which on Cloud Run held up the first question by about 15 seconds.
+ENV HF_HUB_OFFLINE=1
+
 EXPOSE 8000
 
 # The same image runs the worker: docker compose overrides the command.

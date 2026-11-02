@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -21,7 +23,10 @@ from engram.api.routes import (
     sources,
 )
 from engram.config import get_settings
+from engram.embeddings import get_embedder
 from engram.storage import Storage
+
+logger = logging.getLogger(__name__)
 
 # Connections for concurrent requests; a few users need few.
 POOL_SIZE = 5
@@ -32,8 +37,26 @@ class Health(BaseModel):
     version: str
 
 
+def _report_warm_up(task: "asyncio.Task[object]") -> None:
+    if not task.cancelled() and (exc := task.exception()) is not None:
+        # Not fatal: the first question loads the model again, and fails there if it must.
+        logger.warning("couldn't load the embedding model at startup: %s", exc)
+
+
+def _log_to_stderr() -> None:
+    """Uvicorn sets up only its own loggers; this makes the API's INFO lines (such as Ask's
+    timings) reach the console and Cloud Run's logs too."""
+    engram = logging.getLogger("engram")
+    if not engram.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s:     %(name)s %(message)s"))
+        engram.addHandler(handler)
+        engram.setLevel(logging.INFO)
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
+    _log_to_stderr()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -46,7 +69,12 @@ def create_app() -> FastAPI:
             app.state.pool = pool
             app.state.storage = storage
             app.state.pages = PdfPages(storage)
+            # Loaded in the background, so it doesn't hold up startup but is usually ready
+            # before the first question instead of being loaded by it.
+            warm = asyncio.create_task(asyncio.to_thread(get_embedder, settings.embedding_model))
+            warm.add_done_callback(_report_warm_up)
             yield
+            await asyncio.gather(warm, return_exceptions=True)
 
     app = FastAPI(title="Engram API", version=__version__, lifespan=lifespan)
     app.add_middleware(

@@ -10,6 +10,14 @@ export function apiUrl(path: string, base = process.env.NEXT_PUBLIC_API_URL ?? D
   return `${base.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
 
+/**
+ * Starts the API if it has scaled to zero, without waiting for it. Sent from pages that don't
+ * call the API themselves (sign-in), so it's warm by the time the user is through them.
+ */
+export function wakeApi(): void {
+  fetch(apiUrl("/health")).catch(() => {});
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,

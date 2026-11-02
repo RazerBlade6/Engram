@@ -155,7 +155,7 @@ flowchart LR
 | LLMs            | Provider-agnostic interface                                       | Each job is routed to the model that wins the benchmark for it. See below.                                                |
 | Local dev       | Docker Compose                                                    | One command brings up the full stack                                                                                      |
 
-Target running cost is roughly **$10–30/month** for a small group of users: Vercel, Cloud Run and Modal within their free tiers, plus Supabase and inference.
+Running cost for a small group of users is about **$50–55/month**: Supabase about $30 and inference about $20–25, with Vercel, Cloud Run and Modal within their free tiers. The ceiling is **$90/month**, so the rest may go on smoother performance, such as an API that is always running, when the free fixes aren't enough (D90).
 
 ### Model routing
 

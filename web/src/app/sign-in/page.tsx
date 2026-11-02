@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { type FormEvent, Suspense, useState } from "react";
+import { type FormEvent, Suspense, useEffect, useState } from "react";
 
 import { AuthCard, Field, FormError, PrimaryButton } from "@/components/form";
 import { Notice } from "@/components/ui/notice";
+import { wakeApi } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 
 export default function SignIn() {
@@ -22,6 +23,8 @@ function SignInForm() {
   const signedOut = useSearchParams().has("signed-out");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // The API may be asleep; it starts while the user types instead of after they sign in.
+  useEffect(wakeApi, []);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

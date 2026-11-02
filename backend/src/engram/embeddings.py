@@ -1,8 +1,8 @@
 """Local text embeddings (ONNX via fastembed), used by the worker for chunks and by the API
 for questions. The model downloads once (about 70 MB) and then runs in-process."""
 
+import threading
 from collections.abc import Sequence
-from functools import lru_cache
 
 from fastembed import TextEmbedding
 
@@ -27,6 +27,14 @@ class Embedder:
         return vector
 
 
-@lru_cache
+_loaded: dict[str, Embedder] = {}
+_lock = threading.Lock()
+
+
 def get_embedder(model_name: str) -> Embedder:
-    return Embedder(model_name)
+    """The model, loaded once per process. Thread-safe: the API starts loading it at startup,
+    and a question that arrives meanwhile waits for that load instead of starting another."""
+    with _lock:
+        if model_name not in _loaded:
+            _loaded[model_name] = Embedder(model_name)
+        return _loaded[model_name]

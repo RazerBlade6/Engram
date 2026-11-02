@@ -66,6 +66,12 @@ Designed directly in the app and reviewed on the local dev server, without a sep
 Daily use has begun. Findings from it and from the Phase 2 exit session are collected for Phase 4 rather than fixed one at a time, unless something stops users studying, which is fixed at once (D76).
 
 - [ ] Ready for daily use: alerts when jobs fail or the API errors, an alert on inference spend, Supabase backups confirmed, and each user's consent to usage logging confirmed before the experiment starts (D79)
+- [ ] Faster answers in Ask, which took 15–20 s to start on the first question after the API started (D89):
+  - [x] Each answer logs how long each step took (embedding, search, first words, total) and its size, never its text
+  - [x] The embedding model loads while the API starts, from the copy in the image, without first asking Hugging Face for a newer one
+  - [x] The sign-in page wakes the API, so it's running by the time the user is signed in
+  - [ ] Try Sonnet against Opus for Ask in the eval suite: faster to start and to write, if its answers hold up
+  - [ ] Only if these aren't enough: keep one API instance running, or move the API to a host without cold starts, within the cost ceiling (D90)
 - [ ] Review-order experiment in the first weeks of daily use: blocked against separate, then fix the preferred one (D55)
 - [ ] Eval suites in CI, on an OpenStax corpus: retrieval and card quality first, grading with short-answer cards; the same corpus later seeds the demo account (D80)
 - [ ] Flagged cards: a list where a flag can be undone or the card removed (D3, D81)

@@ -17,6 +17,7 @@ turns back with each question. Only the tokens used are recorded, with no user a
 import asyncio
 import json
 import logging
+import time
 from collections.abc import AsyncIterator
 from functools import lru_cache
 from typing import Annotated, Any, Literal
@@ -81,21 +82,27 @@ async def ask(
     cur = await db.execute("select 1 from public.courses where id = %s", (course_id,))
     if await cur.fetchone() is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Course not found")
+    started = time.perf_counter()
     history = [Turn(t.role, t.text) for t in body.history]
     query = search_text(body.question, history)
     embedder = await asyncio.to_thread(get_embedder, settings.embedding_model)
     embedding = await asyncio.to_thread(embedder.query, query)
+    embedded = time.perf_counter()
     # Everything read as the student happens here, before the response starts streaming.
     passages = await search(db, course_id, query, embedding)
+    searched = time.perf_counter()
     provider, model = llm.provider_for(Job.CHAT)
 
     async def events() -> AsyncIterator[str]:
         usage = Usage()
         cited = outside = False
+        first_text: float | None = None
         try:
             async for event in answer(provider, model, body.question, history, passages, usage):
                 match event:
                     case Text(block, text):
+                        if first_text is None:
+                            first_text = time.perf_counter()
                         yield _event("text", {"block": block, "text": text})
                     case Outside():
                         outside = True
@@ -124,6 +131,20 @@ async def ask(
             logger.exception("chat answer failed")
             yield _event("error", {"message": "The answer couldn't be finished. Please ask again."})
         finally:
+            # Where the time went, for finding what makes an answer slow. Timings and sizes
+            # only: never the question or the answer.
+            logger.info(
+                "ask timing: embed %d ms, search %d ms, first text %s ms, total %d ms;"
+                " %d passages, %d history turns, %d tokens in, %d out",
+                _ms(started, embedded),
+                _ms(embedded, searched),
+                _ms(searched, first_text) if first_text is not None else "-",
+                _ms(started, time.perf_counter()),
+                len(passages),
+                len(history),
+                usage.input_tokens,
+                usage.output_tokens,
+            )
             # Shielded, so it's still recorded if the student leaves mid-answer.
             await asyncio.shield(_record(get_pool(request), usage))
 
@@ -132,6 +153,10 @@ async def ask(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+def _ms(start: float, end: float) -> int:
+    return round((end - start) * 1000)
 
 
 async def _record(pool: AsyncConnectionPool[AsyncConnection[Any]], usage: Usage) -> None:
