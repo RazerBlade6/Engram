@@ -53,8 +53,12 @@ that fails to send is tried again at the next sweep. Without `ENGRAM_ALERT_EMAIL
 `ENGRAM_SMTP_HOST` the alerts are only logged. To run a check by hand:
 `cd backend && uv run python -m engram.alerts`.
 
-What it can't see: an API so broken that requests never reach it, and a sweep that isn't
-running at all (a failed Modal deploy). Both would show as no alerts.
+An API so broken that requests never reach it records nothing, so Google Cloud Monitoring
+also checks it: the uptime check `engram-api-health` asks the API's `/health` every 15
+minutes from Asia, the US and Europe, and the alert policy "Engram API is down" emails the
+operator when two of the three fail. Both were set up by hand, like the Cloud Run service.
+What nothing sees is a sweep that isn't running at all (a failed Modal deploy): that shows
+as no alerts.
 
 ## Configuration
 
