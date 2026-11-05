@@ -65,6 +65,13 @@ Designed directly in the app and reviewed on the local dev server, without a sep
 
 Daily use has begun. Findings from it and from the Phase 2 exit session are collected for Phase 4 rather than fixed one at a time, unless something stops users studying, which is fixed at once (D76).
 
+- [ ] The worker on GKE Autopilot, benchmarked against Modal to decide which runs the production worker (D104–D106). Modal stays the production worker while the benchmark runs:
+  - [ ] Benchmark database: a separate Supabase project with the same schema and a fixed set of OpenStax chapters, and a second Modal app pointed at it, so production is never touched (D105)
+  - [ ] A worker entry point that drains one kind of job and exits, and Docling's models built into the worker image
+  - [ ] Helm chart: a KEDA ScaledJob for each kind of job, scaled on the number of jobs ready and down to zero when there are none, with reading and card making on separate compute classes sized like Modal's; tried on a local cluster (kind) before GKE (D106)
+  - [ ] Cluster scripts: create the Autopilot cluster, install KEDA and the chart, and delete it all again
+  - [ ] Benchmark script: queues the same materials and chapters on each platform and records, from the jobs table, the wait before a job starts, its run time and the time end to end, from a cold start and while warm, with reused figure descriptions cleared between runs
+  - [ ] Results written up (wait before a job starts, run time, cost a month at our size, and the upkeep each needs), and a decision from them: keep Modal, or move the production worker to GKE without interrupting users
 - [x] Ready for daily use (D79):
   - [x] Email alerts, sent by the worker's sweep every 15 minutes: a job that failed or hasn't started within an hour, an error in the API, and estimated inference spend over $5 in a day or $30 in a month (D99); an uptime check emails when the API stops answering
   - [x] Supabase backups confirmed
